@@ -1,0 +1,9 @@
+{
+  "name": "@oses/types",
+  "version": "0.0.1",
+  "types": "src/index.ts",
+  "license": "MIT",
+  "devDependencies": {
+    "@oses/tsconfig": "workspace:*"
+  }
+}
