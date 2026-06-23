@@ -23,21 +23,21 @@ describe('StatusBadge', () => {
 
   it('applies warning badge variant for PENDING', () => {
     render(<StatusBadge status={OnboardingStatus.PENDING} />);
-    expect(screen.getByText('Pending')).toHaveClass('bg-yellow-100');
+    expect(screen.getByText('Pending')).toHaveClass('bg-warning-subtle');
   });
 
   it('applies success badge variant for COMPLETE', () => {
     render(<StatusBadge status={OnboardingStatus.COMPLETE} />);
-    expect(screen.getByText('Complete')).toHaveClass('bg-green-100');
+    expect(screen.getByText('Complete')).toHaveClass('bg-success-subtle');
   });
 
   it('applies error badge variant for SUSPENDED', () => {
     render(<StatusBadge status={OnboardingStatus.SUSPENDED} />);
-    expect(screen.getByText('Suspended')).toHaveClass('bg-red-100');
+    expect(screen.getByText('Suspended')).toHaveClass('bg-danger-subtle');
   });
 
   it('applies info badge variant for IN_PROGRESS', () => {
     render(<StatusBadge status={OnboardingStatus.IN_PROGRESS} />);
-    expect(screen.getByText('In Progress')).toHaveClass('bg-blue-100');
+    expect(screen.getByText('In Progress')).toHaveClass('bg-info-subtle');
   });
 });

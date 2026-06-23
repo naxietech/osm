@@ -1,66 +1,63 @@
-import React from 'react';
+import { type ButtonHTMLAttributes, forwardRef } from 'react';
 
 import { cn } from '@/lib/utils';
 
 import { Spinner } from '../spinner';
 
-export interface ButtonProps {
+export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
-  disabled?: boolean;
-  type?: 'button' | 'submit' | 'reset';
-  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
-  children: React.ReactNode;
-  className?: string;
-  ariaLabel?: string;
 }
 
 const variantClasses: Record<NonNullable<ButtonProps['variant']>, string> = {
-  primary: 'bg-[#1B3A6B] hover:bg-[#152E55] text-white',
-  secondary: 'border border-[#0E7490] text-[#0E7490] hover:bg-[#F0FDFA] bg-transparent',
-  danger: 'bg-red-600 hover:bg-red-700 text-white',
-  ghost: 'text-[#1B3A6B] hover:bg-[#EFF6FF] bg-transparent',
+  primary: 'bg-brand-gradient text-brand-foreground hover:brightness-95',
+  secondary: 'border border-brand bg-transparent text-brand hover:bg-brand-subtle',
+  danger: 'bg-danger text-white hover:opacity-90',
+  ghost: 'bg-transparent text-foreground hover:bg-muted',
 };
 
 const sizeClasses: Record<NonNullable<ButtonProps['size']>, string> = {
-  sm: 'px-3 py-1.5 text-sm',
-  md: 'px-4 py-2 text-base',
-  lg: 'px-6 py-3 text-lg',
+  sm: 'px-3 py-1.5 text-xs',
+  md: 'px-4 py-2 text-sm',
+  lg: 'px-6 py-3 text-base',
 };
 
-export function Button({
-  variant = 'primary',
-  size = 'md',
-  isLoading = false,
-  disabled = false,
-  type = 'button',
-  onClick,
-  children,
-  className,
-  ariaLabel,
-}: ButtonProps): React.ReactElement {
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  {
+    variant = 'primary',
+    size = 'md',
+    isLoading = false,
+    disabled = false,
+    type = 'button',
+    className,
+    children,
+    ...rest
+  },
+  ref,
+) {
   const isDisabled = disabled || isLoading;
 
   return (
     <button
+      ref={ref}
       type={type}
-      aria-label={ariaLabel}
       disabled={isDisabled}
-      onClick={isDisabled ? undefined : onClick}
+      aria-busy={isLoading || undefined}
       className={cn(
         'inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors',
-        'focus:outline-none focus:ring-2 focus:ring-[#0E7490] focus:ring-offset-2',
+        'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
         variantClasses[variant],
         sizeClasses[size],
         isDisabled && 'cursor-not-allowed opacity-50',
         className,
       )}
+      {...rest}
     >
       {isLoading && <Spinner size="sm" />}
       {children}
     </button>
   );
-}
+});
 
 export default Button;

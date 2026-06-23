@@ -1,0 +1,19 @@
+/* Base element styles, layered on top of the design tokens. */
+@layer base {
+  html {
+    color-scheme: light dark;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Themed scrollbars so dark mode doesn't show bright system bars. */
+  * {
+    scrollbar-color: var(--border) transparent;
+  }
+}

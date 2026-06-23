@@ -16,14 +16,18 @@ describe('Input', () => {
     expect(handleChange).toHaveBeenCalledTimes(1);
   });
 
-  it('applies error border class when error is true', () => {
+  it('applies error border class and aria-invalid when error is true', () => {
     render(<Input error placeholder="field" />);
-    expect(screen.getByPlaceholderText('field')).toHaveClass('border-red-500');
+    const input = screen.getByPlaceholderText('field');
+    expect(input).toHaveClass('border-danger');
+    expect(input).toHaveAttribute('aria-invalid', 'true');
   });
 
   it('does not apply error class when error is false', () => {
     render(<Input placeholder="field" />);
-    expect(screen.getByPlaceholderText('field')).not.toHaveClass('border-red-500');
+    const input = screen.getByPlaceholderText('field');
+    expect(input).not.toHaveClass('border-danger');
+    expect(input).not.toHaveAttribute('aria-invalid');
   });
 
   it('is disabled when disabled prop is true', () => {

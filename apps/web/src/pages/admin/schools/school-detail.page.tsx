@@ -6,12 +6,11 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
+import { type CreateSchoolDto, OnboardingStatus, type School } from '@oses/types';
+
 import { Button } from '@/design-system/atoms/button';
 import { SchoolForm } from '@/design-system/organisms/school-form';
 import { PageLayout } from '@/design-system/templates/page-layout';
-
-import type { CreateSchoolDto, School } from '@oses/types';
-import { OnboardingStatus } from '@oses/types';
 
 const MOCK_SCHOOL: School = {
   id: 'sch_001',
@@ -61,13 +60,13 @@ export function SchoolDetailPage(): React.ReactElement {
         {successMessage && (
           <div
             role="status"
-            className="mb-6 rounded-md bg-green-50 px-4 py-3 text-sm text-green-700"
+            className="mb-6 rounded-md bg-success-subtle px-4 py-3 text-sm text-success-foreground"
           >
             {successMessage}
           </div>
         )}
 
-        <div className="rounded-lg border bg-white p-6 shadow-sm">
+        <div className="rounded-lg border border-border bg-card p-6 shadow-sm">
           <SchoolForm
             initialValues={{
               schoolCode: school.schoolCode,

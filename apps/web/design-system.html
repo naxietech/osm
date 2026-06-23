@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OSES — Design System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Serif+Text&family=Poppins:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <!--
+      Standalone visual reference for the OSES design system.
+      The tokens below MIRROR src/styles/palette.css (primitives) + src/styles/colors.css
+      (role aliases). This static file can't import the app's CSS, so if you change colors
+      there, update them here too.
+    -->
+    <style>
+      :root {
+        --background: #f7f7f7;
+        --foreground: #0b1f14;
+        --card: #ffffff;
+        --card-foreground: #0b1f14;
+        --muted: #eef0ef;
+        --muted-foreground: #7c857f;
+        --border: #e6e7e8;
+        --input: #d6d8d8;
+
+        --brand: #14432c;
+        --brand-foreground: #ffffff;
+        --ring: var(--brand);
+        --gradient-brand: linear-gradient(180deg, #13452d 0%, #227e51 100%);
+
+        --success: #218754;
+        --warning: #e0962f;
+        --danger: #dc2626;
+        --info: #2563eb;
+
+        /* derived (mirror of @theme inline in colors.css) */
+        --brand-subtle: color-mix(in srgb, var(--brand) 14%, var(--background));
+        --success-subtle: color-mix(in srgb, var(--success) 16%, var(--background));
+        --success-fg: color-mix(in srgb, var(--success) 72%, var(--foreground));
+        --warning-subtle: color-mix(in srgb, var(--warning) 16%, var(--background));
+        --warning-fg: color-mix(in srgb, var(--warning) 72%, var(--foreground));
+        --danger-subtle: color-mix(in srgb, var(--danger) 16%, var(--background));
+        --danger-fg: color-mix(in srgb, var(--danger) 72%, var(--foreground));
+        --info-subtle: color-mix(in srgb, var(--info) 16%, var(--background));
+        --info-fg: color-mix(in srgb, var(--info) 72%, var(--foreground));
+      }
+
+      .dark {
+        --background: #0a1410;
+        --foreground: #e6ede8;
+        --card: #11211a;
+        --card-foreground: #e6ede8;
+        --muted: #19271f;
+        --muted-foreground: #9aa79f;
+        --border: #26352c;
+        --input: #2c3e33;
+
+        --brand: #35b87c;
+        --brand-foreground: #ffffff;
+
+        --success: #34c17e;
+        --warning: #f0a93f;
+        --danger: #ef4444;
+        --info: #3b82f6;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: 'Poppins', system-ui, sans-serif;
+        background: var(--background);
+        color: var(--foreground);
+        -webkit-font-smoothing: antialiased;
+        transition: background 0.2s, color 0.2s;
+      }
+      .wrap {
+        max-width: 1040px;
+        margin: 0 auto;
+        padding: 0 24px 80px;
+      }
+
+      /* header */
+      header {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 18px 24px;
+        background: color-mix(in srgb, var(--card) 88%, transparent);
+        backdrop-filter: blur(8px);
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 36px;
+      }
+      header .brand-mark {
+        font-weight: 700;
+        font-size: 18px;
+        color: var(--brand);
+      }
+      header h1 {
+        font-size: 15px;
+        font-weight: 500;
+        margin: 0;
+        color: var(--muted-foreground);
+      }
+
+      /* layout helpers */
+      section {
+        margin-top: 40px;
+      }
+      h2 {
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted-foreground);
+        margin: 0 0 16px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 24px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 14px;
+      }
+      .stack {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+      .label-row {
+        font-size: 12px;
+        color: var(--muted-foreground);
+        margin-bottom: 8px;
+      }
+
+      /* swatches */
+      .swatches {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 14px;
+      }
+      .swatch {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .swatch .chip {
+        height: 64px;
+      }
+      .swatch .meta {
+        padding: 8px 10px;
+        font-size: 12px;
+      }
+      .swatch .meta .name {
+        font-weight: 600;
+      }
+      .swatch .meta .hex {
+        color: var(--muted-foreground);
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* primitive ramps */
+      .ramp {
+        display: flex;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+      }
+      .ramp > div { flex: 1; height: 46px; }
+      .ramp-caption { font-size: 11px; color: var(--muted-foreground); margin-top: 6px; }
+
+      /* buttons (mirror of the React Button) */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        border-radius: 6px;
+        font-weight: 500;
+        font-family: inherit;
+        border: none;
+        cursor: pointer;
+        transition: filter 0.15s, background 0.15s, color 0.15s;
+      }
+      .btn:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 2px var(--background), 0 0 0 3px var(--ring);
+      }
+      .btn-sm { padding: 6px 12px; font-size: 12px; }
+      .btn-md { padding: 8px 16px; font-size: 14px; }
+      .btn-lg { padding: 12px 24px; font-size: 16px; }
+      .btn-primary { background: var(--gradient-brand); color: var(--brand-foreground); }
+      .btn-primary:hover { filter: brightness(0.95); }
+      .btn-secondary { background: transparent; color: var(--brand); border: 1px solid var(--brand); }
+      .btn-secondary:hover { background: var(--brand-subtle); }
+      .btn-danger { background: var(--danger); color: #fff; }
+      .btn-danger:hover { opacity: 0.9; }
+      .btn-ghost { background: transparent; color: var(--foreground); }
+      .btn-ghost:hover { background: var(--muted); }
+      .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+      /* floating-label field (mirrors the FormField molecule) */
+      .tf { position: relative; }
+      .tf > input {
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid var(--input);
+        background: var(--card);
+        color: var(--foreground);
+        border-radius: 6px;
+        padding: 20px 12px 6px;
+        font-family: inherit;
+        font-size: 15px;
+        transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+      }
+      .tf > input:focus-visible {
+        outline: none;
+        border-color: var(--ring);
+        box-shadow: 0 0 0 1px var(--ring);
+      }
+      .tf > input:disabled { opacity: 0.6; cursor: not-allowed; }
+      .tf > label {
+        position: absolute;
+        left: 12px;
+        top: 7px;
+        font-size: 11px;
+        color: var(--muted-foreground);
+        pointer-events: none;
+        transition: all 0.15s;
+      }
+      .tf > input:placeholder-shown + label {
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 15px;
+      }
+      .tf > input:focus + label {
+        top: 7px;
+        transform: none;
+        font-size: 11px;
+        color: var(--brand);
+      }
+      .tf .req { color: var(--danger); }
+      .tf.error > input { border-color: var(--danger); background: var(--danger-subtle); }
+      .tf.error > input:focus-visible { box-shadow: 0 0 0 1px var(--danger); }
+      .tf.error > label,
+      .tf.error > input:focus + label { color: var(--danger); }
+      .tf-err { color: var(--danger-fg); font-size: 13px; margin-top: 6px; }
+
+      /* badges */
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 2px 10px;
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .badge-default { background: var(--muted); color: var(--muted-foreground); }
+      .badge-success { background: var(--success-subtle); color: var(--success-fg); }
+      .badge-warning { background: var(--warning-subtle); color: var(--warning-fg); }
+      .badge-error { background: var(--danger-subtle); color: var(--danger-fg); }
+      .badge-info { background: var(--info-subtle); color: var(--info-fg); }
+
+      /* spinner */
+      .spinner {
+        border-radius: 999px;
+        border: 4px solid var(--muted);
+        border-top-color: var(--brand);
+        animation: spin 0.7s linear infinite;
+      }
+      .spinner-sm { width: 16px; height: 16px; }
+      .spinner-md { width: 32px; height: 32px; }
+      .spinner-lg { width: 48px; height: 48px; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      /* table */
+      table { width: 100%; border-collapse: collapse; }
+      thead { background: var(--muted); }
+      th {
+        text-align: left;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted-foreground);
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+      }
+      td { padding: 12px 16px; font-size: 14px; border-bottom: 1px solid var(--border); }
+      tbody tr:last-child td { border-bottom: none; }
+      tbody tr:hover { background: var(--muted); }
+      .mono { font-family: ui-monospace, monospace; color: var(--muted-foreground); }
+
+      /* type scale */
+      .type-sample { display: flex; align-items: baseline; gap: 16px; margin-bottom: 10px; }
+      .type-sample .tag { width: 130px; font-size: 12px; color: var(--muted-foreground); }
+
+      /* theme toggle */
+      .toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 38px;
+        height: 38px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--muted-foreground);
+        cursor: pointer;
+      }
+      .toggle:hover { background: var(--muted); color: var(--foreground); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="row" style="gap: 10px">
+        <span class="brand-mark">OSES</span>
+        <h1>Design System</h1>
+      </div>
+      <button class="toggle" id="themeToggle" aria-label="Toggle theme" title="Toggle light / dark">
+        <svg id="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        </svg>
+      </button>
+    </header>
+
+    <div class="wrap">
+      <!-- PRIMITIVE PALETTE -->
+      <section>
+        <h2>Palette — primitives (use any color, anywhere)</h2>
+        <div class="card stack">
+          <div>
+            <div class="label-row">green</div>
+            <div class="ramp">
+              <div style="background: #ecf6f0"></div>
+              <div style="background: #d4ebdd"></div>
+              <div style="background: #aad9bf"></div>
+              <div style="background: #74c39c"></div>
+              <div style="background: #35b87c"></div>
+              <div style="background: #227e51"></div>
+              <div style="background: #14432c"></div>
+              <div style="background: #103522"></div>
+              <div style="background: #0c2819"></div>
+              <div style="background: #091e13"></div>
+              <div style="background: #06150d"></div>
+            </div>
+            <div class="ramp-caption">green-50 → green-950 &nbsp;·&nbsp; brand = green-600 / green-400 (dark)</div>
+          </div>
+          <div>
+            <div class="label-row">neutral</div>
+            <div class="ramp">
+              <div style="background: #f7f7f7"></div>
+              <div style="background: #eef0ef"></div>
+              <div style="background: #e6e7e8"></div>
+              <div style="background: #d6d8d8"></div>
+              <div style="background: #aab2ad"></div>
+              <div style="background: #7c857f"></div>
+              <div style="background: #59635d"></div>
+              <div style="background: #2a3a30"></div>
+              <div style="background: #1b2c22"></div>
+              <div style="background: #11211a"></div>
+              <div style="background: #0a1410"></div>
+            </div>
+            <div class="ramp-caption">neutral-50 → neutral-950 &nbsp;·&nbsp; surfaces &amp; text</div>
+          </div>
+          <div>
+            <div class="label-row">amber · red · blue (status)</div>
+            <div class="ramp">
+              <div style="background: #f9e6c9"></div>
+              <div style="background: #f0a93f"></div>
+              <div style="background: #e0962f"></div>
+              <div style="background: #bd7b22"></div>
+              <div style="background: #fbd9d9"></div>
+              <div style="background: #ef4444"></div>
+              <div style="background: #dc2626"></div>
+              <div style="background: #b91c1c"></div>
+              <div style="background: #d6e4fd"></div>
+              <div style="background: #3b82f6"></div>
+              <div style="background: #2563eb"></div>
+            </div>
+            <div class="ramp-caption">amber-100/400/500/600 · red-100/500/600/700 · blue-100/500/600</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ROLE TOKENS -->
+      <section>
+        <h2>Brand &amp; Gradient</h2>
+        <div class="card swatches">
+          <div class="swatch">
+            <div class="chip" style="background: var(--gradient-brand)"></div>
+            <div class="meta"><div class="name">Brand gradient</div><div class="hex">primary buttons</div></div>
+          </div>
+          <div class="swatch">
+            <div class="chip" style="background: var(--brand)"></div>
+            <div class="meta"><div class="name">--brand</div><div class="hex">#14432c · #35b87c</div></div>
+          </div>
+          <div class="swatch">
+            <div class="chip" style="background: var(--brand-subtle)"></div>
+            <div class="meta"><div class="name">--brand-subtle</div><div class="hex">tint</div></div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Surfaces &amp; Text</h2>
+        <div class="card swatches">
+          <div class="swatch"><div class="chip" style="background: var(--background)"></div><div class="meta"><div class="name">background</div><div class="hex">#f7f7f7</div></div></div>
+          <div class="swatch"><div class="chip" style="background: var(--card)"></div><div class="meta"><div class="name">card</div><div class="hex">#ffffff</div></div></div>
+          <div class="swatch"><div class="chip" style="background: var(--muted)"></div><div class="meta"><div class="name">muted</div><div class="hex">#eef0ef</div></div></div>
+          <div class="swatch"><div class="chip" style="background: var(--border)"></div><div class="meta"><div class="name">border</div><div class="hex">#e6e7e8</div></div></div>
+          <div class="swatch"><div class="chip" style="background: var(--foreground)"></div><div class="meta"><div class="name">foreground</div><div class="hex">#0b1f14</div></div></div>
+          <div class="swatch"><div class="chip" style="background: var(--muted-foreground)"></div><div class="meta"><div class="name">muted-fg</div><div class="hex">#7c857f</div></div></div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Status</h2>
+        <div class="card swatches">
+          <div class="swatch"><div class="chip" style="background: var(--success)"></div><div class="meta"><div class="name">success</div><div class="hex">correct</div></div></div>
+          <div class="swatch"><div class="chip" style="background: var(--warning)"></div><div class="meta"><div class="name">warning</div><div class="hex">partial</div></div></div>
+          <div class="swatch"><div class="chip" style="background: var(--danger)"></div><div class="meta"><div class="name">danger</div><div class="hex">incorrect</div></div></div>
+          <div class="swatch"><div class="chip" style="background: var(--info)"></div><div class="meta"><div class="name">info</div><div class="hex">neutral</div></div></div>
+        </div>
+      </section>
+
+      <!-- TYPOGRAPHY -->
+      <section>
+        <h2>Typography — DM Serif Text (headings) + Poppins (body)</h2>
+        <div class="card">
+          <div class="type-sample"><span class="tag">DM Serif · 400 · 28px</span><span style="font-family: 'DM Serif Text', serif; font-weight: 400; font-size: 28px">Main heading</span></div>
+          <div class="type-sample"><span class="tag">Poppins 600 · 20px</span><span style="font-weight: 600; font-size: 20px">Section title</span></div>
+          <div class="type-sample"><span class="tag">500 · 16px</span><span style="font-weight: 500; font-size: 16px">Medium label / button</span></div>
+          <div class="type-sample"><span class="tag">400 · 15px</span><span style="font-weight: 400; font-size: 15px">Body text — plan, prioritize, and accomplish tasks.</span></div>
+          <div class="type-sample"><span class="tag">400 · 12px</span><span style="font-weight: 400; font-size: 12px; color: var(--muted-foreground)">Caption / muted</span></div>
+        </div>
+      </section>
+
+      <!-- BUTTONS -->
+      <section>
+        <h2>Buttons</h2>
+        <div class="card stack">
+          <div>
+            <div class="label-row">Variants</div>
+            <div class="row">
+              <button class="btn btn-md btn-primary">Add Project</button>
+              <button class="btn btn-md btn-secondary">Import Data</button>
+              <button class="btn btn-md btn-danger">Delete</button>
+              <button class="btn btn-md btn-ghost">Cancel</button>
+            </div>
+          </div>
+          <div>
+            <div class="label-row">Sizes</div>
+            <div class="row">
+              <button class="btn btn-sm btn-primary">Small</button>
+              <button class="btn btn-md btn-primary">Medium</button>
+              <button class="btn btn-lg btn-primary">Large</button>
+            </div>
+          </div>
+          <div>
+            <div class="label-row">States</div>
+            <div class="row">
+              <button class="btn btn-md btn-primary" disabled>Disabled</button>
+              <button class="btn btn-md btn-primary"><span class="spinner spinner-sm" style="border-color: rgba(255,255,255,0.4); border-top-color: #fff"></span>Loading</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- FORMS -->
+      <section>
+        <h2>Form controls — floating label</h2>
+        <div class="card row" style="gap: 28px; align-items: flex-start">
+          <div style="flex: 1; min-width: 220px">
+            <div class="tf">
+              <input id="dsName" placeholder=" " />
+              <label for="dsName">School Name <span class="req">*</span></label>
+            </div>
+          </div>
+          <div style="flex: 1; min-width: 220px">
+            <div class="tf error">
+              <input id="dsEmail" placeholder=" " value="not-an-email" />
+              <label for="dsEmail">Contact Email <span class="req">*</span></label>
+            </div>
+            <div class="tf-err">Enter a valid email address</div>
+          </div>
+          <div style="flex: 1; min-width: 220px">
+            <div class="tf">
+              <input id="dsCode" placeholder=" " value="LHR-001" disabled />
+              <label for="dsCode">School Code</label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- BADGES -->
+      <section>
+        <h2>Badges</h2>
+        <div class="card row">
+          <span class="badge badge-default">Default</span>
+          <span class="badge badge-success">Success</span>
+          <span class="badge badge-warning">Warning</span>
+          <span class="badge badge-error">Error</span>
+          <span class="badge badge-info">Info</span>
+        </div>
+      </section>
+
+      <section>
+        <h2>Status badges</h2>
+        <div class="card row">
+          <span class="badge badge-warning">Pending</span>
+          <span class="badge badge-info">In Progress</span>
+          <span class="badge badge-success">Complete</span>
+          <span class="badge badge-error">Suspended</span>
+        </div>
+      </section>
+
+      <!-- SPINNER -->
+      <section>
+        <h2>Spinner</h2>
+        <div class="card row" style="gap: 28px">
+          <span class="spinner spinner-sm"></span>
+          <span class="spinner spinner-md"></span>
+          <span class="spinner spinner-lg"></span>
+        </div>
+      </section>
+
+      <!-- TABLE -->
+      <section>
+        <h2>Data table</h2>
+        <div class="card" style="padding: 0; overflow: hidden">
+          <table>
+            <thead>
+              <tr><th>School Name</th><th>Code</th><th>City</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Government High School Gulberg</td><td class="mono">LHR-001</td><td>Lahore</td><td><span class="badge badge-success">Complete</span></td></tr>
+              <tr><td>Government Boys Secondary Clifton</td><td class="mono">KHI-001</td><td>Karachi</td><td><span class="badge badge-info">In Progress</span></td></tr>
+              <tr><td>Federal Government School F-8</td><td class="mono">ISB-001</td><td>Islamabad</td><td><span class="badge badge-warning">Pending</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      var sun = '<path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/><circle cx="12" cy="12" r="4"/>';
+      var moon = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+      var btn = document.getElementById('themeToggle');
+      var icon = document.getElementById('icon');
+      btn.addEventListener('click', function () {
+        var dark = document.documentElement.classList.toggle('dark');
+        icon.innerHTML = dark ? sun : moon;
+      });
+    </script>
+  </body>
+</html>

@@ -5,12 +5,21 @@ import { PageLayout } from './page-layout';
 
 describe('PageLayout', () => {
   it('renders title in nav bar', () => {
-    render(<PageLayout title="Schools"><div>content</div></PageLayout>);
-    expect(screen.getByText('Schools')).toBeInTheDocument();
+    render(
+      <PageLayout title="Schools">
+        <div>content</div>
+      </PageLayout>,
+    );
+    // Query the heading specifically — "Schools" also appears as a sidebar nav item.
+    expect(screen.getByRole('heading', { name: 'Schools' })).toBeInTheDocument();
   });
 
   it('renders children in content area', () => {
-    render(<PageLayout title="Schools"><div>page content</div></PageLayout>);
+    render(
+      <PageLayout title="Schools">
+        <div>page content</div>
+      </PageLayout>,
+    );
     expect(screen.getByText('page content')).toBeInTheDocument();
   });
 

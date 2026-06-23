@@ -1,56 +1,34 @@
-import React from 'react';
+import { type InputHTMLAttributes, forwardRef } from 'react';
 
 import { cn } from '@/lib/utils';
 
-export interface InputProps {
-  id?: string;
-  name?: string;
-  type?: string;
-  placeholder?: string;
-  value?: string;
-  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
+export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
+  /** Visually marks the field as invalid and sets aria-invalid. */
   error?: boolean;
-  disabled?: boolean;
-  className?: string;
-  autoComplete?: string;
 }
 
-export function Input({
-  id,
-  name,
-  type = 'text',
-  placeholder,
-  value,
-  onChange,
-  onBlur,
-  error = false,
-  disabled = false,
-  className,
-  autoComplete,
-}: InputProps): React.ReactElement {
+export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
+  { type = 'text', error = false, className, ...rest },
+  ref,
+) {
   return (
     <input
-      id={id}
-      name={name}
+      ref={ref}
       type={type}
-      placeholder={placeholder}
-      value={value}
-      onChange={onChange}
-      onBlur={onBlur}
-      disabled={disabled}
-      autoComplete={autoComplete}
+      aria-invalid={error || undefined}
       className={cn(
-        'block w-full rounded-md border px-3 py-2 text-gray-900 shadow-sm',
-        'focus:outline-none focus:ring-2 focus:ring-offset-0',
+        'block w-full rounded-md border bg-card px-3 py-2 text-foreground shadow-sm',
+        'placeholder:text-muted-foreground',
+        'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-offset-0',
+        'disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground',
         error
-          ? 'border-red-500 focus:ring-red-500'
-          : 'border-gray-300 focus:ring-[#0E7490]',
-        disabled && 'cursor-not-allowed bg-gray-100 text-gray-500',
+          ? 'border-danger bg-danger-subtle focus-visible:border-danger focus-visible:ring-danger'
+          : 'border-input focus-visible:border-ring focus-visible:ring-ring',
         className,
       )}
+      {...rest}
     />
   );
-}
+});
 
 export default Input;

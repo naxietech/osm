@@ -6,6 +6,8 @@
  */
 import React from 'react';
 
+import { ThemeToggle } from '@/design-system/atoms/theme-toggle';
+
 export interface PageLayoutProps {
   children: React.ReactNode;
   title: string;
@@ -13,23 +15,31 @@ export interface PageLayoutProps {
   actions?: React.ReactNode;
 }
 
-export function PageLayout({ children, title, subtitle, actions }: PageLayoutProps): React.ReactElement {
+const NAV_ITEMS = ['Dashboard', 'Schools', 'Students'];
+
+export function PageLayout({
+  children,
+  title,
+  subtitle,
+  actions,
+}: PageLayoutProps): React.ReactElement {
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <div className="flex h-screen overflow-hidden bg-background">
       {/* Sidebar */}
-      <aside className="fixed left-0 top-0 h-full w-60 bg-[#1B3A6B] pt-16">
+      <aside className="fixed left-0 top-0 h-full w-60 border-r border-border bg-card pt-16">
         <div className="px-4 py-3">
-          <span className="text-lg font-bold text-white">OSES</span>
+          <span className="text-lg font-bold text-brand">OSES</span>
         </div>
         {/* TODO: wire navigation links in router phase */}
-        <nav className="mt-4">
-          {['Dashboard', 'Schools', 'Students'].map((item) => (
-            <div
+        <nav className="mt-4 flex flex-col gap-1 px-2">
+          {NAV_ITEMS.map((item) => (
+            <button
               key={item}
-              className="px-4 py-2 text-sm text-blue-200 hover:bg-[#152E55] hover:text-white"
+              type="button"
+              className="rounded-md px-3 py-2 text-left text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               {item}
-            </div>
+            </button>
           ))}
         </nav>
       </aside>
@@ -37,14 +47,17 @@ export function PageLayout({ children, title, subtitle, actions }: PageLayoutPro
       {/* Main area */}
       <div className="ml-60 flex flex-1 flex-col overflow-hidden">
         {/* Top nav bar */}
-        <header className="fixed left-60 right-0 top-0 z-10 flex h-16 items-center justify-between border-b bg-white px-6 shadow-sm">
-          <h1 className="text-xl font-semibold text-[#1B3A6B]">{title}</h1>
-          {actions && <div className="flex items-center gap-3">{actions}</div>}
+        <header className="fixed left-60 right-0 top-0 z-10 flex h-16 items-center justify-between border-b border-border bg-card px-6">
+          <h1 className="font-serif text-2xl font-normal text-foreground">{title}</h1>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            {actions && <div className="flex items-center gap-3">{actions}</div>}
+          </div>
         </header>
 
         {/* Page content */}
         <main className="flex-1 overflow-auto p-6 pt-20">
-          {subtitle && <p className="mb-4 text-sm text-gray-500">{subtitle}</p>}
+          {subtitle && <p className="mb-4 text-sm text-muted-foreground">{subtitle}</p>}
           {children}
         </main>
       </div>

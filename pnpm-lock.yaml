@@ -107,6 +107,12 @@ importers:
 
   apps/web:
     dependencies:
+      '@fontsource/dm-serif-text':
+        specifier: ^5.2.8
+        version: 5.2.8
+      '@fontsource/poppins':
+        specifier: ^5.2.7
+        version: 5.2.7
       '@oses/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -1152,6 +1158,18 @@ packages:
         integrity: sha512-d9zaMRSTIKDLhctzH12MtXvJKSSUhaHcjV+2Z+GK+EEY7XKpP5yR4x+N3TAcHTcu963nIr+TMcCb4DBCYX1z6Q==,
       }
     engines: { node: ^12.22.0 || ^14.17.0 || >=16.0.0 }
+
+  '@fontsource/dm-serif-text@5.2.8':
+    resolution:
+      {
+        integrity: sha512-Zbo9UKc/9cWWTTGleFk/oL9TQWHcEA8IXLqGaVvWC90Q5GqOe7DdPmU38hIF7KQqDmxuk2sT2gJV5raYBeu1VA==,
+      }
+
+  '@fontsource/poppins@5.2.7':
+    resolution:
+      {
+        integrity: sha512-6uQyPmseo4FgI97WIhA4yWRlNaoLk4vSDK/PyRwdqqZb5zAEuc+Kunt8JTMcsHYUEGYBtN15SNkMajMdqUSUmg==,
+      }
 
   '@humanwhocodes/config-array@0.13.0':
     resolution:
@@ -8853,6 +8871,10 @@ snapshots:
       - supports-color
 
   '@eslint/js@8.57.1': {}
+
+  '@fontsource/dm-serif-text@5.2.8': {}
+
+  '@fontsource/poppins@5.2.7': {}
 
   '@humanwhocodes/config-array@0.13.0':
     dependencies:

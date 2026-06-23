@@ -1,53 +1,46 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
-
-import { Input } from '@/design-system/atoms/input';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 
 import { FormField } from './form-field';
 
 describe('FormField', () => {
-  it('renders label text', () => {
-    render(
-      <FormField id="school-name" label="School Name">
-        <Input id="school-name" />
-      </FormField>,
-    );
-    expect(screen.getByText('School Name')).toBeInTheDocument();
+  it('renders the floating label associated with the input', () => {
+    render(<FormField id="school-name" label="School Name" />);
+    expect(screen.getByLabelText('School Name')).toBeInTheDocument();
   });
 
-  it('renders children (Input) inside it', () => {
-    render(
-      <FormField id="email" label="Email">
-        <Input id="email" placeholder="Enter email" />
-      </FormField>,
-    );
-    expect(screen.getByPlaceholderText('Enter email')).toBeInTheDocument();
+  it('calls onChange when typing', () => {
+    const onChange = vi.fn();
+    render(<FormField id="email" label="Email" onChange={onChange} />);
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'x' } });
+    expect(onChange).toHaveBeenCalledTimes(1);
   });
 
-  it('shows error message when error prop provided', () => {
-    render(
-      <FormField id="email" label="Email" error="Email is required">
-        <Input id="email" />
-      </FormField>,
-    );
-    expect(screen.getByText('Email is required')).toBeInTheDocument();
+  it('applies the red error treatment, message and aria wiring on error', () => {
+    render(<FormField id="email" label="Email" error="Email is required" />);
+    const input = screen.getByLabelText('Email');
+    expect(input).toHaveClass('border-danger', 'bg-danger-subtle');
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(input).toHaveAttribute('aria-describedby', 'email-error');
+
+    const message = screen.getByRole('alert');
+    expect(message).toHaveTextContent('Email is required');
+    expect(message).toHaveAttribute('id', 'email-error');
   });
 
-  it('does not render error element when no error', () => {
-    render(
-      <FormField id="email" label="Email">
-        <Input id="email" />
-      </FormField>,
-    );
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  it('turns the label red on error', () => {
+    render(<FormField id="email" label="Email" error="Required" />);
+    expect(screen.getByText('Email')).toHaveClass('text-danger');
   });
 
-  it('shows required asterisk when required is true', () => {
-    render(
-      <FormField id="email" label="Email" required>
-        <Input id="email" />
-      </FormField>,
-    );
+  it('renders the required asterisk', () => {
+    render(<FormField id="email" label="Email" required />);
     expect(screen.getByText('*')).toBeInTheDocument();
+  });
+
+  it('has no alert or aria-invalid without an error', () => {
+    render(<FormField id="email" label="Email" />);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Email')).not.toHaveAttribute('aria-invalid');
   });
 });
