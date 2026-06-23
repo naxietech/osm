@@ -1,22 +1,25 @@
-import React from 'react';
+import { type HTMLAttributes, type ReactElement } from 'react';
 
 import { cn } from '@/lib/utils';
 
-export interface BadgeProps {
+export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   variant?: 'default' | 'success' | 'warning' | 'error' | 'info';
-  children: React.ReactNode;
-  className?: string;
 }
 
 const variantClasses: Record<NonNullable<BadgeProps['variant']>, string> = {
-  default: 'bg-gray-100 text-gray-800',
-  success: 'bg-green-100 text-green-800',
-  warning: 'bg-yellow-100 text-yellow-800',
-  error: 'bg-red-100 text-red-800',
-  info: 'bg-blue-100 text-blue-800',
+  default: 'bg-muted text-muted-foreground',
+  success: 'bg-success-subtle text-success-foreground',
+  warning: 'bg-warning-subtle text-warning-foreground',
+  error: 'bg-danger-subtle text-danger-foreground',
+  info: 'bg-info-subtle text-info-foreground',
 };
 
-export function Badge({ variant = 'default', children, className }: BadgeProps): React.ReactElement {
+export function Badge({
+  variant = 'default',
+  className,
+  children,
+  ...rest
+}: BadgeProps): ReactElement {
   return (
     <span
       className={cn(
@@ -24,6 +27,7 @@ export function Badge({ variant = 'default', children, className }: BadgeProps):
         variantClasses[variant],
         className,
       )}
+      {...rest}
     >
       {children}
     </span>

@@ -30,3 +30,6 @@ __pycache__/
 # Build
 build/
 out/
+
+# Local session/handoff notes (confidential — never commit)
+SESSION-HANDOFF.md

@@ -1,24 +1,29 @@
-import React from 'react';
+import { type LabelHTMLAttributes, forwardRef } from 'react';
 
 import { cn } from '@/lib/utils';
 
-export interface LabelProps {
-  htmlFor?: string;
+export interface LabelProps extends LabelHTMLAttributes<HTMLLabelElement> {
   required?: boolean;
-  children: React.ReactNode;
-  className?: string;
 }
 
-export function Label({ htmlFor, required = false, children, className }: LabelProps): React.ReactElement {
+export const Label = forwardRef<HTMLLabelElement, LabelProps>(function Label(
+  { required = false, className, children, ...rest },
+  ref,
+) {
   return (
     <label
-      htmlFor={htmlFor}
-      className={cn('block text-sm font-medium text-gray-700', className)}
+      ref={ref}
+      className={cn('block text-sm font-medium text-foreground', className)}
+      {...rest}
     >
       {children}
-      {required && <span className="ml-1 text-red-500">*</span>}
+      {required && (
+        <span aria-hidden="true" className="ml-1 text-danger">
+          *
+        </span>
+      )}
     </label>
   );
-}
+});
 
 export default Label;

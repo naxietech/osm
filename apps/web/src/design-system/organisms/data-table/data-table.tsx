@@ -35,28 +35,37 @@ export function DataTable<T extends { id: string }>({
     );
   }
 
+  const handleRowKeyDown = (event: React.KeyboardEvent<HTMLTableRowElement>, row: T): void => {
+    if (!onRowClick) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onRowClick(row);
+    }
+  };
+
   return (
     <div className={cn('overflow-x-auto', className)}>
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+      <table className="min-w-full divide-y divide-border">
+        <thead className="bg-muted">
           <tr>
             {columns.map((col) => (
               <th
                 key={col.key}
+                scope="col"
                 style={col.width ? { width: col.width } : undefined}
-                className="border-b px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
+                className="border-b border-border px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground"
               >
                 {col.header}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100 bg-white">
+        <tbody className="divide-y divide-border bg-card">
           {data.length === 0 ? (
             <tr>
               <td
                 colSpan={columns.length}
-                className="px-4 py-8 text-center text-sm text-gray-500"
+                className="px-4 py-8 text-center text-sm text-muted-foreground"
               >
                 {emptyMessage}
               </td>
@@ -66,13 +75,17 @@ export function DataTable<T extends { id: string }>({
               <tr
                 key={row.id}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
+                onKeyDown={onRowClick ? (e) => handleRowKeyDown(e, row) : undefined}
+                role={onRowClick ? 'button' : undefined}
+                tabIndex={onRowClick ? 0 : undefined}
                 className={cn(
-                  'transition-colors hover:bg-gray-50',
-                  onRowClick && 'cursor-pointer',
+                  'transition-colors hover:bg-muted',
+                  onRowClick &&
+                    'cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring',
                 )}
               >
                 {columns.map((col) => (
-                  <td key={col.key} className="px-4 py-3 text-sm text-gray-900">
+                  <td key={col.key} className="px-4 py-3 text-sm text-foreground">
                     {col.render(row)}
                   </td>
                 ))}

@@ -11,11 +11,11 @@ describe('Badge', () => {
 
   it('applies success classes for success variant', () => {
     render(<Badge variant="success">Done</Badge>);
-    expect(screen.getByText('Done')).toHaveClass('bg-green-100', 'text-green-800');
+    expect(screen.getByText('Done')).toHaveClass('bg-success-subtle', 'text-success-foreground');
   });
 
   it('applies error classes for error variant', () => {
     render(<Badge variant="error">Failed</Badge>);
-    expect(screen.getByText('Failed')).toHaveClass('bg-red-100', 'text-red-800');
+    expect(screen.getByText('Failed')).toHaveClass('bg-danger-subtle', 'text-danger-foreground');
   });
 });

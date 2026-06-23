@@ -1,0 +1,99 @@
+/*
+ * SEMANTIC ROLE TOKENS — thin aliases over the primitive palette (palette.css).
+ *
+ * These map a ROLE (background, brand, danger, ...) to a primitive color, and flip
+ * in dark mode. This alias layer is the ONLY reason light/dark switches
+ * automatically with clean markup — a role can mean one primitive in light and a
+ * different one in dark. Authoring tip: use role classes (bg-card, text-foreground,
+ * bg-brand) for anything that must adapt to the theme; use literal palette classes
+ * (bg-green-600, text-neutral-500) for anything else.
+ */
+
+/* Manual (class-based) dark mode: `dark:` applies under a `.dark` ancestor. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* surfaces */
+  --background: var(--color-neutral-50);
+  --foreground: var(--color-neutral-900);
+  --card: #ffffff;
+  --card-foreground: var(--color-neutral-900);
+  --muted: var(--color-neutral-100);
+  --muted-foreground: var(--color-neutral-500);
+  --border: var(--color-neutral-200);
+  --input: var(--color-neutral-300);
+
+  /* brand (forest green); primary buttons use the gradient */
+  --brand: var(--color-green-600);
+  --brand-foreground: #ffffff;
+  --ring: var(--brand);
+
+  /* brand gradient — exact stops: deep #13452d (top) -> bright #227e51 (bottom) */
+  --gradient-brand: linear-gradient(180deg, #13452d 0%, #227e51 100%);
+
+  /* status (reserved: success = correct, danger = incorrect, warning = partial) */
+  --success: var(--color-green-500);
+  --warning: var(--color-amber-500);
+  --danger: var(--color-red-600);
+  --info: var(--color-blue-600);
+}
+
+.dark {
+  --background: var(--color-neutral-950);
+  --foreground: var(--color-neutral-100);
+  --card: var(--color-neutral-900);
+  --card-foreground: var(--color-neutral-100);
+  --muted: var(--color-neutral-800);
+  --muted-foreground: var(--color-neutral-400);
+  --border: var(--color-neutral-700);
+  --input: var(--color-neutral-700);
+
+  /* brighter brand for text/borders/accents on dark surfaces; the gradient button
+   * stays dark green, so --brand-foreground keeps the white inherited from :root */
+  --brand: var(--color-green-400);
+
+  --success: var(--color-green-400);
+  --warning: var(--color-amber-400);
+  --danger: var(--color-red-500);
+  --info: var(--color-blue-500);
+}
+
+/* Map the role tokens to Tailwind color utilities (bg-brand, text-foreground, ...).
+ * `inline` makes the utilities read var(--x) directly so they switch at runtime. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-hover: color-mix(in srgb, var(--brand) 86%, var(--foreground));
+  --color-brand-subtle: color-mix(in srgb, var(--brand) 14%, var(--background));
+
+  --color-success: var(--success);
+  --color-success-subtle: color-mix(in srgb, var(--success) 16%, var(--background));
+  --color-success-foreground: color-mix(in srgb, var(--success) 72%, var(--foreground));
+
+  --color-warning: var(--warning);
+  --color-warning-subtle: color-mix(in srgb, var(--warning) 16%, var(--background));
+  --color-warning-foreground: color-mix(in srgb, var(--warning) 72%, var(--foreground));
+
+  --color-danger: var(--danger);
+  --color-danger-subtle: color-mix(in srgb, var(--danger) 16%, var(--background));
+  --color-danger-foreground: color-mix(in srgb, var(--danger) 72%, var(--foreground));
+
+  --color-info: var(--info);
+  --color-info-subtle: color-mix(in srgb, var(--info) 16%, var(--background));
+  --color-info-foreground: color-mix(in srgb, var(--info) 72%, var(--foreground));
+}
+
+/* Primary-button / emphasis gradient, driven by --brand. */
+@utility bg-brand-gradient {
+  background-image: var(--gradient-brand);
+}

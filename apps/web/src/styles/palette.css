@@ -1,0 +1,56 @@
+/*
+ * PRIMITIVE PALETTE — literal, role-agnostic colors.
+ *
+ * These are named by what they ARE (color + shade), not by where they're used, so
+ * any color can be used anywhere: bg-green-600, text-neutral-500, bg-amber-500, ...
+ * They are the raw values and rarely change. The semantic role tokens in colors.css
+ * (brand, surfaces, status) are thin aliases that point at these — that alias layer
+ * is what makes light/dark switch automatically.
+ *
+ * Defined via `@theme` (not inline) so Tailwind both generates the utilities AND
+ * exposes each as a CSS variable (var(--color-green-600)) for the aliases to use.
+ */
+@theme {
+  /* green — brand / vivid family */
+  --color-green-50: #ecf6f0;
+  --color-green-100: #d4ebdd;
+  --color-green-200: #aad9bf;
+  --color-green-300: #74c39c;
+  --color-green-400: #35b87c;
+  --color-green-500: #227e51;
+  --color-green-600: #14432c;
+  --color-green-700: #103522;
+  --color-green-800: #0c2819;
+  --color-green-900: #091e13;
+  --color-green-950: #06150d;
+
+  /* neutral — green-tinted grays for surfaces & text (light + dark ends) */
+  --color-neutral-50: #f7f7f7;
+  --color-neutral-100: #eef0ef;
+  --color-neutral-200: #e6e7e8;
+  --color-neutral-300: #d6d8d8;
+  --color-neutral-400: #aab2ad;
+  --color-neutral-500: #7c857f;
+  --color-neutral-600: #59635d;
+  --color-neutral-700: #2a3a30;
+  --color-neutral-800: #1b2c22;
+  --color-neutral-900: #11211a;
+  --color-neutral-950: #0a1410;
+
+  /* amber — warning */
+  --color-amber-100: #f9e6c9;
+  --color-amber-400: #f0a93f;
+  --color-amber-500: #e0962f;
+  --color-amber-600: #bd7b22;
+
+  /* red — danger */
+  --color-red-100: #fbd9d9;
+  --color-red-500: #ef4444;
+  --color-red-600: #dc2626;
+  --color-red-700: #b91c1c;
+
+  /* blue — info */
+  --color-blue-100: #d6e4fd;
+  --color-blue-500: #3b82f6;
+  --color-blue-600: #2563eb;
+}

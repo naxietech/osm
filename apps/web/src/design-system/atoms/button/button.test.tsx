@@ -45,12 +45,22 @@ describe('Button', () => {
 
   it('applies primary variant classes by default', () => {
     render(<Button>Primary</Button>);
-    expect(screen.getByText('Primary')).toHaveClass('bg-[#1B3A6B]');
+    expect(screen.getByText('Primary')).toHaveClass('bg-brand-gradient');
   });
 
   it('applies danger variant classes when variant="danger"', () => {
     render(<Button variant="danger">Delete</Button>);
-    expect(screen.getByText('Delete')).toHaveClass('bg-red-600');
+    expect(screen.getByText('Delete')).toHaveClass('bg-danger');
+  });
+
+  it('forwards arbitrary native attributes (name, data-*) to the button', () => {
+    render(
+      <Button name="save" data-testid="save-btn">
+        Save
+      </Button>,
+    );
+    const btn = screen.getByTestId('save-btn');
+    expect(btn).toHaveAttribute('name', 'save');
   });
 
   it('renders as submit button when type="submit"', () => {

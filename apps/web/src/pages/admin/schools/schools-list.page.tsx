@@ -13,13 +13,12 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { Button } from '@/design-system/atoms/button';
-import { DataTable, type ColumnDef } from '@/design-system/organisms/data-table';
-import { StatusBadge } from '@/design-system/molecules/status-badge';
-import { PageLayout } from '@/design-system/templates/page-layout';
+import { OnboardingStatus, type SchoolListItem } from '@oses/types';
 
-import type { SchoolListItem } from '@oses/types';
-import { OnboardingStatus } from '@oses/types';
+import { Button } from '@/design-system/atoms/button';
+import { StatusBadge } from '@/design-system/molecules/status-badge';
+import { type ColumnDef, DataTable } from '@/design-system/organisms/data-table';
+import { PageLayout } from '@/design-system/templates/page-layout';
 
 const MOCK_SCHOOLS: SchoolListItem[] = [
   {
@@ -61,7 +60,7 @@ export function SchoolsListPage(): React.ReactElement {
       key: 'schoolCode',
       header: 'Code',
       render: (row) => (
-        <span className="font-mono text-sm text-gray-600">{row.schoolCode}</span>
+        <span className="font-mono text-sm text-muted-foreground">{row.schoolCode}</span>
       ),
       width: '120px',
     },
@@ -112,7 +111,7 @@ export function SchoolsListPage(): React.ReactElement {
         </Button>
       }
     >
-      <div className="rounded-lg border bg-white shadow-sm">
+      <div className="rounded-lg border border-border bg-card shadow-sm">
         <DataTable<SchoolListItem>
           data={MOCK_SCHOOLS}
           columns={columns}

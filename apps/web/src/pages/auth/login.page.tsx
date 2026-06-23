@@ -7,7 +7,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { Button } from '@/design-system/atoms/button';
-import { Input } from '@/design-system/atoms/input';
 import { FormField } from '@/design-system/molecules/form-field';
 import { AuthLayout } from '@/design-system/templates/auth-layout';
 
@@ -44,41 +43,38 @@ export function LoginPage(): React.ReactElement {
   return (
     <AuthLayout title="Sign In" subtitle="On-Screen Exam System — Pakistan">
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
-        <FormField id="email" label="Email Address" required>
-          <Input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            placeholder="you@oses.pk"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </FormField>
+        <FormField
+          id="email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          label="Email Address"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
 
-        <FormField id="password" label="Password" required>
-          <Input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </FormField>
+        <FormField
+          id="password"
+          name="password"
+          type="password"
+          autoComplete="current-password"
+          label="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
 
         {error && (
-          <div role="alert" className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div
+            role="alert"
+            className="rounded-md bg-danger-subtle px-4 py-3 text-sm text-danger-foreground"
+          >
             {error}
           </div>
         )}
 
-        <Button
-          type="submit"
-          isLoading={isSubmitting}
-          className="w-full"
-        >
+        <Button type="submit" isLoading={isSubmitting} className="w-full">
           Sign In
         </Button>
       </form>

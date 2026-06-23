@@ -1,16 +1,14 @@
 import React from 'react';
 
-import { Badge, type BadgeProps } from '@/design-system/atoms/badge';
 import { OnboardingStatus } from '@oses/types';
+
+import { Badge, type BadgeProps } from '@/design-system/atoms/badge';
 
 export interface StatusBadgeProps {
   status: OnboardingStatus;
 }
 
-const statusConfig: Record<
-  OnboardingStatus,
-  { label: string; variant: BadgeProps['variant'] }
-> = {
+const statusConfig: Record<OnboardingStatus, { label: string; variant: BadgeProps['variant'] }> = {
   [OnboardingStatus.PENDING]: { label: 'Pending', variant: 'warning' },
   [OnboardingStatus.IN_PROGRESS]: { label: 'In Progress', variant: 'info' },
   [OnboardingStatus.COMPLETE]: { label: 'Complete', variant: 'success' },
