@@ -1,8 +1,6 @@
 import type { UserRole } from './roles.types';
 import type { SafeUser } from './user.types';
 
-export type { UserRole } from './roles.types';
-
 export interface JwtPayload {
   sub: string;
   email: string;

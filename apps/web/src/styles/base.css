@@ -16,4 +16,37 @@
   * {
     scrollbar-color: var(--border) transparent;
   }
+
+  /* Actionable elements get a pointer cursor. Tailwind v4's Preflight resets
+     <button> to the default arrow, so set it here once for every clickable
+     control. Disabled controls show not-allowed instead. */
+  button,
+  [role='button'],
+  [role='tab'],
+  [role='menuitem'],
+  summary,
+  label[for],
+  select {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [role='button'][aria-disabled='true'],
+  input:disabled,
+  select:disabled,
+  textarea:disabled {
+    cursor: not-allowed;
+  }
+}
+
+/* Respect users who prefer reduced motion — kill animations/transitions. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

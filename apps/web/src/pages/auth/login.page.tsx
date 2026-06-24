@@ -1,56 +1,104 @@
 /**
- * Login page — uses AuthLayout template.
- * TODO: Connect to Redux auth slice and API call in next phase.
- * Currently uses local state to simulate loading and error states.
+ * Login page — Formik + Yup validation, submitted via a React Query mutation
+ * against the mock authService. On success it stores the user + token (useAuth)
+ * and routes to the role home.
  */
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { useMutation } from '@tanstack/react-query';
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
+
 import { Button } from '@/design-system/atoms/button';
 import { FormField } from '@/design-system/molecules/form-field';
 import { AuthLayout } from '@/design-system/templates/auth-layout';
+import { useAuth } from '@/hooks';
+import { DEMO_PASSWORD, MOCK_USERS, authService } from '@/services/auth.service';
+
+const validationSchema = Yup.object({
+  email: Yup.string().email('Enter a valid email address').required('Email is required'),
+  password: Yup.string()
+    .min(6, 'Password must be at least 6 characters')
+    .required('Password is required'),
+});
+
+/** Envelope — leading icon for the email field. */
+function MailIcon(): React.ReactElement {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect width="20" height="16" x="2" y="4" rx="2" />
+      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+    </svg>
+  );
+}
+
+/** Padlock — leading icon for the password field. */
+function LockIcon(): React.ReactElement {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  );
+}
 
 export function LoginPage(): React.ReactElement {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { login } = useAuth();
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent): void => {
-    e.preventDefault();
-    setError(null);
+  const loginMutation = useMutation({
+    mutationFn: (vars: { email: string; password: string }) =>
+      authService.login(vars.email, vars.password),
+    onSuccess: ({ user, token }) => {
+      login(user, token);
+      void navigate('/');
+    },
+    onError: (err: unknown) => {
+      setSubmitError(err instanceof Error ? err.message : 'Login failed. Please try again.');
+    },
+  });
 
-    if (!email.trim()) {
-      setError('Email is required');
-      return;
-    }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    // TODO: Replace with real API call via authService.login({ email, password })
-    setTimeout(() => {
-      console.log('Login attempt:', { email, password });
-      setIsSubmitting(false);
-      void navigate('/admin');
-    }, 1500);
-  };
+  const formik = useFormik({
+    initialValues: { email: '', password: '' },
+    validationSchema,
+    onSubmit: (values) => {
+      setSubmitError(null);
+      loginMutation.mutate(values);
+    },
+  });
 
   return (
     <AuthLayout title="Sign In" subtitle="On-Screen Exam System — Pakistan">
-      <form onSubmit={handleSubmit} noValidate className="space-y-4">
+      <form onSubmit={formik.handleSubmit} noValidate className="space-y-4">
         <FormField
           id="email"
           name="email"
           type="email"
           autoComplete="email"
           label="Email Address"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          leadingIcon={<MailIcon />}
+          value={formik.values.email}
+          onChange={formik.handleChange}
+          onBlur={formik.handleBlur}
+          error={formik.touched.email ? formik.errors.email : undefined}
           required
         />
 
@@ -60,24 +108,34 @@ export function LoginPage(): React.ReactElement {
           type="password"
           autoComplete="current-password"
           label="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          leadingIcon={<LockIcon />}
+          value={formik.values.password}
+          onChange={formik.handleChange}
+          onBlur={formik.handleBlur}
+          error={formik.touched.password ? formik.errors.password : undefined}
           required
         />
 
-        {error && (
+        {submitError && (
           <div
             role="alert"
             className="rounded-md bg-danger-subtle px-4 py-3 text-sm text-danger-foreground"
           >
-            {error}
+            {submitError}
           </div>
         )}
 
-        <Button type="submit" isLoading={isSubmitting} className="w-full">
+        <Button type="submit" isLoading={loginMutation.isPending} className="w-full">
           Sign In
         </Button>
       </form>
+
+      <p className="mt-6 text-center text-xs leading-relaxed text-muted-foreground">
+        Demo accounts — password{' '}
+        <span className="font-medium text-foreground">{DEMO_PASSWORD}</span>
+        <br />
+        {MOCK_USERS.map((u) => u.email).join(' · ')}
+      </p>
     </AuthLayout>
   );
 }
