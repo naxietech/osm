@@ -1,4 +1,4 @@
-import { type InputHTMLAttributes, forwardRef, useId } from 'react';
+import { type InputHTMLAttributes, type ReactNode, forwardRef, useId, useState } from 'react';
 
 import { Input } from '@/design-system/atoms/input';
 import { cn } from '@/lib/utils';
@@ -8,8 +8,50 @@ export interface FormFieldProps extends Omit<InputHTMLAttributes<HTMLInputElemen
   label: string;
   /** Error message; when set the field turns red and the message is announced. */
   error?: string;
+  /** Icon rendered inside the field on the left (e.g. mail, lock). Optional. */
+  leadingIcon?: ReactNode;
   /** Extra classes for the outer wrapper. */
   containerClassName?: string;
+}
+
+/** Open eye — password is visible. */
+function EyeIcon({ className }: { className?: string }): React.ReactElement {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+/** Eye with a slash — password is hidden. */
+function EyeOffIcon({ className }: { className?: string }): React.ReactElement {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c6.5 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+      <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3.5 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+      <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+      <path d="m2 2 20 20" />
+    </svg>
+  );
 }
 
 /**
@@ -17,11 +59,25 @@ export interface FormFieldProps extends Omit<InputHTMLAttributes<HTMLInputElemen
  * on focus / when filled. On error the label, border and background go red and a
  * red message is wired to the input for assistive tech.
  *
+ * Optional `leadingIcon` renders an icon on the left (and pads the text + label
+ * clear of it). When `type="password"` a show/hide eye toggle is added on the
+ * right that flips the input between password and text.
+ *
  * The float is CSS-only via `peer` + `:placeholder-shown` (the input carries a
  * blank placeholder), so no JS state is needed. Reuses the Input atom for the box.
  */
 export const FormField = forwardRef<HTMLInputElement, FormFieldProps>(function FormField(
-  { id, label, error, required, className, containerClassName, ...rest },
+  {
+    id,
+    type = 'text',
+    label,
+    error,
+    required,
+    leadingIcon,
+    className,
+    containerClassName,
+    ...rest
+  },
   ref,
 ) {
   const generatedId = useId();
@@ -29,23 +85,39 @@ export const FormField = forwardRef<HTMLInputElement, FormFieldProps>(function F
   const errorId = `${fieldId}-error`;
   const hasError = Boolean(error);
 
+  const isPassword = type === 'password';
+  const [revealed, setRevealed] = useState(false);
+  const inputType = isPassword ? (revealed ? 'text' : 'password') : type;
+
   return (
     <div className={cn('w-full', containerClassName)}>
       <div className="relative">
+        {leadingIcon && (
+          <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground [&>svg]:h-5 [&>svg]:w-5">
+            {leadingIcon}
+          </span>
+        )}
         <Input
           ref={ref}
           id={fieldId}
+          type={inputType}
           placeholder=" "
           required={required}
           error={hasError}
           aria-describedby={hasError ? errorId : undefined}
-          className={cn('peer pb-1.5 pt-5', className)}
+          className={cn(
+            'peer pb-1.5 pt-[26px]',
+            leadingIcon && 'pl-10',
+            isPassword && 'pr-11',
+            className,
+          )}
           {...rest}
         />
         <label
           htmlFor={fieldId}
           className={cn(
-            'pointer-events-none absolute left-3 top-2 z-10 origin-top-left scale-75 text-base transition-all',
+            'pointer-events-none absolute top-2 z-10 origin-top-left scale-75 text-base transition-all',
+            leadingIcon ? 'left-10' : 'left-3',
             'peer-placeholder-shown:top-1/2 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:scale-100',
             'peer-focus:top-2 peer-focus:translate-y-0 peer-focus:scale-75',
             hasError ? 'text-danger' : 'text-muted-foreground peer-focus:text-brand',
@@ -58,12 +130,31 @@ export const FormField = forwardRef<HTMLInputElement, FormFieldProps>(function F
             </span>
           )}
         </label>
+        {isPassword && (
+          <button
+            type="button"
+            onClick={() => setRevealed((v) => !v)}
+            aria-label={revealed ? 'Hide password' : 'Show password'}
+            aria-pressed={revealed}
+            className={cn(
+              'absolute right-3 top-1/2 z-10 -translate-y-1/2 rounded text-muted-foreground transition-colors',
+              'hover:text-foreground focus-visible:text-foreground',
+              'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+            )}
+          >
+            {revealed ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
+          </button>
+        )}
       </div>
-      {hasError && (
-        <p id={errorId} role="alert" className="mt-1 text-sm text-danger-foreground">
-          {error}
-        </p>
-      )}
+      {/* Always rendered so the reserved line height keeps the field's size
+          stable — showing/clearing an error never shifts the layout. */}
+      <p
+        id={errorId}
+        role={hasError ? 'alert' : undefined}
+        className="mt-1 min-h-4 text-xs text-danger-foreground"
+      >
+        {error}
+      </p>
     </div>
   );
 });

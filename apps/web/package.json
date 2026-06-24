@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "lint": "eslint src --ext .ts,.tsx",
     "test": "vitest",
@@ -17,11 +17,15 @@
     "@fontsource/dm-serif-text": "^5.2.8",
     "@fontsource/poppins": "^5.2.7",
     "@oses/types": "workspace:*",
+    "@tanstack/react-query": "^5.101.1",
     "clsx": "^2.1.1",
+    "formik": "^2.4.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0",
-    "tailwind-merge": "^2.6.0"
+    "tailwind-merge": "^2.6.0",
+    "yup": "^1.7.1",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@oses/eslint-config": "workspace:*",

@@ -1,28 +1,48 @@
 /**
- * REFERENCE PATTERN — Router
- * All routes use React.lazy for code splitting.
- * Protected routes require authentication (ProtectedRoute).
- * Role routes require a specific role (RoleRoute).
- * Add future module routes following the /admin/schools pattern.
+ * Router — one role layout per role (ADMIN / CONTROLLER / EVALUATOR / SCHOOL_STAFF),
+ * each behind ProtectedRoute + RoleRoute, with nested module routes (scaffold).
+ * Route components are lazy-loaded (code splitting); paths come from ./routes so
+ * the nav config and the routes can't drift. Each role has an in-layout 404.
  */
 import React, { lazy } from 'react';
 import { Link, Navigate, Route, Routes } from 'react-router-dom';
 
 import { UserRole } from '@oses/types';
 
+import { useAuth } from '@/hooks';
+import { ROLE_CONFIG } from '@/pages/dashboard/roles.config';
+import { ModulePlaceholder, NotFoundPanel } from '@/pages/dashboard/widgets';
+
 import { ProtectedRoute } from './protected-route';
 import { RoleRoute } from './role-route';
+import { ROUTES } from './routes';
 
 const LoginPage = lazy(() => import('@/pages/auth/login.page'));
-const SchoolsListPage = lazy(() => import('@/pages/admin/schools/schools-list.page'));
-const SchoolDetailPage = lazy(() => import('@/pages/admin/schools/school-detail.page'));
+const RoleLayout = lazy(() => import('@/pages/dashboard/role-layout'));
+const AdminHome = lazy(() => import('@/pages/dashboard/home/admin-home'));
+const ControllerHome = lazy(() => import('@/pages/dashboard/home/controller-home'));
+const EvaluatorHome = lazy(() => import('@/pages/dashboard/home/evaluator-home'));
+const SchoolHome = lazy(() => import('@/pages/dashboard/home/school-home'));
+
+/** Relative child segment of an absolute path under its role home (no drift). */
+const rel = (home: string, full: string): string => full.slice(home.length + 1);
+
+/** Redirect to the current user's role landing page. */
+function RoleHome(): React.ReactElement {
+  const { user } = useAuth();
+  const config = user ? ROLE_CONFIG[user.role] : undefined;
+  if (!config) {
+    return <Navigate to={ROUTES.login} replace />;
+  }
+  return <Navigate to={config.home} replace />;
+}
 
 function UnauthorizedPage(): React.ReactElement {
   return (
-    <div className="flex h-screen flex-col items-center justify-center gap-4">
-      <h1 className="text-3xl font-bold text-red-600">403 — Forbidden</h1>
-      <p className="text-gray-600">You do not have permission to view this page.</p>
-      <Link to="/" className="text-[#0E7490] underline">
+    <div className="flex h-screen flex-col items-center justify-center gap-4 bg-background text-foreground">
+      <h1 className="text-3xl font-bold text-danger-foreground">403 — Forbidden</h1>
+      <p className="text-muted-foreground">You do not have permission to view this page.</p>
+      <Link to="/" className="text-brand underline">
         Return to home
       </Link>
     </div>
@@ -31,10 +51,10 @@ function UnauthorizedPage(): React.ReactElement {
 
 function NotFoundPage(): React.ReactElement {
   return (
-    <div className="flex h-screen flex-col items-center justify-center gap-4">
-      <h1 className="text-3xl font-bold text-gray-800">404 — Page Not Found</h1>
-      <p className="text-gray-600">The page you are looking for does not exist.</p>
-      <Link to="/" className="text-[#0E7490] underline">
+    <div className="flex h-screen flex-col items-center justify-center gap-4 bg-background text-foreground">
+      <h1 className="text-3xl font-bold text-foreground">404 — Page Not Found</h1>
+      <p className="text-muted-foreground">The page you are looking for does not exist.</p>
+      <Link to="/" className="text-brand underline">
         Return to home
       </Link>
     </div>
@@ -44,40 +64,146 @@ function NotFoundPage(): React.ReactElement {
 export function RouterConfig(): React.ReactElement {
   return (
     <Routes>
-      <Route index element={<Navigate to="/login" replace />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/unauthorized" element={<UnauthorizedPage />} />
+      <Route path={ROUTES.login} element={<LoginPage />} />
+      <Route path={ROUTES.unauthorized} element={<UnauthorizedPage />} />
 
       <Route element={<ProtectedRoute />}>
-        {/* Admin routes */}
+        <Route index element={<RoleHome />} />
+
+        {/* ADMIN — all modules */}
         <Route element={<RoleRoute allowedRoles={[UserRole.ADMIN]} />}>
-          <Route path="/admin" element={<Navigate to="/admin/schools" replace />} />
-          <Route path="/admin/schools" element={<SchoolsListPage />} />
-          <Route path="/admin/schools/:id" element={<SchoolDetailPage />} />
+          <Route path={ROUTES.admin.home} element={<RoleLayout />}>
+            <Route index element={<AdminHome />} />
+            <Route
+              path={rel(ROUTES.admin.home, ROUTES.admin.eSheet)}
+              element={<Navigate to={ROUTES.admin.eSheetTemplateView} replace />}
+            />
+            <Route
+              path={rel(ROUTES.admin.home, ROUTES.admin.eSheetTemplateAdd)}
+              element={<ModulePlaceholder title="E-Sheet · Add Template" />}
+            />
+            <Route
+              path={rel(ROUTES.admin.home, ROUTES.admin.eSheetTemplateView)}
+              element={<ModulePlaceholder title="E-Sheet · Templates" />}
+            />
+            <Route
+              path={rel(ROUTES.admin.home, ROUTES.admin.eSheetGenerate)}
+              element={<ModulePlaceholder title="Generate E-Sheets" />}
+            />
+            <Route
+              path={rel(ROUTES.admin.home, ROUTES.admin.questions)}
+              element={<ModulePlaceholder title="Question Assignments" />}
+            />
+            <Route
+              path={rel(ROUTES.admin.home, ROUTES.admin.results)}
+              element={<ModulePlaceholder title="Results" />}
+            />
+            <Route
+              path={rel(ROUTES.admin.home, ROUTES.admin.schools)}
+              element={<Navigate to={ROUTES.admin.schoolsView} replace />}
+            />
+            <Route
+              path={rel(ROUTES.admin.home, ROUTES.admin.schoolsView)}
+              element={<ModulePlaceholder title="Schools · View" />}
+            />
+            <Route
+              path={rel(ROUTES.admin.home, ROUTES.admin.schoolsAdd)}
+              element={<ModulePlaceholder title="Schools · Add" />}
+            />
+            <Route
+              path={rel(ROUTES.admin.home, ROUTES.admin.students)}
+              element={<Navigate to={ROUTES.admin.studentsView} replace />}
+            />
+            <Route
+              path={rel(ROUTES.admin.home, ROUTES.admin.studentsView)}
+              element={<ModulePlaceholder title="Students · View" />}
+            />
+            <Route
+              path={rel(ROUTES.admin.home, ROUTES.admin.studentsManage)}
+              element={<ModulePlaceholder title="Students · Add / Delete" />}
+            />
+            <Route path="*" element={<NotFoundPanel />} />
+          </Route>
         </Route>
 
-        {/* Controller routes */}
+        {/* CONTROLLER — examiner */}
         <Route element={<RoleRoute allowedRoles={[UserRole.CONTROLLER]} />}>
-          <Route
-            path="/controller"
-            element={<div className="p-8">Controller Dashboard — coming soon</div>}
-          />
+          <Route path={ROUTES.controller.home} element={<RoleLayout />}>
+            <Route index element={<ControllerHome />} />
+            <Route
+              path={rel(ROUTES.controller.home, ROUTES.controller.eSheet)}
+              element={<Navigate to={ROUTES.controller.eSheetTemplateView} replace />}
+            />
+            <Route
+              path={rel(ROUTES.controller.home, ROUTES.controller.eSheetTemplateAdd)}
+              element={<ModulePlaceholder title="E-Sheet · Add Template" />}
+            />
+            <Route
+              path={rel(ROUTES.controller.home, ROUTES.controller.eSheetTemplateView)}
+              element={<ModulePlaceholder title="E-Sheet · Templates" />}
+            />
+            <Route
+              path={rel(ROUTES.controller.home, ROUTES.controller.eSheetGenerate)}
+              element={<ModulePlaceholder title="Generate E-Sheets" />}
+            />
+            <Route
+              path={rel(ROUTES.controller.home, ROUTES.controller.questions)}
+              element={<ModulePlaceholder title="Questions Assignment" />}
+            />
+            <Route
+              path={rel(ROUTES.controller.home, ROUTES.controller.resultCompilation)}
+              element={<ModulePlaceholder title="Result Compilation" />}
+            />
+            <Route path="*" element={<NotFoundPanel />} />
+          </Route>
         </Route>
 
-        {/* Evaluator routes */}
+        {/* EVALUATOR — checker */}
         <Route element={<RoleRoute allowedRoles={[UserRole.EVALUATOR]} />}>
-          <Route
-            path="/evaluator"
-            element={<div className="p-8">Evaluator Dashboard — coming soon</div>}
-          />
+          <Route path={ROUTES.evaluator.home} element={<RoleLayout />}>
+            <Route index element={<EvaluatorHome />} />
+            <Route
+              path={rel(ROUTES.evaluator.home, ROUTES.evaluator.assignWork)}
+              element={<ModulePlaceholder title="Assign Work" />}
+            />
+            <Route
+              path={rel(ROUTES.evaluator.home, ROUTES.evaluator.history)}
+              element={<ModulePlaceholder title="History" />}
+            />
+            <Route
+              path={rel(ROUTES.evaluator.home, ROUTES.evaluator.profile)}
+              element={<ModulePlaceholder title="Profile" />}
+            />
+            <Route path="*" element={<NotFoundPanel />} />
+          </Route>
         </Route>
 
-        {/* School Staff routes */}
+        {/* SCHOOL_STAFF — school */}
         <Route element={<RoleRoute allowedRoles={[UserRole.SCHOOL_STAFF]} />}>
-          <Route
-            path="/school"
-            element={<div className="p-8">School Staff Dashboard — coming soon</div>}
-          />
+          <Route path={ROUTES.school.home} element={<RoleLayout />}>
+            <Route index element={<SchoolHome />} />
+            <Route
+              path={rel(ROUTES.school.home, ROUTES.school.students)}
+              element={<Navigate to={ROUTES.school.studentsView} replace />}
+            />
+            <Route
+              path={rel(ROUTES.school.home, ROUTES.school.studentsView)}
+              element={<ModulePlaceholder title="Students · View" />}
+            />
+            <Route
+              path={rel(ROUTES.school.home, ROUTES.school.studentsManage)}
+              element={<ModulePlaceholder title="Students · Add / Delete" />}
+            />
+            <Route
+              path={rel(ROUTES.school.home, ROUTES.school.results)}
+              element={<ModulePlaceholder title="Results" />}
+            />
+            <Route
+              path={rel(ROUTES.school.home, ROUTES.school.profile)}
+              element={<ModulePlaceholder title="Profile" />}
+            />
+            <Route path="*" element={<NotFoundPanel />} />
+          </Route>
         </Route>
       </Route>
 
