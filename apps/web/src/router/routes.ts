@@ -17,6 +17,7 @@ export const ROUTES = {
     schools: '/admin/schools',
     schoolsView: '/admin/schools/view',
     schoolsAdd: '/admin/schools/add',
+    schoolDetail: '/admin/schools/:id',
     students: '/admin/students',
     studentsView: '/admin/students/view',
     studentsManage: '/admin/students/manage',

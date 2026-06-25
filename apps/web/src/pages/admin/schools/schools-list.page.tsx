@@ -2,11 +2,11 @@
  * REFERENCE PAGE PATTERN — SchoolsListPage
  * This is the reference for all future list pages.
  * Pattern:
- * 1. PageLayout template with title and action button
+ * 1. PageHeader widget (title + actions) — renders inside the shared role shell
  * 2. DataTable organism with typed columns
  * 3. Mock data with TODO for API integration
  * 4. Row click navigates to detail page
- * 5. Action button navigates to create flow (or opens modal — TBD)
+ * 5. Action button navigates to the create flow
  *
  * TODO: Replace MOCK_SCHOOLS with API call via React Query in next phase.
  */
@@ -18,7 +18,8 @@ import { OnboardingStatus, type SchoolListItem } from '@oses/types';
 import { Button } from '@/design-system/atoms/button';
 import { StatusBadge } from '@/design-system/molecules/status-badge';
 import { type ColumnDef, DataTable } from '@/design-system/organisms/data-table';
-import { PageLayout } from '@/design-system/templates/page-layout';
+
+import { PageHeader } from '../../dashboard/widgets';
 
 const MOCK_SCHOOLS: SchoolListItem[] = [
   {
@@ -96,21 +97,17 @@ export function SchoolsListPage(): React.ReactElement {
   ];
 
   return (
-    <PageLayout
-      title="Schools"
-      subtitle="Manage school onboarding and configurations"
-      actions={
-        <Button
-          variant="primary"
-          onClick={() => {
-            // TODO: navigate to create school page or open modal
-            console.log('Add School clicked — TODO: implement create flow');
-          }}
-        >
-          Add School
-        </Button>
-      }
-    >
+    <>
+      <PageHeader
+        title="Schools"
+        subtitle="Manage school onboarding and configurations"
+        actions={
+          <Button variant="primary" onClick={() => void navigate('/admin/schools/add')}>
+            Add School
+          </Button>
+        }
+      />
+
       <div className="rounded-lg border border-border bg-card shadow-sm">
         <DataTable<SchoolListItem>
           data={MOCK_SCHOOLS}
@@ -119,7 +116,7 @@ export function SchoolsListPage(): React.ReactElement {
           emptyMessage="No schools found"
         />
       </div>
-    </PageLayout>
+    </>
   );
 }
 

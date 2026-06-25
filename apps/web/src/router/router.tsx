@@ -23,6 +23,8 @@ const AdminHome = lazy(() => import('@/pages/dashboard/home/admin-home'));
 const ControllerHome = lazy(() => import('@/pages/dashboard/home/controller-home'));
 const EvaluatorHome = lazy(() => import('@/pages/dashboard/home/evaluator-home'));
 const SchoolHome = lazy(() => import('@/pages/dashboard/home/school-home'));
+const SchoolsListPage = lazy(() => import('@/pages/admin/schools/schools-list.page'));
+const SchoolDetailPage = lazy(() => import('@/pages/admin/schools/school-detail.page'));
 
 /** Relative child segment of an absolute path under its role home (no drift). */
 const rel = (home: string, full: string): string => full.slice(home.length + 1);
@@ -104,11 +106,15 @@ export function RouterConfig(): React.ReactElement {
             />
             <Route
               path={rel(ROUTES.admin.home, ROUTES.admin.schoolsView)}
-              element={<ModulePlaceholder title="Schools · View" />}
+              element={<SchoolsListPage />}
             />
             <Route
               path={rel(ROUTES.admin.home, ROUTES.admin.schoolsAdd)}
-              element={<ModulePlaceholder title="Schools · Add" />}
+              element={<SchoolDetailPage />}
+            />
+            <Route
+              path={rel(ROUTES.admin.home, ROUTES.admin.schoolDetail)}
+              element={<SchoolDetailPage />}
             />
             <Route
               path={rel(ROUTES.admin.home, ROUTES.admin.students)}
