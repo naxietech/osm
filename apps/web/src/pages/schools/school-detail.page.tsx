@@ -18,10 +18,9 @@ import {
   SchoolLevel,
 } from '@oses/types';
 
+import { PageHeader } from '@/components/widgets';
 import { Button } from '@/design-system/atoms/button';
 import { SchoolForm } from '@/design-system/organisms/school-form';
-
-import { PageHeader } from '../../dashboard/widgets';
 
 const MOCK_SCHOOL: School = {
   id: 'sch_001',

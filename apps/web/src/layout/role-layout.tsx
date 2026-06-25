@@ -7,10 +7,9 @@
 import { type ReactElement } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 
+import { ROLE_CONFIG } from '@/config/roles.config';
 import { DashboardLayout } from '@/design-system/templates/dashboard-layout';
 import { useAuth } from '@/hooks';
-
-import { ROLE_CONFIG } from './roles.config';
 
 export function RoleLayout(): ReactElement {
   const navigate = useNavigate();

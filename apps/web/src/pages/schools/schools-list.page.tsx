@@ -15,11 +15,10 @@ import { useNavigate } from 'react-router-dom';
 
 import { OnboardingStatus, type SchoolListItem } from '@oses/types';
 
+import { PageHeader } from '@/components/widgets';
 import { Button } from '@/design-system/atoms/button';
 import { StatusBadge } from '@/design-system/molecules/status-badge';
 import { type ColumnDef, DataTable } from '@/design-system/organisms/data-table';
-
-import { PageHeader } from '../../dashboard/widgets';
 
 const MOCK_SCHOOLS: SchoolListItem[] = [
   {

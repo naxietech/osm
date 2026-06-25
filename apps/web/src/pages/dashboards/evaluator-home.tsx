@@ -1,7 +1,5 @@
 import React from 'react';
 
-import { Button } from '@/design-system/atoms/button';
-
 import {
   BarChartPlaceholder,
   DarkCard,
@@ -10,7 +8,8 @@ import {
   PageHeader,
   Panel,
   StatCard,
-} from '../widgets';
+} from '@/components/widgets';
+import { Button } from '@/design-system/atoms/button';
 
 export function EvaluatorHome(): React.ReactElement {
   return (

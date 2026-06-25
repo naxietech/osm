@@ -1,7 +1,5 @@
 import React from 'react';
 
-import { Button } from '@/design-system/atoms/button';
-
 import {
   BarChartPlaceholder,
   DarkCard,
@@ -11,7 +9,8 @@ import {
   Panel,
   PersonRow,
   StatCard,
-} from '../widgets';
+} from '@/components/widgets';
+import { Button } from '@/design-system/atoms/button';
 
 export function AdminHome(): React.ReactElement {
   return (
