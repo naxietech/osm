@@ -1,13 +1,11 @@
 /*
  * Typography tokens.
  *
- * Font files are loaded in main.tsx (@fontsource/poppins + @fontsource/dm-serif-text).
- * This file only registers the families so Tailwind's font utilities and the base
- * body style can use them:
- *   - font-sans  -> Poppins         (body / UI)
- *   - font-serif -> DM Serif Text   (main headings only; weight 400 is all it has)
+ * Font files are loaded in main.tsx (@fontsource/poppins). This file only
+ * registers the family so Tailwind's font utilities and the base body style can
+ * use it:
+ *   - font-sans -> Poppins   (body / UI / headings)
  */
 @theme {
   --font-sans: 'Poppins', system-ui, sans-serif;
-  --font-serif: 'DM Serif Text', ui-serif, Georgia, serif;
 }

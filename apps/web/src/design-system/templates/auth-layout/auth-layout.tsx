@@ -16,9 +16,7 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps): Reac
       </div>
       <div className="w-full max-w-md rounded-xl border border-border bg-card p-8 shadow-xl">
         <p className="mb-2 text-center text-2xl font-bold text-brand">OSES</p>
-        <h1 className="mb-1 text-center font-serif text-2xl font-normal text-foreground">
-          {title}
-        </h1>
+        <h1 className="mb-1 text-center text-2xl font-semibold text-foreground">{title}</h1>
         {subtitle && <p className="mb-6 text-center text-sm text-muted-foreground">{subtitle}</p>}
         {children}
       </div>

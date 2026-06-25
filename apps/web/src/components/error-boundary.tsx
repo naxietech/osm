@@ -30,7 +30,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     if (error) {
       return (
         <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background p-6 text-center text-foreground">
-          <h1 className="font-serif text-3xl">Something went wrong</h1>
+          <h1 className="text-3xl font-semibold">Something went wrong</h1>
           <p className="max-w-md text-sm text-muted-foreground">
             An unexpected error occurred. Try reloading the page.
           </p>

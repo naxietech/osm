@@ -48,7 +48,7 @@ export function PageLayout({
       <div className="ml-60 flex flex-1 flex-col overflow-hidden">
         {/* Top nav bar */}
         <header className="fixed left-60 right-0 top-0 z-10 flex h-16 items-center justify-between border-b border-border bg-card px-6">
-          <h1 className="font-serif text-2xl font-normal text-foreground">{title}</h1>
+          <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
           <div className="flex items-center gap-3">
             <ThemeToggle />
             {actions && <div className="flex items-center gap-3">{actions}</div>}

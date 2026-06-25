@@ -7,71 +7,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
+import { ChevronDown, LogOut, Menu, X } from '@/design-system/atoms/icon';
 import { ThemeToggle } from '@/design-system/atoms/theme-toggle';
 import { useAuth } from '@/hooks';
 import { cn, getInitials } from '@/lib/utils';
 
 import { type NavItem, ROLE_CONFIG } from './roles.config';
-
-function LogoutIcon(): React.ReactElement {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-      <polyline points="16 17 21 12 16 7" />
-      <line x1="21" y1="12" x2="9" y2="12" />
-    </svg>
-  );
-}
-
-function MenuIcon(): React.ReactElement {
-  return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <line x1="3" y1="6" x2="21" y2="6" />
-      <line x1="3" y1="12" x2="21" y2="12" />
-      <line x1="3" y1="18" x2="21" y2="18" />
-    </svg>
-  );
-}
-
-function CloseIcon(): React.ReactElement {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <line x1="18" y1="6" x2="6" y2="18" />
-      <line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  );
-}
 
 function LeafLink({ item, pathname }: { item: NavItem; pathname: string }): React.ReactElement {
   const active = item.to === pathname;
@@ -94,26 +35,6 @@ function LeafLink({ item, pathname }: { item: NavItem; pathname: string }): Reac
       <span className={cn('h-4 w-4 rounded', active ? 'bg-brand' : 'bg-current opacity-40')} />
       {item.label}
     </Link>
-  );
-}
-
-function ChevronIcon({ className }: { className?: string }): React.ReactElement {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      focusable="false"
-      className={className}
-    >
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
   );
 }
 
@@ -146,8 +67,10 @@ function NavGroup({ item, pathname }: { item: NavItem; pathname: string }): Reac
           className={cn('h-4 w-4 rounded', hasActiveChild ? 'bg-brand' : 'bg-current opacity-40')}
         />
         <span className="flex-1">{item.label}</span>
-        <ChevronIcon
+        <ChevronDown
+          size={16}
           className={cn('shrink-0 transition-transform duration-200', open && 'rotate-180')}
+          aria-hidden
         />
       </button>
 
@@ -289,7 +212,7 @@ export function RoleLayout(): React.ReactElement {
         <div className="flex h-16 items-center justify-between gap-2.5 px-5">
           <div className="flex items-center gap-2.5">
             <span className="h-8 w-8 rounded-lg bg-brand-gradient" />
-            <span className="font-serif text-xl text-foreground">OSES</span>
+            <span className="text-xl font-semibold text-foreground">OSES</span>
           </div>
           <button
             type="button"
@@ -297,7 +220,7 @@ export function RoleLayout(): React.ReactElement {
             aria-label="Close menu"
             className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden"
           >
-            <CloseIcon />
+            <X size={18} aria-hidden />
           </button>
         </div>
 
@@ -339,7 +262,7 @@ export function RoleLayout(): React.ReactElement {
             aria-expanded={drawerOpen}
             className="flex h-9 w-9 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring lg:hidden"
           >
-            <MenuIcon />
+            <Menu size={20} aria-hidden />
           </button>
 
           <div className="hidden h-9 w-full max-w-md items-center gap-2 rounded-md border border-input bg-background px-3 text-sm text-muted-foreground md:flex">
@@ -368,7 +291,7 @@ export function RoleLayout(): React.ReactElement {
               aria-label="Log out"
               className="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
-              <LogoutIcon />
+              <LogOut size={16} aria-hidden />
             </button>
           </div>
         </header>
