@@ -11,6 +11,7 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 
 import { Button } from '@/design-system/atoms/button';
+import { Lock, Mail } from '@/design-system/atoms/icon';
 import { FormField } from '@/design-system/molecules/form-field';
 import { AuthLayout } from '@/design-system/templates/auth-layout';
 import { useAuth } from '@/hooks';
@@ -22,42 +23,6 @@ const validationSchema = Yup.object({
     .min(6, 'Password must be at least 6 characters')
     .required('Password is required'),
 });
-
-/** Envelope — leading icon for the email field. */
-function MailIcon(): React.ReactElement {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <rect width="20" height="16" x="2" y="4" rx="2" />
-      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-    </svg>
-  );
-}
-
-/** Padlock — leading icon for the password field. */
-function LockIcon(): React.ReactElement {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
-      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-    </svg>
-  );
-}
 
 export function LoginPage(): React.ReactElement {
   const navigate = useNavigate();
@@ -94,7 +59,7 @@ export function LoginPage(): React.ReactElement {
           type="email"
           autoComplete="email"
           label="Email Address"
-          leadingIcon={<MailIcon />}
+          leadingIcon={<Mail aria-hidden />}
           value={formik.values.email}
           onChange={formik.handleChange}
           onBlur={formik.handleBlur}
@@ -108,7 +73,7 @@ export function LoginPage(): React.ReactElement {
           type="password"
           autoComplete="current-password"
           label="Password"
-          leadingIcon={<LockIcon />}
+          leadingIcon={<Lock aria-hidden />}
           value={formik.values.password}
           onChange={formik.handleChange}
           onBlur={formik.handleBlur}

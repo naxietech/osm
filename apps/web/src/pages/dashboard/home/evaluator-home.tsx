@@ -54,7 +54,7 @@ export function EvaluatorHome(): React.ReactElement {
         </Panel>
         <DarkCard className="lg:col-span-4">
           <div className="h-3 w-24 rounded bg-white/30" />
-          <p className="mt-6 text-center font-serif text-4xl tabular-nums">01:24:08</p>
+          <p className="mt-6 text-center text-4xl font-semibold tabular-nums">01:24:08</p>
           <div className="mt-6 flex justify-center gap-3">
             <span className="h-9 w-9 rounded-full bg-white/15" />
             <span className="h-9 w-9 rounded-full bg-white/15" />

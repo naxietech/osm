@@ -1,19 +1,7 @@
 import { UserRole } from '@oses/types';
 
+import type { NavSection } from '@/design-system/organisms/sidebar';
 import { ROUTES } from '@/router/routes';
-
-export interface NavItem {
-  label: string;
-  /** Route to navigate to; omit when the item only groups a submenu. */
-  to?: string;
-  /** Submenu items (e.g. Students → View / Add-Delete). */
-  children?: NavItem[];
-}
-
-export interface NavSection {
-  label: string;
-  items: NavItem[];
-}
 
 export interface RoleConfig {
   label: string;
