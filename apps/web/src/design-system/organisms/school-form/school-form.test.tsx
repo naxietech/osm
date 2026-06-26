@@ -9,6 +9,12 @@ const defaultProps = {
   mode: 'create' as const,
 };
 
+/** Opens a custom dropdown by its label and clicks the named option. */
+function choose(labelRe: RegExp, optionName: string): void {
+  fireEvent.click(screen.getByLabelText(labelRe));
+  fireEvent.click(screen.getByRole('option', { name: optionName }));
+}
+
 /** Fills every required field with valid values. */
 function fillValidForm(): void {
   fireEvent.change(screen.getByLabelText(/Institution Code/i), { target: { value: 'ISB-001' } });
@@ -16,10 +22,10 @@ function fillValidForm(): void {
     target: { value: 'Test School' },
   });
   fireEvent.change(screen.getByLabelText(/Affiliation No/i), { target: { value: 'REG-123' } });
-  fireEvent.change(screen.getByLabelText(/Institution Type/i), { target: { value: 'government' } });
-  fireEvent.change(screen.getByLabelText(/School Level/i), { target: { value: 'secondary' } });
-  fireEvent.change(screen.getByLabelText(/Category/i), { target: { value: 'boys' } });
-  fireEvent.change(screen.getByLabelText(/Province/i), { target: { value: 'punjab' } });
+  choose(/Institution Type/i, 'Government');
+  choose(/School Level/i, 'Secondary (SSC / Matric)');
+  choose(/Category/i, 'Boys');
+  choose(/Province/i, 'Punjab');
   fireEvent.change(screen.getByLabelText(/Address/i), {
     target: { value: 'Street 1, Sector F-8' },
   });

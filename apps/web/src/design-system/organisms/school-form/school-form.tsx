@@ -18,6 +18,7 @@ import {
 } from '@oses/types';
 
 import { Button } from '@/design-system/atoms/button';
+import { Building2, type LucideIcon, MapPin, User } from '@/design-system/atoms/icon';
 import { FormField } from '@/design-system/molecules/form-field';
 import { SelectField, type SelectOption } from '@/design-system/molecules/select-field';
 
@@ -138,6 +139,24 @@ const validationSchema = Yup.object({
     .required('Contact phone is required'),
 });
 
+/** Iconed section heading used to group related fields. */
+function SectionHeading({
+  icon: Icon,
+  children,
+}: {
+  icon: LucideIcon;
+  children: React.ReactNode;
+}): React.ReactElement {
+  return (
+    <div className="mb-5 flex items-center gap-3">
+      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-gradient text-white shadow-sm">
+        <Icon className="h-[18px] w-[18px]" aria-hidden />
+      </span>
+      <h3 className="text-sm font-semibold tracking-tight text-foreground">{children}</h3>
+    </div>
+  );
+}
+
 export function SchoolForm({
   initialValues,
   onSubmit,
@@ -189,183 +208,197 @@ export function SchoolForm({
   const fieldError = (name: keyof SchoolFormValues): string | undefined =>
     formik.touched[name] ? formik.errors[name] : undefined;
 
+  /** Wires the custom SelectField (value + onChange/onBlur/error) to Formik. */
+  const selectProps = (
+    name: keyof SchoolFormValues,
+  ): {
+    value: string;
+    onChange: (value: string) => void;
+    onBlur: () => void;
+    error: string | undefined;
+  } => ({
+    value: formik.values[name],
+    onChange: (value: string) => void formik.setFieldValue(name, value),
+    onBlur: () => void formik.setFieldTouched(name, true),
+    error: fieldError(name),
+  });
+
+  const gridClass = 'grid grid-cols-1 gap-x-6 gap-y-2 md:grid-cols-2 lg:grid-cols-3';
+
   return (
-    <form onSubmit={formik.handleSubmit} noValidate>
-      <div className="grid gap-x-6 gap-y-2 md:grid-cols-2">
-        <FormField
-          id="schoolCode"
-          name="schoolCode"
-          label="School / Institution Code"
-          value={formik.values.schoolCode}
-          onChange={formik.handleChange}
-          onBlur={formik.handleBlur}
-          error={fieldError('schoolCode')}
-          disabled={mode === 'edit'}
-          required
-        />
+    <form onSubmit={formik.handleSubmit} noValidate className="space-y-10">
+      <section>
+        <SectionHeading icon={Building2}>School Information</SectionHeading>
+        <div className={gridClass}>
+          <FormField
+            id="schoolName"
+            name="schoolName"
+            label="School / Institution Name"
+            containerClassName="md:col-span-2 lg:col-span-3"
+            value={formik.values.schoolName}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={fieldError('schoolName')}
+            required
+          />
 
-        <FormField
-          id="registrationNo"
-          name="registrationNo"
-          label="Registration / Affiliation No."
-          value={formik.values.registrationNo}
-          onChange={formik.handleChange}
-          onBlur={formik.handleBlur}
-          error={fieldError('registrationNo')}
-          required
-        />
+          <FormField
+            id="schoolCode"
+            name="schoolCode"
+            label="School / Institution Code"
+            value={formik.values.schoolCode}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={fieldError('schoolCode')}
+            disabled={mode === 'edit'}
+            required
+          />
 
-        <FormField
-          id="schoolName"
-          name="schoolName"
-          label="School / Institution Name"
-          containerClassName="md:col-span-2"
-          value={formik.values.schoolName}
-          onChange={formik.handleChange}
-          onBlur={formik.handleBlur}
-          error={fieldError('schoolName')}
-          required
-        />
+          <FormField
+            id="registrationNo"
+            name="registrationNo"
+            label="Registration / Affiliation No."
+            value={formik.values.registrationNo}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={fieldError('registrationNo')}
+            required
+          />
 
-        <SelectField
-          id="institutionType"
-          name="institutionType"
-          label="Institution Type"
-          placeholder="Select institution type"
-          options={INSTITUTION_TYPE_OPTIONS}
-          value={formik.values.institutionType}
-          onChange={formik.handleChange}
-          onBlur={formik.handleBlur}
-          error={fieldError('institutionType')}
-          required
-        />
+          <SelectField
+            id="institutionType"
+            name="institutionType"
+            label="Institution Type"
+            options={INSTITUTION_TYPE_OPTIONS}
+            required
+            {...selectProps('institutionType')}
+          />
 
-        <SelectField
-          id="schoolLevel"
-          name="schoolLevel"
-          label="School Level"
-          placeholder="Select level"
-          options={SCHOOL_LEVEL_OPTIONS}
-          value={formik.values.schoolLevel}
-          onChange={formik.handleChange}
-          onBlur={formik.handleBlur}
-          error={fieldError('schoolLevel')}
-          required
-        />
+          <SelectField
+            id="schoolLevel"
+            name="schoolLevel"
+            label="School Level"
+            options={SCHOOL_LEVEL_OPTIONS}
+            required
+            {...selectProps('schoolLevel')}
+          />
 
-        <SelectField
-          id="category"
-          name="category"
-          label="Category"
-          placeholder="Select category"
-          options={CATEGORY_OPTIONS}
-          value={formik.values.category}
-          onChange={formik.handleChange}
-          onBlur={formik.handleBlur}
-          error={fieldError('category')}
-          required
-        />
+          <SelectField
+            id="category"
+            name="category"
+            label="Category"
+            options={CATEGORY_OPTIONS}
+            required
+            {...selectProps('category')}
+          />
+        </div>
+      </section>
 
-        <SelectField
-          id="province"
-          name="province"
-          label="Province / Region"
-          placeholder="Select province / region"
-          options={PROVINCE_OPTIONS}
-          value={formik.values.province}
-          onChange={formik.handleChange}
-          onBlur={formik.handleBlur}
-          error={fieldError('province')}
-          required
-        />
+      <section>
+        <SectionHeading icon={MapPin}>Address</SectionHeading>
+        <div className={gridClass}>
+          <FormField
+            id="address"
+            name="address"
+            label="Address"
+            containerClassName="md:col-span-2 lg:col-span-3"
+            value={formik.values.address}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={fieldError('address')}
+            required
+          />
 
-        <FormField
-          id="address"
-          name="address"
-          label="Address"
-          containerClassName="md:col-span-2"
-          value={formik.values.address}
-          onChange={formik.handleChange}
-          onBlur={formik.handleBlur}
-          error={fieldError('address')}
-          required
-        />
+          <FormField
+            id="city"
+            name="city"
+            label="City"
+            value={formik.values.city}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={fieldError('city')}
+            required
+          />
 
-        <FormField
-          id="city"
-          name="city"
-          label="City"
-          value={formik.values.city}
-          onChange={formik.handleChange}
-          onBlur={formik.handleBlur}
-          error={fieldError('city')}
-          required
-        />
+          <SelectField
+            id="province"
+            name="province"
+            label="Province / Region"
+            options={PROVINCE_OPTIONS}
+            required
+            {...selectProps('province')}
+          />
 
-        <FormField
-          id="postalCode"
-          name="postalCode"
-          label="Postal Code (optional)"
-          inputMode="numeric"
-          value={formik.values.postalCode}
-          onChange={formik.handleChange}
-          onBlur={formik.handleBlur}
-          error={fieldError('postalCode')}
-        />
+          <FormField
+            id="postalCode"
+            name="postalCode"
+            label="Postal Code (optional)"
+            inputMode="numeric"
+            value={formik.values.postalCode}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={fieldError('postalCode')}
+          />
+        </div>
+      </section>
 
-        <FormField
-          id="contactPersonName"
-          name="contactPersonName"
-          label="Contact Person Name"
-          value={formik.values.contactPersonName}
-          onChange={formik.handleChange}
-          onBlur={formik.handleBlur}
-          error={fieldError('contactPersonName')}
-          required
-        />
+      <section>
+        <SectionHeading icon={User}>Contact Person</SectionHeading>
+        <div className={gridClass}>
+          <FormField
+            id="contactPersonName"
+            name="contactPersonName"
+            label="Contact Person Name"
+            value={formik.values.contactPersonName}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={fieldError('contactPersonName')}
+            required
+          />
 
-        <FormField
-          id="contactPersonDesignation"
-          name="contactPersonDesignation"
-          label="Designation"
-          value={formik.values.contactPersonDesignation}
-          onChange={formik.handleChange}
-          onBlur={formik.handleBlur}
-          error={fieldError('contactPersonDesignation')}
-          required
-        />
+          <FormField
+            id="contactPersonDesignation"
+            name="contactPersonDesignation"
+            label="Designation"
+            value={formik.values.contactPersonDesignation}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={fieldError('contactPersonDesignation')}
+            required
+          />
 
-        <FormField
-          id="contactEmail"
-          name="contactEmail"
-          type="email"
-          label="Contact Email"
-          value={formik.values.contactEmail}
-          onChange={formik.handleChange}
-          onBlur={formik.handleBlur}
-          error={fieldError('contactEmail')}
-          required
-        />
+          <FormField
+            id="contactEmail"
+            name="contactEmail"
+            type="email"
+            label="Contact Email"
+            value={formik.values.contactEmail}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={fieldError('contactEmail')}
+            required
+          />
 
-        <FormField
-          id="contactPhone"
-          name="contactPhone"
-          type="tel"
-          label="Contact Phone"
-          value={formik.values.contactPhone}
-          onChange={formik.handleChange}
-          onBlur={formik.handleBlur}
-          error={fieldError('contactPhone')}
-          required
-        />
-      </div>
+          <FormField
+            id="contactPhone"
+            name="contactPhone"
+            type="tel"
+            label="Contact Phone"
+            value={formik.values.contactPhone}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={fieldError('contactPhone')}
+            required
+          />
+        </div>
+      </section>
 
-      <div className="mt-6 flex gap-3">
-        <Button type="submit" isLoading={isSubmitting}>
+      <div className="flex gap-3 border-t border-border pt-6">
+        <Button type="submit" size="lg" isLoading={isSubmitting}>
           {mode === 'create' ? 'Create School' : 'Save Changes'}
         </Button>
         {onCancel && (
-          <Button type="button" variant="ghost" onClick={onCancel}>
+          <Button type="button" variant="ghost" size="lg" onClick={onCancel}>
             Cancel
           </Button>
         )}

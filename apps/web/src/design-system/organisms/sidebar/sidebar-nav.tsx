@@ -18,7 +18,7 @@ export function SidebarNav({ sections, pathname }: SidebarNavProps): ReactElemen
           <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
             {section.label}
           </p>
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-2">
             {section.items.map((item) =>
               item.children ? (
                 <NavGroup key={item.label} item={item} pathname={pathname} />
@@ -28,6 +28,7 @@ export function SidebarNav({ sections, pathname }: SidebarNavProps): ReactElemen
                   label={item.label}
                   to={item.to ?? '#'}
                   active={item.to === pathname}
+                  icon={item.icon}
                 />
               ),
             )}

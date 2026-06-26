@@ -1,6 +1,7 @@
 import { type ReactElement } from 'react';
 import { Link } from 'react-router-dom';
 
+import { type LucideIcon } from '@/design-system/atoms/icon';
 import { cn } from '@/lib/utils';
 
 export interface NavLeafProps {
@@ -8,10 +9,12 @@ export interface NavLeafProps {
   to: string;
   /** Whether this link matches the current route. */
   active: boolean;
+  /** Leading icon. */
+  icon?: LucideIcon;
 }
 
 /** A single sidebar link (leaf). Presentational — active state is passed in. */
-export function NavLeaf({ label, to, active }: NavLeafProps): ReactElement {
+export function NavLeaf({ label, to, active, icon: Icon }: NavLeafProps): ReactElement {
   return (
     <Link
       to={to}
@@ -28,7 +31,11 @@ export function NavLeaf({ label, to, active }: NavLeafProps): ReactElement {
           className="absolute inset-y-1.5 -left-2 w-1 rounded-full bg-brand"
         />
       )}
-      <span className={cn('h-4 w-4 rounded', active ? 'bg-brand' : 'bg-current opacity-40')} />
+      {Icon ? (
+        <Icon className={cn('h-5 w-5 shrink-0', active && 'text-brand')} aria-hidden />
+      ) : (
+        <span className={cn('h-4 w-4 rounded', active ? 'bg-brand' : 'bg-current opacity-40')} />
+      )}
       {label}
     </Link>
   );

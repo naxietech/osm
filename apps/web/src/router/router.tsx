@@ -9,22 +9,24 @@ import { Link, Navigate, Route, Routes } from 'react-router-dom';
 
 import { UserRole } from '@oses/types';
 
+import { ModulePlaceholder, NotFoundPanel } from '@/components/widgets';
+import { ROLE_CONFIG } from '@/config/roles.config';
 import { useAuth } from '@/hooks';
-import { ROLE_CONFIG } from '@/pages/dashboard/roles.config';
-import { ModulePlaceholder, NotFoundPanel } from '@/pages/dashboard/widgets';
 
 import { ProtectedRoute } from './protected-route';
 import { RoleRoute } from './role-route';
 import { ROUTES } from './routes';
 
 const LoginPage = lazy(() => import('@/pages/auth/login.page'));
-const RoleLayout = lazy(() => import('@/pages/dashboard/role-layout'));
-const AdminHome = lazy(() => import('@/pages/dashboard/home/admin-home'));
-const ControllerHome = lazy(() => import('@/pages/dashboard/home/controller-home'));
-const EvaluatorHome = lazy(() => import('@/pages/dashboard/home/evaluator-home'));
-const SchoolHome = lazy(() => import('@/pages/dashboard/home/school-home'));
-const SchoolsListPage = lazy(() => import('@/pages/admin/schools/schools-list.page'));
-const SchoolDetailPage = lazy(() => import('@/pages/admin/schools/school-detail.page'));
+const RoleLayout = lazy(() => import('@/layout/role-layout'));
+const AdminHome = lazy(() => import('@/pages/dashboards/admin-home'));
+const ControllerHome = lazy(() => import('@/pages/dashboards/controller-home'));
+const EvaluatorHome = lazy(() => import('@/pages/dashboards/evaluator-home'));
+const SchoolHome = lazy(() => import('@/pages/dashboards/school-home'));
+const SchoolsListPage = lazy(() => import('@/pages/schools/schools-list.page'));
+const SchoolDetailPage = lazy(() => import('@/pages/schools/school-detail.page'));
+const StudentsListPage = lazy(() => import('@/pages/students/students-list.page'));
+const StudentDetailPage = lazy(() => import('@/pages/students/student-detail.page'));
 
 /** Relative child segment of an absolute path under its role home (no drift). */
 const rel = (home: string, full: string): string => full.slice(home.length + 1);
@@ -122,11 +124,15 @@ export function RouterConfig(): React.ReactElement {
             />
             <Route
               path={rel(ROUTES.admin.home, ROUTES.admin.studentsView)}
-              element={<ModulePlaceholder title="Students · View" />}
+              element={<StudentsListPage />}
             />
             <Route
               path={rel(ROUTES.admin.home, ROUTES.admin.studentsManage)}
-              element={<ModulePlaceholder title="Students · Add / Delete" />}
+              element={<StudentDetailPage />}
+            />
+            <Route
+              path={rel(ROUTES.admin.home, ROUTES.admin.studentDetail)}
+              element={<StudentDetailPage />}
             />
             <Route path="*" element={<NotFoundPanel />} />
           </Route>
@@ -194,11 +200,15 @@ export function RouterConfig(): React.ReactElement {
             />
             <Route
               path={rel(ROUTES.school.home, ROUTES.school.studentsView)}
-              element={<ModulePlaceholder title="Students · View" />}
+              element={<StudentsListPage />}
             />
             <Route
               path={rel(ROUTES.school.home, ROUTES.school.studentsManage)}
-              element={<ModulePlaceholder title="Students · Add / Delete" />}
+              element={<StudentDetailPage />}
+            />
+            <Route
+              path={rel(ROUTES.school.home, ROUTES.school.studentDetail)}
+              element={<StudentDetailPage />}
             />
             <Route
               path={rel(ROUTES.school.home, ROUTES.school.results)}
