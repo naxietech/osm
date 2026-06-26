@@ -4,17 +4,31 @@
  */
 import React from 'react';
 
+import { type LucideIcon, TrendingDown, TrendingUp } from '@/design-system/atoms/icon';
 import { cn } from '@/lib/utils';
+
+export interface StatCardProps {
+  label: string;
+  value: string;
+  /** Icon shown in the top-right chip. */
+  icon?: LucideIcon;
+  /** Percentage change vs the previous period (positive = up). */
+  delta?: number;
+  /** Caption next to the delta. */
+  deltaLabel?: string;
+  /** Brand-gradient accent variant. */
+  dark?: boolean;
+}
 
 export function StatCard({
   label,
   value,
+  icon: Icon,
+  delta,
+  deltaLabel = 'vs last week',
   dark = false,
-}: {
-  label: string;
-  value: string;
-  dark?: boolean;
-}): React.ReactElement {
+}: StatCardProps): React.ReactElement {
+  const up = (delta ?? 0) >= 0;
   return (
     <div
       className={cn(
@@ -26,21 +40,43 @@ export function StatCard({
         <span className={cn('text-sm', dark ? 'text-white/80' : 'text-muted-foreground')}>
           {label}
         </span>
-        <span
-          className={cn(
-            'flex h-7 w-7 items-center justify-center rounded-full text-xs',
-            dark ? 'bg-white/15 text-white' : 'bg-muted text-muted-foreground',
-          )}
-        >
-          ↗
-        </span>
+        {Icon && (
+          <span
+            className={cn(
+              'flex h-9 w-9 items-center justify-center rounded-lg',
+              dark ? 'bg-white/15 text-white' : 'bg-brand-subtle text-brand',
+            )}
+          >
+            <Icon className="h-[18px] w-[18px]" aria-hidden />
+          </span>
+        )}
       </div>
       <p className={cn('mt-4 text-3xl font-semibold', dark ? 'text-white' : 'text-foreground')}>
         {value}
       </p>
-      <p className={cn('mt-2 text-xs', dark ? 'text-white/70' : 'text-muted-foreground')}>
-        Increased from last month
-      </p>
+      {delta !== undefined && (
+        <p
+          className={cn(
+            'mt-2 flex items-center gap-1.5 text-xs',
+            dark ? 'text-white/70' : 'text-muted-foreground',
+          )}
+        >
+          <span
+            className={cn(
+              'inline-flex items-center gap-0.5 font-medium',
+              dark ? 'text-white' : up ? 'text-success-foreground' : 'text-danger-foreground',
+            )}
+          >
+            {up ? (
+              <TrendingUp className="h-3.5 w-3.5" aria-hidden />
+            ) : (
+              <TrendingDown className="h-3.5 w-3.5" aria-hidden />
+            )}
+            {Math.abs(delta)}%
+          </span>
+          {deltaLabel}
+        </p>
+      )}
     </div>
   );
 }

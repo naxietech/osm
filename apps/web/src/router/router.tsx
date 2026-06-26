@@ -25,6 +25,8 @@ const EvaluatorHome = lazy(() => import('@/pages/dashboards/evaluator-home'));
 const SchoolHome = lazy(() => import('@/pages/dashboards/school-home'));
 const SchoolsListPage = lazy(() => import('@/pages/schools/schools-list.page'));
 const SchoolDetailPage = lazy(() => import('@/pages/schools/school-detail.page'));
+const StudentsListPage = lazy(() => import('@/pages/students/students-list.page'));
+const StudentDetailPage = lazy(() => import('@/pages/students/student-detail.page'));
 
 /** Relative child segment of an absolute path under its role home (no drift). */
 const rel = (home: string, full: string): string => full.slice(home.length + 1);
@@ -122,11 +124,15 @@ export function RouterConfig(): React.ReactElement {
             />
             <Route
               path={rel(ROUTES.admin.home, ROUTES.admin.studentsView)}
-              element={<ModulePlaceholder title="Students · View" />}
+              element={<StudentsListPage />}
             />
             <Route
               path={rel(ROUTES.admin.home, ROUTES.admin.studentsManage)}
-              element={<ModulePlaceholder title="Students · Add / Delete" />}
+              element={<StudentDetailPage />}
+            />
+            <Route
+              path={rel(ROUTES.admin.home, ROUTES.admin.studentDetail)}
+              element={<StudentDetailPage />}
             />
             <Route path="*" element={<NotFoundPanel />} />
           </Route>
@@ -194,11 +200,15 @@ export function RouterConfig(): React.ReactElement {
             />
             <Route
               path={rel(ROUTES.school.home, ROUTES.school.studentsView)}
-              element={<ModulePlaceholder title="Students · View" />}
+              element={<StudentsListPage />}
             />
             <Route
               path={rel(ROUTES.school.home, ROUTES.school.studentsManage)}
-              element={<ModulePlaceholder title="Students · Add / Delete" />}
+              element={<StudentDetailPage />}
+            />
+            <Route
+              path={rel(ROUTES.school.home, ROUTES.school.studentDetail)}
+              element={<StudentDetailPage />}
             />
             <Route
               path={rel(ROUTES.school.home, ROUTES.school.results)}

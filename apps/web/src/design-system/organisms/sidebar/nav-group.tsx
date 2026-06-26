@@ -15,6 +15,7 @@ export interface NavGroupProps {
 
 /** Collapsible nav group — closed by default, auto-opens when a child is active. */
 export function NavGroup({ item, pathname }: NavGroupProps): ReactElement {
+  const Icon = item.icon;
   const children = item.children ?? [];
   const hasActiveChild = children.some((c) => c.to === pathname);
   const [open, setOpen] = useState(() => hasActiveChild);
@@ -38,9 +39,13 @@ export function NavGroup({ item, pathname }: NavGroupProps): ReactElement {
             : 'text-muted-foreground hover:bg-muted hover:text-foreground',
         )}
       >
-        <span
-          className={cn('h-4 w-4 rounded', hasActiveChild ? 'bg-brand' : 'bg-current opacity-40')}
-        />
+        {Icon ? (
+          <Icon className={cn('h-5 w-5 shrink-0', hasActiveChild && 'text-brand')} aria-hidden />
+        ) : (
+          <span
+            className={cn('h-4 w-4 rounded', hasActiveChild ? 'bg-brand' : 'bg-current opacity-40')}
+          />
+        )}
         <span className="flex-1">{item.label}</span>
         <ChevronDown
           size={16}

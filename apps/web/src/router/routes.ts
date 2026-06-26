@@ -21,6 +21,7 @@ export const ROUTES = {
     students: '/admin/students',
     studentsView: '/admin/students/view',
     studentsManage: '/admin/students/manage',
+    studentDetail: '/admin/students/:id',
   },
 
   controller: {
@@ -45,6 +46,7 @@ export const ROUTES = {
     students: '/school/students',
     studentsView: '/school/students/view',
     studentsManage: '/school/students/manage',
+    studentDetail: '/school/students/:id',
     results: '/school/results',
     profile: '/school/profile',
   },

@@ -1,5 +1,16 @@
 import { UserRole } from '@oses/types';
 
+import {
+  BarChart3,
+  Building2,
+  ClipboardCheck,
+  ClipboardList,
+  FileSpreadsheet,
+  History,
+  LayoutDashboard,
+  User,
+  Users,
+} from '@/design-system/atoms/icon';
 import type { NavSection } from '@/design-system/organisms/sidebar';
 import { ROUTES } from '@/router/routes';
 
@@ -22,19 +33,21 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
       {
         label: 'Menu',
         items: [
-          { label: 'Home', to: ROUTES.admin.home },
+          { label: 'Home', to: ROUTES.admin.home, icon: LayoutDashboard },
           {
             label: 'E-Sheet',
+            icon: FileSpreadsheet,
             children: [
               { label: 'Add Template', to: ROUTES.admin.eSheetTemplateAdd },
               { label: 'View Template', to: ROUTES.admin.eSheetTemplateView },
               { label: 'Generate E-Sheets', to: ROUTES.admin.eSheetGenerate },
             ],
           },
-          { label: 'Question Assignments', to: ROUTES.admin.questions },
-          { label: 'Results', to: ROUTES.admin.results },
+          { label: 'Question Assignments', to: ROUTES.admin.questions, icon: ClipboardList },
+          { label: 'Results', to: ROUTES.admin.results, icon: BarChart3 },
           {
             label: 'Schools',
+            icon: Building2,
             children: [
               { label: 'View', to: ROUTES.admin.schoolsView },
               { label: 'Add', to: ROUTES.admin.schoolsAdd },
@@ -42,6 +55,7 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
           },
           {
             label: 'Students',
+            icon: Users,
             children: [
               { label: 'View', to: ROUTES.admin.studentsView },
               { label: 'Add / Delete', to: ROUTES.admin.studentsManage },
@@ -58,17 +72,22 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
       {
         label: 'Menu',
         items: [
-          { label: 'Home', to: ROUTES.controller.home },
+          { label: 'Home', to: ROUTES.controller.home, icon: LayoutDashboard },
           {
             label: 'E-Sheet',
+            icon: FileSpreadsheet,
             children: [
               { label: 'Add Template', to: ROUTES.controller.eSheetTemplateAdd },
               { label: 'View Template', to: ROUTES.controller.eSheetTemplateView },
               { label: 'Generate E-Sheets', to: ROUTES.controller.eSheetGenerate },
             ],
           },
-          { label: 'Questions Assignment', to: ROUTES.controller.questions },
-          { label: 'Result Compilation', to: ROUTES.controller.resultCompilation },
+          { label: 'Questions Assignment', to: ROUTES.controller.questions, icon: ClipboardList },
+          {
+            label: 'Result Compilation',
+            to: ROUTES.controller.resultCompilation,
+            icon: BarChart3,
+          },
         ],
       },
     ],
@@ -80,10 +99,10 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
       {
         label: 'Menu',
         items: [
-          { label: 'Home', to: ROUTES.evaluator.home },
-          { label: 'Assign Work', to: ROUTES.evaluator.assignWork },
-          { label: 'History', to: ROUTES.evaluator.history },
-          { label: 'Profile', to: ROUTES.evaluator.profile },
+          { label: 'Home', to: ROUTES.evaluator.home, icon: LayoutDashboard },
+          { label: 'Assign Work', to: ROUTES.evaluator.assignWork, icon: ClipboardCheck },
+          { label: 'History', to: ROUTES.evaluator.history, icon: History },
+          { label: 'Profile', to: ROUTES.evaluator.profile, icon: User },
         ],
       },
     ],
@@ -95,16 +114,17 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
       {
         label: 'Menu',
         items: [
-          { label: 'Home', to: ROUTES.school.home },
+          { label: 'Home', to: ROUTES.school.home, icon: LayoutDashboard },
           {
             label: 'Students',
+            icon: Users,
             children: [
               { label: 'View', to: ROUTES.school.studentsView },
               { label: 'Add / Delete', to: ROUTES.school.studentsManage },
             ],
           },
-          { label: 'Results', to: ROUTES.school.results },
-          { label: 'Profile', to: ROUTES.school.profile },
+          { label: 'Results', to: ROUTES.school.results, icon: BarChart3 },
+          { label: 'Profile', to: ROUTES.school.profile, icon: User },
         ],
       },
     ],
