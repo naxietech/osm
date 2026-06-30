@@ -1,0 +1,153 @@
+/*
+ * Decorative animated "graph glyph" atoms — purely cosmetic SVG chart shapes used
+ * as ambient backdrops (see design-system/atoms/line-graph, bar-graph, gauge-ring,
+ * check-mark). Animation is CSS-only and self-drawing via SVG `pathLength="1"`
+ * normalisation, so no JS measurement is needed. Classes are global (not theme
+ * scoped) so the atoms are usable anywhere; all motion stops under reduced motion.
+ */
+
+/* line + area — group is revealed with a left-to-right clip-path wipe so it works
+   with a stretched svg + non-scaling stroke (no dependence on path length) */
+.glyph-line {
+  filter: drop-shadow(0 0 7px rgba(52, 211, 153, 0.45));
+  animation: glyph-line-draw 7.6s ease-in-out infinite;
+}
+@keyframes glyph-line-draw {
+  0% {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0;
+  }
+  6% {
+    opacity: 0.7;
+  }
+  45% {
+    clip-path: inset(0 0 0 0);
+    opacity: 0.7;
+  }
+  82% {
+    clip-path: inset(0 0 0 0);
+    opacity: 0.7;
+  }
+  98% {
+    clip-path: inset(0 0 0 0);
+    opacity: 0;
+  }
+  100% {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0;
+  }
+}
+
+/* bars */
+.glyph-bar {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  opacity: 0;
+  filter: drop-shadow(0 0 5px rgba(52, 211, 153, 0.28));
+  animation: glyph-bar-grow 7.6s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+}
+@keyframes glyph-bar-grow {
+  0% {
+    opacity: 0;
+    transform: scaleY(0);
+  }
+  10% {
+    opacity: 0.5;
+    transform: scaleY(1);
+  }
+  82% {
+    opacity: 0.5;
+    transform: scaleY(1);
+  }
+  97% {
+    opacity: 0;
+    transform: scaleY(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleY(0);
+  }
+}
+
+/* gauge ring (target offset comes from inline --glyph-end = 1 - pct) */
+.glyph-ring {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  filter: drop-shadow(0 0 6px rgba(52, 211, 153, 0.4));
+  animation: glyph-ring-fill 7.6s ease-in-out infinite;
+}
+@keyframes glyph-ring-fill {
+  0% {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  6% {
+    opacity: 0.55;
+  }
+  50% {
+    stroke-dashoffset: var(--glyph-end, 0.28);
+    opacity: 0.55;
+  }
+  82% {
+    stroke-dashoffset: var(--glyph-end, 0.28);
+    opacity: 0.55;
+  }
+  99%,
+  100% {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+}
+
+/* check mark — draws itself once (delay via inline animation-delay) then floats */
+.glyph-check {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  opacity: 0.5;
+  filter: drop-shadow(0 0 5px rgba(52, 211, 153, 0.35));
+  animation: glyph-check-draw 0.7s ease-out forwards;
+}
+@keyframes glyph-check-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.glyph-float {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: glyph-float-bob 5s ease-in-out infinite;
+}
+@keyframes glyph-float-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glyph-line {
+    animation: none;
+    clip-path: none;
+    opacity: 0.6;
+  }
+  .glyph-bar {
+    animation: none;
+    opacity: 0.5;
+    transform: scaleY(1);
+  }
+  .glyph-ring {
+    animation: none;
+    stroke-dashoffset: var(--glyph-end, 0.28);
+    opacity: 0.55;
+  }
+  .glyph-check {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  .glyph-float {
+    animation: none;
+  }
+}

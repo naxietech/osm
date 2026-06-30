@@ -1,8 +1,8 @@
 /*
  * Auth screen — scoped decorative styles for the login experience.
  * Everything here is namespaced under `.oses-auth` so it can never leak into the
- * rest of the app. Drives the animated login backdrop helpers and the
- * graduate-owl mascot (see atoms/login-background and atoms/mascot).
+ * rest of the app. Drives the card entrance and the graduate-owl mascot (see
+ * atoms/mascot). The animated backdrop glyphs live in styles/graph-glyphs.css.
  */
 
 /* card entrance */
@@ -18,33 +18,6 @@
 }
 .oses-auth .oses-card {
   animation: oses-card-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-
-/* ---- animated dashboard graph helpers ---- */
-.oses-auth .rline {
-  filter: drop-shadow(0 0 7px rgba(52, 211, 153, 0.45));
-}
-.oses-auth .rdot {
-  transform-box: fill-box;
-  transform-origin: center;
-  filter: drop-shadow(0 0 5px rgba(110, 231, 167, 0.6));
-}
-.oses-auth .rbar {
-  transform-box: fill-box;
-  transform-origin: bottom;
-  filter: drop-shadow(0 0 5px rgba(52, 211, 153, 0.28));
-}
-.oses-auth .tickbob {
-  animation: oses-tickbob 5s ease-in-out infinite;
-}
-@keyframes oses-tickbob {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-6px);
-  }
 }
 
 /* ---- mascot ---- */
@@ -104,7 +77,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .oses-auth .mascot,
-  .oses-auth .tickbob,
   .oses-auth .oses-card {
     animation: none;
   }

@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 
-import { LoginBackground } from '@/design-system/atoms/login-background';
 import { Mascot } from '@/design-system/atoms/mascot';
+import { LoginBackground } from '@/design-system/organisms/login-background';
 
 export interface AuthLayoutProps {
   children: React.ReactNode;
