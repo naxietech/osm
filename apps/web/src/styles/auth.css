@@ -1,0 +1,83 @@
+/*
+ * Auth screen — scoped decorative styles for the login experience.
+ * Everything here is namespaced under `.oses-auth` so it can never leak into the
+ * rest of the app. Drives the card entrance and the graduate-owl mascot (see
+ * atoms/mascot). The animated backdrop glyphs live in styles/graph-glyphs.css.
+ */
+
+/* card entrance */
+@keyframes oses-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.oses-auth .oses-card {
+  animation: oses-card-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* ---- mascot ---- */
+.oses-auth .mascot {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  animation: oses-idle 3.4s ease-in-out infinite;
+  filter: drop-shadow(0 16px 26px rgba(0, 0, 0, 0.5));
+}
+@keyframes oses-idle {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+.oses-auth .mascot .pupil {
+  transition: transform 0.12s ease-out;
+}
+.oses-auth .mascot .eye-white {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.09s ease;
+}
+.oses-auth .mascot.blink .eye-white {
+  transform: scaleY(0.1);
+}
+.oses-auth .mascot .brow {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.2s ease;
+}
+.oses-auth .mascot.valid .brow {
+  transform: translateY(-6px);
+}
+.oses-auth .mascot #oses-mouth {
+  transition: d 0.2s ease;
+}
+.oses-auth .mascot .hands {
+  transform: translateY(76px);
+  opacity: 0;
+  transition:
+    transform 0.38s cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 0.3s;
+}
+.oses-auth .mascot.cover .hands {
+  transform: translateY(0);
+  opacity: 1;
+}
+.oses-auth .mascot.cover.peek .hand-r {
+  transform: translate(6px, 30px) rotate(8deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oses-auth .mascot,
+  .oses-auth .oses-card {
+    animation: none;
+  }
+}
