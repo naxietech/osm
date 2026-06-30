@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 
-import { DashboardBackground } from '@/design-system/atoms/dashboard-background';
+import { LoginBackground } from '@/design-system/atoms/login-background';
 import { Mascot } from '@/design-system/atoms/mascot';
 
 export interface AuthLayoutProps {
@@ -11,7 +11,7 @@ export interface AuthLayoutProps {
 
 /**
  * Immersive dark auth shell: a graduate-owl {@link Mascot} on a frosted-glass card
- * floating over the animated {@link DashboardBackground} (line/area, bars, donut
+ * floating over the animated {@link LoginBackground} (line/area, bars, donut
  * and check marks). The whole screen is forced into dark (`.dark` wrapper) so the
  * design-system form atoms used as children render their dark variants and match
  * the card automatically.
@@ -24,7 +24,7 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps): Reac
 
   return (
     <div className="oses-auth dark relative flex min-h-screen items-center justify-center overflow-x-hidden bg-[radial-gradient(125%_125%_at_50%_0%,#0d2c1d_0%,#08180f_48%,#050d09_100%)] px-4 py-16 text-[#e8f3ee]">
-      <DashboardBackground />
+      <LoginBackground />
 
       <div className="relative z-10 w-full max-w-md">
         <div

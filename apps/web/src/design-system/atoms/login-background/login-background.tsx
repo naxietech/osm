@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 
 /**
- * Full-page animated "exam dashboard" backdrop for the auth screen: a single
+ * Full-page animated analytics backdrop for the login screen: a single
  * self-drawing line + area chart, a growing bar chart, a filling donut gauge and
  * a few self-drawing check marks — all in brand green, looping gently behind the
  * login card.
@@ -41,7 +41,7 @@ interface DonutOpt {
   delay?: number;
 }
 
-export function DashboardBackground(): React.ReactElement {
+export function LoginBackground(): React.ReactElement {
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
@@ -397,4 +397,4 @@ export function DashboardBackground(): React.ReactElement {
   );
 }
 
-export default DashboardBackground;
+export default LoginBackground;

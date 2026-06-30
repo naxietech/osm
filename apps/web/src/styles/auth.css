@@ -1,8 +1,8 @@
 /*
  * Auth screen — scoped decorative styles for the login experience.
  * Everything here is namespaced under `.oses-auth` so it can never leak into the
- * rest of the app. Drives the animated dashboard backdrop helpers and the
- * graduate-owl mascot (see atoms/dashboard-background and atoms/mascot).
+ * rest of the app. Drives the animated login backdrop helpers and the
+ * graduate-owl mascot (see atoms/login-background and atoms/mascot).
  */
 
 /* card entrance */
