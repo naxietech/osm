@@ -27,6 +27,11 @@ const SchoolsListPage = lazy(() => import('@/pages/schools/schools-list.page'));
 const SchoolDetailPage = lazy(() => import('@/pages/schools/school-detail.page'));
 const StudentsListPage = lazy(() => import('@/pages/students/students-list.page'));
 const StudentDetailPage = lazy(() => import('@/pages/students/student-detail.page'));
+const ExamsListPage = lazy(() => import('@/pages/exams/exams-list.page'));
+const ExamDetailPage = lazy(() => import('@/pages/exams/exam-detail.page'));
+const ExamCandidatesPage = lazy(() => import('@/pages/exams/exam-candidates.page'));
+const SchoolExamsPage = lazy(() => import('@/pages/exams/school-exams.page'));
+const ExamRegisterPage = lazy(() => import('@/pages/exams/exam-register.page'));
 
 /** Relative child segment of an absolute path under its role home (no drift). */
 const rel = (home: string, full: string): string => full.slice(home.length + 1);
@@ -103,6 +108,26 @@ export function RouterConfig(): React.ReactElement {
               element={<ModulePlaceholder title="Results" />}
             />
             <Route
+              path={rel(ROUTES.admin.home, ROUTES.admin.exams)}
+              element={<Navigate to={ROUTES.admin.examsView} replace />}
+            />
+            <Route
+              path={rel(ROUTES.admin.home, ROUTES.admin.examsView)}
+              element={<ExamsListPage />}
+            />
+            <Route
+              path={rel(ROUTES.admin.home, ROUTES.admin.examsCreate)}
+              element={<ExamDetailPage />}
+            />
+            <Route
+              path={rel(ROUTES.admin.home, ROUTES.admin.examCandidates)}
+              element={<ExamCandidatesPage />}
+            />
+            <Route
+              path={rel(ROUTES.admin.home, ROUTES.admin.examDetail)}
+              element={<ExamDetailPage />}
+            />
+            <Route
               path={rel(ROUTES.admin.home, ROUTES.admin.schools)}
               element={<Navigate to={ROUTES.admin.schoolsView} replace />}
             />
@@ -166,6 +191,18 @@ export function RouterConfig(): React.ReactElement {
               path={rel(ROUTES.controller.home, ROUTES.controller.resultCompilation)}
               element={<ModulePlaceholder title="Result Compilation" />}
             />
+            <Route
+              path={rel(ROUTES.controller.home, ROUTES.controller.exams)}
+              element={<Navigate to={ROUTES.controller.examsView} replace />}
+            />
+            <Route
+              path={rel(ROUTES.controller.home, ROUTES.controller.examsView)}
+              element={<ExamsListPage />}
+            />
+            <Route
+              path={rel(ROUTES.controller.home, ROUTES.controller.examCandidates)}
+              element={<ExamCandidatesPage />}
+            />
             <Route path="*" element={<NotFoundPanel />} />
           </Route>
         </Route>
@@ -209,6 +246,18 @@ export function RouterConfig(): React.ReactElement {
             <Route
               path={rel(ROUTES.school.home, ROUTES.school.studentDetail)}
               element={<StudentDetailPage />}
+            />
+            <Route
+              path={rel(ROUTES.school.home, ROUTES.school.exams)}
+              element={<Navigate to={ROUTES.school.examsView} replace />}
+            />
+            <Route
+              path={rel(ROUTES.school.home, ROUTES.school.examsView)}
+              element={<SchoolExamsPage />}
+            />
+            <Route
+              path={rel(ROUTES.school.home, ROUTES.school.examRegister)}
+              element={<ExamRegisterPage />}
             />
             <Route
               path={rel(ROUTES.school.home, ROUTES.school.results)}

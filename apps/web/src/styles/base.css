@@ -1,7 +1,14 @@
 /* Base element styles, layered on top of the design tokens. */
 @layer base {
+  /* Native controls (date-picker icons, scrollbars, etc.) follow the app's own
+     class-based theme, not the OS preference. Using `light dark` let the OS decide,
+     which painted the date input's calendar icon white (invisible) in light mode
+     when the OS was set to dark. */
   html {
-    color-scheme: light dark;
+    color-scheme: light;
+  }
+  .dark {
+    color-scheme: dark;
   }
 
   body {

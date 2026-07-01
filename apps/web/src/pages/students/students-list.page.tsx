@@ -24,7 +24,6 @@ const MOCK_STUDENTS: StudentListItem[] = [
     studentRefId: 'ref-3f8a1c20',
     fullName: 'Ali Hassan',
     gradeId: 10,
-    section: 'A',
     enrollmentStatus: 'active',
   },
   {
@@ -32,7 +31,6 @@ const MOCK_STUDENTS: StudentListItem[] = [
     studentRefId: 'ref-9b2e7d44',
     fullName: 'Fatima Noor',
     gradeId: 12,
-    section: 'B',
     enrollmentStatus: 'active',
   },
   {
@@ -40,7 +38,6 @@ const MOCK_STUDENTS: StudentListItem[] = [
     studentRefId: 'ref-1a5c8e90',
     fullName: 'Bilal Ahmed',
     gradeId: 9,
-    section: 'A',
     enrollmentStatus: 'inactive',
   },
 ];
@@ -77,12 +74,6 @@ export function StudentsListPage(): React.ReactElement {
       header: 'Grade',
       render: (row) => `Grade ${row.gradeId}`,
       width: '110px',
-    },
-    {
-      key: 'section',
-      header: 'Section',
-      render: (row) => row.section ?? '—',
-      width: '100px',
     },
     {
       key: 'status',

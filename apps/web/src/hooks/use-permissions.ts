@@ -21,6 +21,10 @@ interface UsePermissionsReturn {
   canViewAllResults: boolean;
   /** School Staff can view results for its own school only. */
   canViewOwnSchoolResults: boolean;
+  /** Only Admin can create/edit exams and assign roll numbers. */
+  canManageExams: boolean;
+  /** Admin and School Staff can register students as exam candidates. */
+  canRegisterCandidates: boolean;
 }
 
 export function usePermissions(): UsePermissionsReturn {
@@ -37,5 +41,7 @@ export function usePermissions(): UsePermissionsReturn {
     canManageStudents: isAdmin || role === UserRole.SCHOOL_STAFF,
     canViewAllResults: isAdmin || isController,
     canViewOwnSchoolResults: role === UserRole.SCHOOL_STAFF,
+    canManageExams: isAdmin,
+    canRegisterCandidates: isAdmin || role === UserRole.SCHOOL_STAFF,
   };
 }
