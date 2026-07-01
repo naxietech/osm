@@ -38,7 +38,6 @@ export interface Student {
 
   // Enrollment
   gradeId: number;
-  section?: string;
   enrollmentStatus: EnrollmentStatus;
   createdAt: string;
 }
@@ -47,7 +46,6 @@ export interface Student {
 export interface SafeStudentRef {
   studentRefId: string;
   gradeId: number;
-  section?: string;
 }
 
 // Safe for admin list views — no document / contact / address PII
@@ -56,7 +54,6 @@ export interface StudentListItem {
   studentRefId: string;
   fullName: string;
   gradeId: number;
-  section?: string;
   enrollmentStatus: EnrollmentStatus;
 }
 
@@ -76,7 +73,6 @@ export interface CreateStudentDto {
   district: string;
   postalAddress?: string;
   gradeId: number;
-  section?: string;
 }
 
 export interface UpdateStudentDto {
@@ -94,6 +90,5 @@ export interface UpdateStudentDto {
   district?: string;
   postalAddress?: string;
   gradeId?: number;
-  section?: string;
   enrollmentStatus?: EnrollmentStatus;
 }
