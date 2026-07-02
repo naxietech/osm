@@ -6,6 +6,7 @@ import {
   ClipboardCheck,
   ClipboardList,
   FileSpreadsheet,
+  GraduationCap,
   History,
   LayoutDashboard,
   User,
@@ -46,6 +47,14 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
           { label: 'Question Assignments', to: ROUTES.admin.questions, icon: ClipboardList },
           { label: 'Results', to: ROUTES.admin.results, icon: BarChart3 },
           {
+            label: 'Exams',
+            icon: GraduationCap,
+            children: [
+              { label: 'View', to: ROUTES.admin.examsView },
+              { label: 'Create', to: ROUTES.admin.examsCreate },
+            ],
+          },
+          {
             label: 'Schools',
             icon: Building2,
             children: [
@@ -83,6 +92,7 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
             ],
           },
           { label: 'Questions Assignment', to: ROUTES.controller.questions, icon: ClipboardList },
+          { label: 'Exams', to: ROUTES.controller.examsView, icon: GraduationCap },
           {
             label: 'Result Compilation',
             to: ROUTES.controller.resultCompilation,
@@ -123,6 +133,7 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
               { label: 'Add / Delete', to: ROUTES.school.studentsManage },
             ],
           },
+          { label: 'Exams', to: ROUTES.school.examsView, icon: GraduationCap },
           { label: 'Results', to: ROUTES.school.results, icon: BarChart3 },
           { label: 'Profile', to: ROUTES.school.profile, icon: User },
         ],

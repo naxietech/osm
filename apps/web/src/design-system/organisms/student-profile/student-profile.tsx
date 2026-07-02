@@ -187,7 +187,6 @@ export function StudentProfile({
               </span>
               <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium ring-1 ring-white/25">
                 Grade {student.gradeId}
-                {student.section ? ` · ${student.section}` : ''}
               </span>
             </div>
           </div>

@@ -32,7 +32,6 @@ const STUDENT: Student = {
   city: 'Lahore',
   district: 'Lahore',
   gradeId: 10,
-  section: 'A',
   enrollmentStatus: 'active',
   createdAt: '2025-03-01T08:00:00.000Z',
 };

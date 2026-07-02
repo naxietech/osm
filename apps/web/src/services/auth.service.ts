@@ -40,6 +40,7 @@ export const MOCK_USERS: SafeUser[] = [
     id: 'usr_school',
     email: 'school@oses.pk',
     role: UserRole.SCHOOL_STAFF,
+    schoolId: 'sch_001', // ties school staff to their school (drives exam registration scope)
     fullName: 'School Staff',
     createdAt: '2026-01-01T00:00:00.000Z',
   },
