@@ -1,11 +1,11 @@
 /**
- * ExamRegisterPage (SCHOOL_STAFF) — register a class of students for one exam.
+ * ExamRegisterPage (INSTITUTE) — register a class of students for one exam.
  *
- * Two parts: the school's already-registered candidates (read-only, with roll number /
- * status once assigned) and the register form — the school's eligible students (own
- * school, matching grade, active, not yet registered) in the CandidatePicker. Staff
+ * Two parts: the institute's already-registered candidates (read-only, with roll number /
+ * status once assigned) and the register form — the institute's eligible students (own
+ * institute, matching class, active, not yet registered) in the CandidatePicker. Staff
  * tick students, optionally pick elective papers, and submit them all in one call. The
- * school comes from the signed-in user (SafeUser.schoolId).
+ * institute comes from the signed-in user (SafeUser.instituteId).
  *
  * TODO: Replace service calls with React Query.
  */
@@ -46,7 +46,7 @@ export function ExamRegisterPage(): React.ReactElement {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { user } = useAuth();
-  const schoolId = user?.schoolId ?? '';
+  const instituteId = user?.instituteId ?? '';
   const base = pathname.slice(0, pathname.indexOf('/exams') + '/exams'.length);
 
   const [exam, setExam] = useState<Exam | null>(null);
@@ -59,20 +59,20 @@ export function ExamRegisterPage(): React.ReactElement {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const load = useCallback(async (): Promise<void> => {
-    if (!id || !schoolId) {
+    if (!id || !instituteId) {
       setIsLoading(false);
       return;
     }
     const [examData, studentData, registeredData] = await Promise.all([
       examService.getExam(id),
-      examRegistrationService.listRegisterableStudents(id, schoolId),
-      examRegistrationService.listCandidatesForSchool(id, schoolId),
+      examRegistrationService.listRegisterableStudents(id, instituteId),
+      examRegistrationService.listCandidatesForSchool(id, instituteId),
     ]);
     setExam(examData ?? null);
     setStudents(studentData);
     setRegistered(registeredData);
     setIsLoading(false);
-  }, [id, schoolId]);
+  }, [id, instituteId]);
 
   useEffect(() => {
     void load();
@@ -138,7 +138,7 @@ export function ExamRegisterPage(): React.ReactElement {
         </h1>
         {exam && (
           <p className="mt-1 text-sm text-muted-foreground">
-            {exam.code} · {exam.session} · Grade {exam.gradeId}
+            {exam.code} · {exam.session} · Class {exam.classNumber}
           </p>
         )}
       </div>
@@ -159,9 +159,9 @@ export function ExamRegisterPage(): React.ReactElement {
         <div className="flex items-center justify-center py-20">
           <Spinner size="lg" />
         </div>
-      ) : !schoolId ? (
+      ) : !instituteId ? (
         <div className="rounded-xl border border-border bg-card p-10 text-center text-sm text-muted-foreground shadow-sm">
-          Your account isn&apos;t linked to a school, so you can&apos;t register candidates.
+          Your account isn&apos;t linked to an institute, so you can&apos;t register candidates.
         </div>
       ) : !exam ? (
         <div className="rounded-xl border border-border bg-card p-10 text-center text-sm text-muted-foreground shadow-sm">

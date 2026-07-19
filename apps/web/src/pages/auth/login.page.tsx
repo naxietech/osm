@@ -51,7 +51,7 @@ export function LoginPage(): React.ReactElement {
   });
 
   return (
-    <AuthLayout title="Sign In" subtitle="On-Screen Exam System — Pakistan">
+    <AuthLayout title="Welcome back" subtitle="Sign in to continue to your dashboard.">
       <form onSubmit={formik.handleSubmit} noValidate className="space-y-4">
         <FormField
           id="email"
@@ -80,6 +80,23 @@ export function LoginPage(): React.ReactElement {
           error={formik.touched.password ? formik.errors.password : undefined}
           required
         />
+
+        {/* Remember me / forgot password — visual only for now (not yet wired). */}
+        <div className="flex items-center justify-between text-sm">
+          <label className="flex cursor-pointer items-center gap-2 text-muted-foreground">
+            <input type="checkbox" className="h-4 w-4 rounded border-input accent-[var(--brand)]" />
+            Remember me
+          </label>
+          <button
+            type="button"
+            className="font-medium text-brand hover:underline"
+            onClick={() => {
+              /* TODO: wire password reset flow */
+            }}
+          >
+            Forgot password?
+          </button>
+        </div>
 
         {submitError && (
           <div

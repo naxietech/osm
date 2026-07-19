@@ -6,9 +6,11 @@ import {
   ClipboardCheck,
   ClipboardList,
   FileSpreadsheet,
+  FileText,
   GraduationCap,
   History,
   LayoutDashboard,
+  Lock,
   User,
   Users,
 } from '@/design-system/atoms/icon';
@@ -34,40 +36,62 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
       {
         label: 'Menu',
         items: [
-          { label: 'Home', to: ROUTES.admin.home, icon: LayoutDashboard },
+          { label: 'Home', to: ROUTES.admin.home, icon: LayoutDashboard, module: 'dashboard' },
           {
             label: 'E-Sheet',
             icon: FileSpreadsheet,
+            module: 'e-sheet',
             children: [
               { label: 'Add Template', to: ROUTES.admin.eSheetTemplateAdd },
               { label: 'View Template', to: ROUTES.admin.eSheetTemplateView },
               { label: 'Generate E-Sheets', to: ROUTES.admin.eSheetGenerate },
             ],
           },
-          { label: 'Question Assignments', to: ROUTES.admin.questions, icon: ClipboardList },
-          { label: 'Results', to: ROUTES.admin.results, icon: BarChart3 },
+          {
+            label: 'Question Assignments',
+            to: ROUTES.admin.questions,
+            icon: ClipboardList,
+            module: 'questions',
+          },
+          { label: 'Results', to: ROUTES.admin.results, icon: BarChart3, module: 'results' },
           {
             label: 'Exams',
             icon: GraduationCap,
+            module: 'exams',
             children: [
               { label: 'View', to: ROUTES.admin.examsView },
               { label: 'Create', to: ROUTES.admin.examsCreate },
             ],
           },
           {
-            label: 'Schools',
+            label: 'Institutes',
             icon: Building2,
+            module: 'institutes',
             children: [
-              { label: 'View', to: ROUTES.admin.schoolsView },
-              { label: 'Add', to: ROUTES.admin.schoolsAdd },
+              { label: 'View', to: ROUTES.admin.institutesView },
+              { label: 'Add', to: ROUTES.admin.institutesAdd },
             ],
           },
           {
             label: 'Students',
             icon: Users,
+            module: 'students',
             children: [
               { label: 'View', to: ROUTES.admin.studentsView },
               { label: 'Add / Delete', to: ROUTES.admin.studentsManage },
+            ],
+          },
+          { label: 'Roles & Permissions', to: ROUTES.admin.roles, icon: Lock, module: 'roles' },
+          { label: 'Users', to: ROUTES.admin.users, icon: User, module: 'users' },
+          {
+            label: 'Setup',
+            icon: FileText,
+            module: 'reference-data',
+            children: [
+              { label: 'Institute Categories', to: ROUTES.admin.instituteCategories },
+              { label: 'Subjects', to: ROUTES.admin.subjects },
+              { label: 'SLOs', to: ROUTES.admin.slos },
+              { label: 'Classes', to: ROUTES.admin.classes },
             ],
           },
         ],
@@ -117,25 +141,25 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
       },
     ],
   },
-  [UserRole.SCHOOL_STAFF]: {
-    label: 'School',
-    home: ROUTES.school.home,
+  [UserRole.INSTITUTE]: {
+    label: 'Institute',
+    home: ROUTES.institute.home,
     nav: [
       {
         label: 'Menu',
         items: [
-          { label: 'Home', to: ROUTES.school.home, icon: LayoutDashboard },
+          { label: 'Home', to: ROUTES.institute.home, icon: LayoutDashboard },
           {
             label: 'Students',
             icon: Users,
             children: [
-              { label: 'View', to: ROUTES.school.studentsView },
-              { label: 'Add / Delete', to: ROUTES.school.studentsManage },
+              { label: 'View', to: ROUTES.institute.studentsView },
+              { label: 'Add / Delete', to: ROUTES.institute.studentsManage },
             ],
           },
-          { label: 'Exams', to: ROUTES.school.examsView, icon: GraduationCap },
-          { label: 'Results', to: ROUTES.school.results, icon: BarChart3 },
-          { label: 'Profile', to: ROUTES.school.profile, icon: User },
+          { label: 'Exams', to: ROUTES.institute.examsView, icon: GraduationCap },
+          { label: 'Results', to: ROUTES.institute.results, icon: BarChart3 },
+          { label: 'Profile', to: ROUTES.institute.profile, icon: User },
         ],
       },
     ],

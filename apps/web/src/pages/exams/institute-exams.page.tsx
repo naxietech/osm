@@ -1,5 +1,5 @@
 /**
- * SchoolExamsPage (SCHOOL_STAFF) — the school's exams: ones open for registration plus
+ * InstituteExamsPage (INSTITUTE) — the institute's exams: ones open for registration plus
  * any it has already registered candidates into (so its candidates stay visible after
  * the window closes). Row click opens the register / view screen for that exam.
  *
@@ -13,32 +13,35 @@ import { Button } from '@/design-system/atoms/button';
 import { type ColumnDef, DataTable } from '@/design-system/organisms/data-table';
 import { useAuth } from '@/hooks';
 import { ROUTES } from '@/router/routes';
-import { type SchoolExamRow, examRegistrationService } from '@/services/exam-registration.service';
+import {
+  type InstituteExamRow,
+  examRegistrationService,
+} from '@/services/exam-registration.service';
 
 import { ExamStatusBadge } from './exam-status-badge';
 
-type Row = SchoolExamRow & { id: string };
+type Row = InstituteExamRow & { id: string };
 
-/** Build the register / view path for an exam id (school route only). */
+/** Build the register / view path for an exam id (institute route only). */
 function examPath(examId: string): string {
-  return ROUTES.school.examRegister.replace(':id', examId);
+  return ROUTES.institute.examRegister.replace(':id', examId);
 }
 
-export function SchoolExamsPage(): React.ReactElement {
+export function InstituteExamsPage(): React.ReactElement {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const schoolId = user?.schoolId ?? '';
+  const instituteId = user?.instituteId ?? '';
 
   const [rows, setRows] = useState<Row[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!schoolId) {
+    if (!instituteId) {
       setIsLoading(false);
       return;
     }
     let active = true;
-    void examRegistrationService.listSchoolExams(schoolId).then((data) => {
+    void examRegistrationService.listInstituteExams(instituteId).then((data) => {
       if (active) {
         setRows(data.map((r) => ({ ...r, id: r.exam.id })));
         setIsLoading(false);
@@ -47,7 +50,7 @@ export function SchoolExamsPage(): React.ReactElement {
     return () => {
       active = false;
     };
-  }, [schoolId]);
+  }, [instituteId]);
 
   const columns: ColumnDef<Row>[] = [
     {
@@ -67,9 +70,9 @@ export function SchoolExamsPage(): React.ReactElement {
       width: '150px',
     },
     {
-      key: 'grade',
-      header: 'Grade',
-      render: (row) => `Grade ${row.exam.gradeId}`,
+      key: 'class',
+      header: 'Class',
+      render: (row) => `Class ${row.exam.classNumber}`,
       width: '110px',
     },
     {
@@ -110,9 +113,9 @@ export function SchoolExamsPage(): React.ReactElement {
         subtitle="Register your students and view your registered candidates"
       />
 
-      {!schoolId ? (
+      {!instituteId ? (
         <div className="rounded-xl border border-border bg-card p-10 text-center text-sm text-muted-foreground shadow-sm">
-          Your account isn&apos;t linked to a school.
+          Your account isn&apos;t linked to an institute.
         </div>
       ) : (
         <div className="rounded-lg border border-border bg-card shadow-sm">
@@ -129,4 +132,4 @@ export function SchoolExamsPage(): React.ReactElement {
   );
 }
 
-export default SchoolExamsPage;
+export default InstituteExamsPage;

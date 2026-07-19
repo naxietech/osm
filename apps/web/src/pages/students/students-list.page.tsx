@@ -1,8 +1,8 @@
 /**
- * StudentsListPage — follows the SchoolsListPage reference pattern.
+ * StudentsListPage — follows the InstitutesListPage reference pattern.
  *
- * Shared by ADMIN and SCHOOL_STAFF (mounted under /admin/students and
- * /school/students), so navigation is derived from the current path rather than
+ * Shared by ADMIN and INSTITUTE (mounted under /admin/students and
+ * /institute/students), so navigation is derived from the current path rather than
  * hard-coded — the page is role-agnostic. The list is PII-safe: StudentListItem
  * carries no CNIC / DOB.
  *
@@ -22,22 +22,31 @@ const MOCK_STUDENTS: StudentListItem[] = [
   {
     id: 'stu_001',
     studentRefId: 'ref-3f8a1c20',
+    registrationNumber: '2600420001',
     fullName: 'Ali Hassan',
-    gradeId: 10,
+    levelId: 'lvl_10',
+    groupId: 'grp_science',
+    classNumber: 10,
     enrollmentStatus: 'active',
   },
   {
     id: 'stu_002',
     studentRefId: 'ref-9b2e7d44',
+    registrationNumber: '2600420003',
     fullName: 'Fatima Noor',
-    gradeId: 12,
+    levelId: 'lvl_12',
+    groupId: 'grp_premed',
+    classNumber: 12,
     enrollmentStatus: 'active',
   },
   {
     id: 'stu_003',
     studentRefId: 'ref-1a5c8e90',
+    registrationNumber: '2600420002',
     fullName: 'Bilal Ahmed',
-    gradeId: 9,
+    levelId: 'lvl_9',
+    groupId: 'grp_science',
+    classNumber: 9,
     enrollmentStatus: 'inactive',
   },
 ];
@@ -62,17 +71,19 @@ export function StudentsListPage(): React.ReactElement {
       render: (row) => <span className="font-medium">{row.fullName}</span>,
     },
     {
-      key: 'studentRefId',
-      header: 'Ref ID',
+      key: 'registrationNumber',
+      header: 'Reg No.',
       render: (row) => (
-        <span className="font-mono text-sm text-muted-foreground">{row.studentRefId}</span>
+        <span className="font-mono text-sm text-muted-foreground">
+          {row.registrationNumber ?? '—'}
+        </span>
       ),
-      width: '170px',
+      width: '130px',
     },
     {
-      key: 'grade',
-      header: 'Grade',
-      render: (row) => `Grade ${row.gradeId}`,
+      key: 'class',
+      header: 'Class',
+      render: (row) => `Class ${row.classNumber}`,
       width: '110px',
     },
     {

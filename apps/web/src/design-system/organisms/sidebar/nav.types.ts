@@ -12,6 +12,9 @@ export interface NavItem {
   icon?: LucideIcon;
   /** Submenu items (e.g. Students → View / Add-Delete). */
   children?: NavItem[];
+  /** Opaque module key for multi-client gating; when set, the item shows only if the
+   * active client enables that module. Untagged items always show. */
+  module?: string;
 }
 
 export interface NavSection {

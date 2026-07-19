@@ -11,12 +11,12 @@ import {
   DonutStat,
 } from '@/design-system/organisms/charts';
 
-// TODO: replace mock data with React Query (this school's students + results).
+// TODO: replace mock data with React Query (this institute's students + results).
 const STUDENTS_BY_GRADE: BarDatum[] = [
-  { label: 'Grade 9', value: 342 },
-  { label: 'Grade 10', value: 318 },
-  { label: 'Grade 11', value: 326 },
-  { label: 'Grade 12', value: 298 },
+  { label: 'Class 9', value: 342 },
+  { label: 'Class 10', value: 318 },
+  { label: 'Class 11', value: 326 },
+  { label: 'Class 12', value: 298 },
 ];
 
 const ENROLLMENT_STATUS: DonutSegment[] = [
@@ -28,14 +28,14 @@ const ENROLLMENT_STATUS: DonutSegment[] = [
 
 const RECENT_STUDENTS: {
   name: string;
-  grade: string;
+  class: string;
   status: string;
   variant: 'success' | 'default';
 }[] = [
-  { name: 'Ali Hassan', grade: 'Grade 10 · A', status: 'Active', variant: 'success' },
-  { name: 'Fatima Noor', grade: 'Grade 12 · B', status: 'Active', variant: 'success' },
-  { name: 'Bilal Ahmed', grade: 'Grade 9 · C', status: 'Inactive', variant: 'default' },
-  { name: 'Hina Shah', grade: 'Grade 11 · A', status: 'Active', variant: 'success' },
+  { name: 'Ali Hassan', class: 'Class 10 · A', status: 'Active', variant: 'success' },
+  { name: 'Fatima Noor', class: 'Class 12 · B', status: 'Active', variant: 'success' },
+  { name: 'Bilal Ahmed', class: 'Class 9 · C', status: 'Inactive', variant: 'default' },
+  { name: 'Hina Shah', class: 'Class 11 · A', status: 'Active', variant: 'success' },
 ];
 
 const DEADLINES: { title: string; date: string }[] = [
@@ -53,11 +53,11 @@ const initialsOf = (name: string): string =>
     .join('')
     .toUpperCase();
 
-export function SchoolHome(): React.ReactElement {
+export function InstituteHome(): React.ReactElement {
   return (
     <>
       <PageHeader
-        title="School Dashboard"
+        title="Institute Dashboard"
         subtitle="Manage your students and track exam registration."
         actions={
           <Button>
@@ -82,7 +82,7 @@ export function SchoolHome(): React.ReactElement {
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
         <Panel
-          title="Students by Grade"
+          title="Students by Class"
           className="lg:col-span-7"
           action={<span className="text-xs text-muted-foreground">Current session</span>}
         >
@@ -107,7 +107,7 @@ export function SchoolHome(): React.ReactElement {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-foreground">{student.name}</p>
-                  <p className="text-xs text-muted-foreground">{student.grade}</p>
+                  <p className="text-xs text-muted-foreground">{student.class}</p>
                 </div>
                 <Badge variant={student.variant}>{student.status}</Badge>
               </li>
@@ -136,4 +136,4 @@ export function SchoolHome(): React.ReactElement {
   );
 }
 
-export default SchoolHome;
+export default InstituteHome;

@@ -5,13 +5,27 @@ import { type SelectOption } from '@/design-system/molecules/select-field';
 
 import { StudentForm } from './student-form';
 
-const SCHOOL_OPTIONS: SelectOption[] = [
-  { value: 'sch_001', label: 'School One' },
-  { value: 'sch_002', label: 'School Two' },
+const INSTITUTE_OPTIONS: SelectOption[] = [
+  { value: 'sch_001', label: 'Institute One' },
+  { value: 'sch_002', label: 'Institute Two' },
 ];
 
+const LEVEL_OPTIONS: SelectOption[] = [
+  { value: 'lvl_9', label: 'Class 9' },
+  { value: 'lvl_10', label: 'Class 10' },
+  { value: 'lvl_12', label: 'Class 12' },
+];
+
+const GROUP_OPTIONS_BY_LEVEL: Record<string, SelectOption[]> = {
+  lvl_9: [{ value: 'grp_science', label: 'Science' }],
+  lvl_10: [{ value: 'grp_science', label: 'Science' }],
+  lvl_12: [{ value: 'grp_premed', label: 'Pre-Medical' }],
+};
+
 const defaultProps = {
-  schoolOptions: SCHOOL_OPTIONS,
+  instituteOptions: INSTITUTE_OPTIONS,
+  levelOptions: LEVEL_OPTIONS,
+  groupOptionsByLevel: GROUP_OPTIONS_BY_LEVEL,
   onSubmit: vi.fn(),
   isSubmitting: false,
   mode: 'create' as const,
@@ -25,8 +39,9 @@ function chooseOption(labelRe: RegExp, optionName: string): void {
 
 /** Fills every required field with valid values. */
 function fillRequired(): void {
-  chooseOption(/School/i, 'School One');
-  chooseOption(/Grade/i, 'Grade 10 (SSC)');
+  chooseOption(/Institute/i, 'Institute One');
+  chooseOption(/Level/i, 'Class 10');
+  chooseOption(/Group/i, 'Science');
   fireEvent.change(screen.getByLabelText(/Full Name/i), { target: { value: 'Test Student' } });
   fireEvent.change(screen.getByLabelText(/Father \/ Guardian Name/i), {
     target: { value: 'Father Name' },
@@ -45,7 +60,9 @@ function fillRequired(): void {
 describe('StudentForm', () => {
   it('renders the grouped fields', () => {
     render(<StudentForm {...defaultProps} />);
-    expect(screen.getByLabelText(/School/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Institute/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Level/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Group/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Full Name/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Father \/ Guardian Name/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Father \/ Guardian CNIC/i)).toBeInTheDocument();
@@ -58,7 +75,6 @@ describe('StudentForm', () => {
     expect(screen.getByLabelText(/City/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/District/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Postal Address/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Grade/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Student Photo/i)).toBeInTheDocument();
   });
 
@@ -71,7 +87,7 @@ describe('StudentForm', () => {
 
     await waitFor(() =>
       expect(handleSubmit).toHaveBeenCalledWith({
-        schoolId: 'sch_001',
+        instituteId: 'sch_001',
         fullName: 'Test Student',
         fatherOrGuardianName: 'Father Name',
         fatherOrGuardianCnic: '35202-1234567-1',
@@ -81,7 +97,8 @@ describe('StudentForm', () => {
         address: 'House 1, Street 2',
         city: 'Lahore',
         district: 'Lahore',
-        gradeId: 10,
+        levelId: 'lvl_10',
+        groupId: 'grp_science',
       }),
     );
   });
@@ -131,14 +148,14 @@ describe('StudentForm', () => {
     expect(screen.getByText('Enrol Student').closest('button')).toBeDisabled();
   });
 
-  it('locks the school field in edit mode', () => {
+  it('locks the institute field in edit mode', () => {
     render(<StudentForm {...defaultProps} mode="edit" />);
-    expect(screen.getByLabelText(/School/i)).toBeDisabled();
+    expect(screen.getByLabelText(/Institute/i)).toBeDisabled();
   });
 
-  it('locks the school field when lockSchool is set (school staff)', () => {
-    render(<StudentForm {...defaultProps} lockSchool />);
-    expect(screen.getByLabelText(/School/i)).toBeDisabled();
+  it('locks the institute field when lockInstitute is set (institute staff)', () => {
+    render(<StudentForm {...defaultProps} lockInstitute />);
+    expect(screen.getByLabelText(/Institute/i)).toBeDisabled();
   });
 
   it('shows the enrollment status only in edit mode', () => {
@@ -157,12 +174,13 @@ describe('StudentForm', () => {
         initialValues={{
           fullName: 'Existing Student',
           fatherOrGuardianName: 'Existing Father',
-          gradeId: 12,
+          levelId: 'lvl_12',
+          groupId: 'grp_premed',
         }}
       />,
     );
     expect(screen.getByLabelText(/Full Name/i)).toHaveValue('Existing Student');
     expect(screen.getByLabelText(/Father \/ Guardian Name/i)).toHaveValue('Existing Father');
-    expect(screen.getByLabelText(/Grade/i)).toHaveTextContent('Grade 12 (HSSC)');
+    expect(screen.getByLabelText(/Level/i)).toHaveTextContent('Class 12');
   });
 });

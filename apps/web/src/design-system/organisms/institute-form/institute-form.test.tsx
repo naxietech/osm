@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { SchoolForm } from './school-form';
+import { InstituteForm } from './institute-form';
 
 const defaultProps = {
   onSubmit: vi.fn(),
@@ -19,11 +19,11 @@ function choose(labelRe: RegExp, optionName: string): void {
 function fillValidForm(): void {
   fireEvent.change(screen.getByLabelText(/Institution Code/i), { target: { value: 'ISB-001' } });
   fireEvent.change(screen.getByLabelText(/Institution Name/i), {
-    target: { value: 'Test School' },
+    target: { value: 'Test Institute' },
   });
   fireEvent.change(screen.getByLabelText(/Affiliation No/i), { target: { value: 'REG-123' } });
   choose(/Institution Type/i, 'Government');
-  choose(/School Level/i, 'Secondary (SSC / Matric)');
+  choose(/Institute Level/i, 'Secondary (SSC / Matric)');
   choose(/Category/i, 'Boys');
   choose(/Province/i, 'Punjab');
   fireEvent.change(screen.getByLabelText(/Address/i), {
@@ -36,21 +36,21 @@ function fillValidForm(): void {
   });
   fireEvent.change(screen.getByLabelText(/Designation/i), { target: { value: 'Principal' } });
   fireEvent.change(screen.getByLabelText(/Contact Email/i), {
-    target: { value: 'test@school.pk' },
+    target: { value: 'test@institute.pk' },
   });
   fireEvent.change(screen.getByLabelText(/Contact Phone/i), {
     target: { value: '+92-51-1234567' },
   });
 }
 
-describe('SchoolForm', () => {
+describe('InstituteForm', () => {
   it('renders the text fields and dropdowns', () => {
-    render(<SchoolForm {...defaultProps} />);
+    render(<InstituteForm {...defaultProps} />);
     expect(screen.getByLabelText(/Institution Code/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Institution Name/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Affiliation No/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Institution Type/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/School Level/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Institute Level/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Category/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Province/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Address/i)).toBeInTheDocument();
@@ -63,18 +63,18 @@ describe('SchoolForm', () => {
 
   it('submits the typed DTO when a complete, valid form is submitted', async () => {
     const handleSubmit = vi.fn();
-    render(<SchoolForm {...defaultProps} onSubmit={handleSubmit} />);
+    render(<InstituteForm {...defaultProps} onSubmit={handleSubmit} />);
 
     fillValidForm();
-    fireEvent.click(screen.getByText('Create School'));
+    fireEvent.click(screen.getByText('Create Institute'));
 
     await waitFor(() =>
       expect(handleSubmit).toHaveBeenCalledWith({
-        schoolCode: 'ISB-001',
-        schoolName: 'Test School',
+        instituteCode: 'ISB-001',
+        instituteName: 'Test Institute',
         registrationNo: 'REG-123',
         institutionType: 'government',
-        schoolLevel: 'secondary',
+        instituteLevel: 'secondary',
         category: 'boys',
         address: 'Street 1, Sector F-8',
         city: 'Islamabad',
@@ -82,7 +82,7 @@ describe('SchoolForm', () => {
         postalCode: '44000',
         contactPersonName: 'Test Person',
         contactPersonDesignation: 'Principal',
-        contactEmail: 'test@school.pk',
+        contactEmail: 'test@institute.pk',
         contactPhone: '+92-51-1234567',
       }),
     );
@@ -90,34 +90,34 @@ describe('SchoolForm', () => {
 
   it('shows a validation error and does not submit when required fields are empty', async () => {
     const handleSubmit = vi.fn();
-    render(<SchoolForm {...defaultProps} onSubmit={handleSubmit} />);
+    render(<InstituteForm {...defaultProps} onSubmit={handleSubmit} />);
 
-    fireEvent.click(screen.getByText('Create School'));
+    fireEvent.click(screen.getByText('Create Institute'));
 
     await waitFor(() => {
-      expect(screen.getByText('School code is required')).toBeInTheDocument();
+      expect(screen.getByText('Institute code is required')).toBeInTheDocument();
     });
     expect(handleSubmit).not.toHaveBeenCalled();
   });
 
   it('disables submit button when isSubmitting is true', () => {
-    render(<SchoolForm {...defaultProps} isSubmitting />);
-    expect(screen.getByText('Create School').closest('button')).toBeDisabled();
+    render(<InstituteForm {...defaultProps} isSubmitting />);
+    expect(screen.getByText('Create Institute').closest('button')).toBeDisabled();
   });
 
-  it('shows schoolCode field as disabled in edit mode', () => {
-    render(<SchoolForm {...defaultProps} mode="edit" />);
+  it('shows instituteCode field as disabled in edit mode', () => {
+    render(<InstituteForm {...defaultProps} mode="edit" />);
     expect(screen.getByLabelText(/Institution Code/i)).toBeDisabled();
   });
 
   it('pre-fills fields from initialValues', () => {
     render(
-      <SchoolForm
+      <InstituteForm
         {...defaultProps}
-        initialValues={{ schoolName: 'Existing School', city: 'Lahore' }}
+        initialValues={{ instituteName: 'Existing Institute', city: 'Lahore' }}
       />,
     );
-    expect(screen.getByLabelText(/Institution Name/i)).toHaveValue('Existing School');
+    expect(screen.getByLabelText(/Institution Name/i)).toHaveValue('Existing Institute');
     expect(screen.getByLabelText(/City/i)).toHaveValue('Lahore');
   });
 });

@@ -5,16 +5,17 @@ import type { UserRole } from './roles.types';
 export interface SafeUser {
   id: string;
   email: string;
-  role: UserRole;
-  schoolId?: string;
+  role: UserRole; // legacy enum — retained during the RBAC transition
+  roleId?: string; // references a Role (data-driven RBAC); resolves grants
+  instituteId?: string;
   fullName: string;
   createdAt: string;
 }
 
 export interface CreateUserDto {
   email: string;
-  password: string;
-  role: UserRole;
+  password?: string; // set by the super admin / server-side; optional in the client mock
+  roleId: string; // the assigned Role
   fullName: string;
-  schoolId?: string;
+  instituteId?: string;
 }

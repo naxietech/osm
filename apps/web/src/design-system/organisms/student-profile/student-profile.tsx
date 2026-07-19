@@ -186,7 +186,7 @@ export function StudentProfile({
                 {capitalize(student.enrollmentStatus)}
               </span>
               <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium ring-1 ring-white/25">
-                Grade {student.gradeId}
+                Class {student.classNumber}
               </span>
             </div>
           </div>
@@ -198,7 +198,7 @@ export function StudentProfile({
               </p>
               <dl className="mt-3 space-y-2.5">
                 <SummaryRow label="Reference ID" value={student.studentRefId} />
-                <SummaryRow label="School" value={schoolName ?? student.schoolId} />
+                <SummaryRow label="School" value={schoolName ?? student.instituteId} />
                 <SummaryRow label="Enrolled On" value={formatDate(student.createdAt)} />
               </dl>
             </div>

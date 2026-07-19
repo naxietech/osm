@@ -16,7 +16,7 @@ export interface ExamRegistration {
   id: string;
   examId: string;
   studentRefId: string; // links to Student.studentRefId (never Student.id)
-  schoolId: string;
+  instituteId: string;
   /** Assigned by the board after the registration window closes. */
   rollNumber?: string;
   /** Chosen elective papers (any number) — ExamPaper.ids on the exam. */
@@ -30,7 +30,7 @@ export interface CandidateListItem {
   registrationId: string;
   studentRefId: string;
   fullName?: string; // PII — omitted for evaluator-facing responses
-  gradeId: number;
+  classNumber: number;
   rollNumber?: string;
   status: RegistrationStatus;
   /** Resolved elective subject names for display (from the chosen papers). */
@@ -55,7 +55,7 @@ export interface StudentExamHistoryItem {
   examId: string;
   examName: string;
   session: string;
-  gradeId: number;
+  classNumber: number;
   rollNumber?: string;
   status: RegistrationStatus;
 }

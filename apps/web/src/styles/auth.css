@@ -1,9 +1,78 @@
 /*
  * Auth screen — scoped decorative styles for the login experience.
  * Everything here is namespaced under `.oses-auth` so it can never leak into the
- * rest of the app. Drives the card entrance and the graduate-owl mascot (see
- * atoms/mascot). The animated backdrop glyphs live in styles/graph-glyphs.css.
+ * rest of the app. Drives the split-showcase layout, the drifting aurora on the
+ * brand panel, and the graduate-owl mascot (see atoms/mascot).
  */
+
+/* Force the auth screen to light regardless of the app's global theme: re-assert
+ * the :root (light) role tokens on the scope, so form-panel atoms driven by these
+ * vars (FormField, Input, Button) render light even under a global `.dark`. The
+ * brand panel uses fixed brand colours, so it is unaffected either way. */
+.oses-auth {
+  --background: var(--color-neutral-50);
+  --foreground: var(--color-neutral-900);
+  --card: #ffffff;
+  --card-foreground: var(--color-neutral-900);
+  --muted: var(--color-neutral-100);
+  --muted-foreground: var(--color-neutral-500);
+  --border: var(--color-neutral-200);
+  --input: var(--color-neutral-300);
+  --brand: var(--color-green-600);
+  --success: var(--color-green-500);
+  --warning: var(--color-amber-500);
+  --danger: var(--color-red-600);
+  --info: var(--color-blue-600);
+}
+
+/* brand-panel aurora — three large, blurred, slowly drifting blobs */
+.oses-auth .oses-aurora {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.oses-auth .oses-aurora span {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.4;
+  animation: oses-drift 20s ease-in-out infinite;
+}
+.oses-auth .oses-aurora .a1 {
+  width: 48vmax;
+  height: 48vmax;
+  background: #2fa86a;
+  top: -12%;
+  left: -8%;
+}
+.oses-auth .oses-aurora .a2 {
+  width: 42vmax;
+  height: 42vmax;
+  background: #0f5132;
+  bottom: -16%;
+  right: -10%;
+  animation-delay: -7s;
+}
+.oses-auth .oses-aurora .a3 {
+  width: 30vmax;
+  height: 30vmax;
+  background: #34d399;
+  bottom: 10%;
+  left: 20%;
+  opacity: 0.28;
+  animation-delay: -13s;
+}
+@keyframes oses-drift {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(5%, -4%) scale(1.12);
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
 
 /* card entrance */
 @keyframes oses-card-in {
@@ -77,7 +146,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .oses-auth .mascot,
-  .oses-auth .oses-card {
+  .oses-auth .oses-card,
+  .oses-auth .oses-aurora span {
     animation: none;
   }
 }

@@ -1,5 +1,5 @@
 /**
- * REFERENCE PAGE PATTERN — SchoolsListPage
+ * REFERENCE PAGE PATTERN — InstitutesListPage
  * This is the reference for all future list pages.
  * Pattern:
  * 1. PageHeader widget (title + actions) — renders inside the shared role shell
@@ -8,59 +8,59 @@
  * 4. Row click navigates to detail page
  * 5. Action button navigates to the create flow
  *
- * TODO: Replace MOCK_SCHOOLS with API call via React Query in next phase.
+ * TODO: Replace MOCK_INSTITUTES with API call via React Query in next phase.
  */
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { OnboardingStatus, type SchoolListItem } from '@oses/types';
+import { type InstituteListItem, OnboardingStatus } from '@oses/types';
 
 import { PageHeader } from '@/components/widgets';
 import { Button } from '@/design-system/atoms/button';
 import { StatusBadge } from '@/design-system/molecules/status-badge';
 import { type ColumnDef, DataTable } from '@/design-system/organisms/data-table';
 
-const MOCK_SCHOOLS: SchoolListItem[] = [
+const MOCK_INSTITUTES: InstituteListItem[] = [
   {
     id: 'sch_001',
-    schoolCode: 'LHR-001',
-    schoolName: 'Government High School Gulberg',
+    instituteCode: 'LHR-001',
+    instituteName: 'Government High School Gulberg',
     city: 'Lahore',
     onboardingStatus: OnboardingStatus.COMPLETE,
     isActive: true,
   },
   {
     id: 'sch_002',
-    schoolCode: 'KHI-001',
-    schoolName: 'Government Boys Secondary School Clifton',
+    instituteCode: 'KHI-001',
+    instituteName: 'Government Boys Secondary School Clifton',
     city: 'Karachi',
     onboardingStatus: OnboardingStatus.IN_PROGRESS,
     isActive: true,
   },
   {
     id: 'sch_003',
-    schoolCode: 'ISB-001',
-    schoolName: 'Federal Government School F-8',
+    instituteCode: 'ISB-001',
+    instituteName: 'Federal Government School F-8',
     city: 'Islamabad',
     onboardingStatus: OnboardingStatus.PENDING,
     isActive: true,
   },
 ];
 
-export function SchoolsListPage(): React.ReactElement {
+export function InstitutesListPage(): React.ReactElement {
   const navigate = useNavigate();
 
-  const columns: ColumnDef<SchoolListItem>[] = [
+  const columns: ColumnDef<InstituteListItem>[] = [
     {
-      key: 'schoolName',
-      header: 'School Name',
-      render: (row) => <span className="font-medium">{row.schoolName}</span>,
+      key: 'instituteName',
+      header: 'Institute Name',
+      render: (row) => <span className="font-medium">{row.instituteName}</span>,
     },
     {
-      key: 'schoolCode',
+      key: 'instituteCode',
       header: 'Code',
       render: (row) => (
-        <span className="font-mono text-sm text-muted-foreground">{row.schoolCode}</span>
+        <span className="font-mono text-sm text-muted-foreground">{row.instituteCode}</span>
       ),
       width: '120px',
     },
@@ -85,7 +85,7 @@ export function SchoolsListPage(): React.ReactElement {
           size="sm"
           onClick={(e) => {
             e.stopPropagation();
-            void navigate(`/admin/schools/${row.id}`);
+            void navigate(`/admin/institutes/${row.id}`);
           }}
         >
           View
@@ -98,25 +98,25 @@ export function SchoolsListPage(): React.ReactElement {
   return (
     <>
       <PageHeader
-        title="Schools"
-        subtitle="Manage school onboarding and configurations"
+        title="Institutes"
+        subtitle="Manage institute onboarding and configurations"
         actions={
-          <Button variant="primary" onClick={() => void navigate('/admin/schools/add')}>
-            Add School
+          <Button variant="primary" onClick={() => void navigate('/admin/institutes/add')}>
+            Add Institute
           </Button>
         }
       />
 
       <div className="rounded-lg border border-border bg-card shadow-sm">
-        <DataTable<SchoolListItem>
-          data={MOCK_SCHOOLS}
+        <DataTable<InstituteListItem>
+          data={MOCK_INSTITUTES}
           columns={columns}
-          onRowClick={(row) => void navigate(`/admin/schools/${row.id}`)}
-          emptyMessage="No schools found"
+          onRowClick={(row) => void navigate(`/admin/institutes/${row.id}`)}
+          emptyMessage="No institutes found"
         />
       </div>
     </>
   );
 }
 
-export default SchoolsListPage;
+export default InstitutesListPage;

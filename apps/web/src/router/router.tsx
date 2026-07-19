@@ -1,5 +1,5 @@
 /**
- * Router — one role layout per role (ADMIN / CONTROLLER / EVALUATOR / SCHOOL_STAFF),
+ * Router — one role layout per role (ADMIN / CONTROLLER / EVALUATOR / INSTITUTE),
  * each behind ProtectedRoute + RoleRoute, with nested module routes (scaffold).
  * Route components are lazy-loaded (code splitting); paths come from ./routes so
  * the nav config and the routes can't drift. Each role has an in-layout 404.
@@ -22,15 +22,23 @@ const RoleLayout = lazy(() => import('@/layout/role-layout'));
 const AdminHome = lazy(() => import('@/pages/dashboards/admin-home'));
 const ControllerHome = lazy(() => import('@/pages/dashboards/controller-home'));
 const EvaluatorHome = lazy(() => import('@/pages/dashboards/evaluator-home'));
-const SchoolHome = lazy(() => import('@/pages/dashboards/school-home'));
-const SchoolsListPage = lazy(() => import('@/pages/schools/schools-list.page'));
-const SchoolDetailPage = lazy(() => import('@/pages/schools/school-detail.page'));
+const InstituteHome = lazy(() => import('@/pages/dashboards/institute-home'));
+const InstitutesListPage = lazy(() => import('@/pages/institutes/institutes-list.page'));
+const InstituteDetailPage = lazy(() => import('@/pages/institutes/institute-detail.page'));
+const RolesListPage = lazy(() => import('@/pages/roles/roles-list.page'));
+const RoleDetailPage = lazy(() => import('@/pages/roles/role-detail.page'));
+const UsersListPage = lazy(() => import('@/pages/users/users-list.page'));
+const UserDetailPage = lazy(() => import('@/pages/users/user-detail.page'));
+const InstituteCategoriesPage = lazy(() => import('@/pages/setup/institute-categories.page'));
+const SubjectsPage = lazy(() => import('@/pages/setup/subjects.page'));
+const SloPage = lazy(() => import('@/pages/setup/slo.page'));
+const ClassesPage = lazy(() => import('@/pages/setup/classes.page'));
 const StudentsListPage = lazy(() => import('@/pages/students/students-list.page'));
 const StudentDetailPage = lazy(() => import('@/pages/students/student-detail.page'));
 const ExamsListPage = lazy(() => import('@/pages/exams/exams-list.page'));
 const ExamDetailPage = lazy(() => import('@/pages/exams/exam-detail.page'));
 const ExamCandidatesPage = lazy(() => import('@/pages/exams/exam-candidates.page'));
-const SchoolExamsPage = lazy(() => import('@/pages/exams/school-exams.page'));
+const InstituteExamsPage = lazy(() => import('@/pages/exams/institute-exams.page'));
 const ExamRegisterPage = lazy(() => import('@/pages/exams/exam-register.page'));
 
 /** Relative child segment of an absolute path under its role home (no drift). */
@@ -128,21 +136,49 @@ export function RouterConfig(): React.ReactElement {
               element={<ExamDetailPage />}
             />
             <Route
-              path={rel(ROUTES.admin.home, ROUTES.admin.schools)}
-              element={<Navigate to={ROUTES.admin.schoolsView} replace />}
+              path={rel(ROUTES.admin.home, ROUTES.admin.institutes)}
+              element={<Navigate to={ROUTES.admin.institutesView} replace />}
             />
             <Route
-              path={rel(ROUTES.admin.home, ROUTES.admin.schoolsView)}
-              element={<SchoolsListPage />}
+              path={rel(ROUTES.admin.home, ROUTES.admin.institutesView)}
+              element={<InstitutesListPage />}
             />
             <Route
-              path={rel(ROUTES.admin.home, ROUTES.admin.schoolsAdd)}
-              element={<SchoolDetailPage />}
+              path={rel(ROUTES.admin.home, ROUTES.admin.institutesAdd)}
+              element={<InstituteDetailPage />}
             />
             <Route
-              path={rel(ROUTES.admin.home, ROUTES.admin.schoolDetail)}
-              element={<SchoolDetailPage />}
+              path={rel(ROUTES.admin.home, ROUTES.admin.instituteDetail)}
+              element={<InstituteDetailPage />}
             />
+            <Route path={rel(ROUTES.admin.home, ROUTES.admin.roles)} element={<RolesListPage />} />
+            <Route
+              path={rel(ROUTES.admin.home, ROUTES.admin.rolesNew)}
+              element={<RoleDetailPage />}
+            />
+            <Route
+              path={rel(ROUTES.admin.home, ROUTES.admin.roleDetail)}
+              element={<RoleDetailPage />}
+            />
+            <Route path={rel(ROUTES.admin.home, ROUTES.admin.users)} element={<UsersListPage />} />
+            <Route
+              path={rel(ROUTES.admin.home, ROUTES.admin.usersNew)}
+              element={<UserDetailPage />}
+            />
+            <Route
+              path={rel(ROUTES.admin.home, ROUTES.admin.userDetail)}
+              element={<UserDetailPage />}
+            />
+            <Route
+              path={rel(ROUTES.admin.home, ROUTES.admin.instituteCategories)}
+              element={<InstituteCategoriesPage />}
+            />
+            <Route
+              path={rel(ROUTES.admin.home, ROUTES.admin.subjects)}
+              element={<SubjectsPage />}
+            />
+            <Route path={rel(ROUTES.admin.home, ROUTES.admin.slos)} element={<SloPage />} />
+            <Route path={rel(ROUTES.admin.home, ROUTES.admin.classes)} element={<ClassesPage />} />
             <Route
               path={rel(ROUTES.admin.home, ROUTES.admin.students)}
               element={<Navigate to={ROUTES.admin.studentsView} replace />}
@@ -227,44 +263,44 @@ export function RouterConfig(): React.ReactElement {
           </Route>
         </Route>
 
-        {/* SCHOOL_STAFF — school */}
-        <Route element={<RoleRoute allowedRoles={[UserRole.SCHOOL_STAFF]} />}>
-          <Route path={ROUTES.school.home} element={<RoleLayout />}>
-            <Route index element={<SchoolHome />} />
+        {/* INSTITUTE — institute */}
+        <Route element={<RoleRoute allowedRoles={[UserRole.INSTITUTE]} />}>
+          <Route path={ROUTES.institute.home} element={<RoleLayout />}>
+            <Route index element={<InstituteHome />} />
             <Route
-              path={rel(ROUTES.school.home, ROUTES.school.students)}
-              element={<Navigate to={ROUTES.school.studentsView} replace />}
+              path={rel(ROUTES.institute.home, ROUTES.institute.students)}
+              element={<Navigate to={ROUTES.institute.studentsView} replace />}
             />
             <Route
-              path={rel(ROUTES.school.home, ROUTES.school.studentsView)}
+              path={rel(ROUTES.institute.home, ROUTES.institute.studentsView)}
               element={<StudentsListPage />}
             />
             <Route
-              path={rel(ROUTES.school.home, ROUTES.school.studentsManage)}
+              path={rel(ROUTES.institute.home, ROUTES.institute.studentsManage)}
               element={<StudentDetailPage />}
             />
             <Route
-              path={rel(ROUTES.school.home, ROUTES.school.studentDetail)}
+              path={rel(ROUTES.institute.home, ROUTES.institute.studentDetail)}
               element={<StudentDetailPage />}
             />
             <Route
-              path={rel(ROUTES.school.home, ROUTES.school.exams)}
-              element={<Navigate to={ROUTES.school.examsView} replace />}
+              path={rel(ROUTES.institute.home, ROUTES.institute.exams)}
+              element={<Navigate to={ROUTES.institute.examsView} replace />}
             />
             <Route
-              path={rel(ROUTES.school.home, ROUTES.school.examsView)}
-              element={<SchoolExamsPage />}
+              path={rel(ROUTES.institute.home, ROUTES.institute.examsView)}
+              element={<InstituteExamsPage />}
             />
             <Route
-              path={rel(ROUTES.school.home, ROUTES.school.examRegister)}
+              path={rel(ROUTES.institute.home, ROUTES.institute.examRegister)}
               element={<ExamRegisterPage />}
             />
             <Route
-              path={rel(ROUTES.school.home, ROUTES.school.results)}
+              path={rel(ROUTES.institute.home, ROUTES.institute.results)}
               element={<ModulePlaceholder title="Results" />}
             />
             <Route
-              path={rel(ROUTES.school.home, ROUTES.school.profile)}
+              path={rel(ROUTES.institute.home, ROUTES.institute.profile)}
               element={<ModulePlaceholder title="Profile" />}
             />
             <Route path="*" element={<NotFoundPanel />} />

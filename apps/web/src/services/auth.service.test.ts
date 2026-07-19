@@ -15,8 +15,8 @@ describe('authService.login', () => {
   it('matches each role by email', async () => {
     const evaluator = await authService.login('evaluator@oses.pk', DEMO_PASSWORD);
     expect(evaluator.user.role).toBe(UserRole.EVALUATOR);
-    const school = await authService.login('school@oses.pk', DEMO_PASSWORD);
-    expect(school.user.role).toBe(UserRole.SCHOOL_STAFF);
+    const institute = await authService.login('school@oses.pk', DEMO_PASSWORD);
+    expect(institute.user.role).toBe(UserRole.INSTITUTE);
   });
 
   it('is case-insensitive and trims the email', async () => {

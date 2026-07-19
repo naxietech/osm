@@ -13,7 +13,7 @@ export type EnrollmentStatus = 'active' | 'inactive' | 'transferred' | 'graduate
 export interface Student {
   id: string;
   studentRefId: string; // UUID — the only identifier exposed to the exam schema
-  schoolId: string;
+  instituteId: string;
 
   // Identity (PII)
   fullName: string;
@@ -36,8 +36,12 @@ export interface Student {
   district: string;
   postalAddress?: string; // mailing address, only if different from residential (PII)
 
-  // Enrollment
-  gradeId: number;
+  // Academic placement
+  levelId: string; // configurable Level (Class / Year / Semester)
+  groupId: string; // Group / stream / program
+  classNumber: number; // derived display value = the level's ordinal (e.g. 10 for "Class 10")
+  registrationNumber?: string; // permanent, number-only student ID (assigned at registration)
+
   enrollmentStatus: EnrollmentStatus;
   createdAt: string;
 }
@@ -45,20 +49,25 @@ export interface Student {
 // Safe for evaluator contexts — no PII whatsoever
 export interface SafeStudentRef {
   studentRefId: string;
-  gradeId: number;
+  levelId: string;
+  groupId: string;
+  classNumber: number;
 }
 
 // Safe for admin list views — no document / contact / address PII
 export interface StudentListItem {
   id: string;
   studentRefId: string;
+  registrationNumber?: string;
   fullName: string;
-  gradeId: number;
+  levelId: string;
+  groupId: string;
+  classNumber: number;
   enrollmentStatus: EnrollmentStatus;
 }
 
 export interface CreateStudentDto {
-  schoolId: string;
+  instituteId: string;
   fullName: string;
   fatherOrGuardianName: string;
   gender: Gender;
@@ -72,7 +81,8 @@ export interface CreateStudentDto {
   city: string;
   district: string;
   postalAddress?: string;
-  gradeId: number;
+  levelId: string;
+  groupId: string;
 }
 
 export interface UpdateStudentDto {
@@ -89,6 +99,7 @@ export interface UpdateStudentDto {
   city?: string;
   district?: string;
   postalAddress?: string;
-  gradeId?: number;
+  levelId?: string;
+  groupId?: string;
   enrollmentStatus?: EnrollmentStatus;
 }

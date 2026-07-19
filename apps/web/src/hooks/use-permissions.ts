@@ -1,47 +1,62 @@
-import { UserRole } from '@oses/types';
+import { type PermissionAction, type PermissionScope } from '@oses/types';
+
+import { resolveRoleForUser } from '@/services/roles.service';
 
 import { useAuth } from './use-auth';
 
 /**
- * Provisional role permissions for the 4 roles. Admin has the most; the rest are
- * limited. The exact matrix is intentionally rough for now and will be refined.
+ * Data-driven permissions. Resolves the current user's Role (see roles.service) and
+ * exposes `can(action)` / `scopeFor(action)` over its grants. The boolean getters are
+ * thin wrappers kept so existing callers keep working while the app migrates to
+ * permission-based gating.
  */
 interface UsePermissionsReturn {
-  /** Admin and Controller can see student PII (name, CNIC, DOB). Evaluators never can. */
+  /** True if the current role grants this action (at any scope). */
+  can: (action: PermissionAction) => boolean;
+  /** The scope of the granted action (`all` | `own-institute`), or null if not granted. */
+  scopeFor: (action: PermissionAction) => PermissionScope | null;
+
+  // ---- legacy boolean getters (wrappers over can()) ----
+  /** Super Admin / Admin / Controller Examiner can see student PII; evaluators never can. */
   canViewPII: boolean;
-  /** Evaluator role can submit marks. */
+  /** Evaluator (paper checker) role can submit marks. */
   canMark: boolean;
-  /** Admin and Controller can supervise/resolve marking. */
+  /** Controller Examiner can supervise/resolve marking. */
   canSuperviseMarking: boolean;
-  /** Only Admin can create, update, or deactivate schools. */
+  /** Manage institutes (super admin). */
   canManageSchools: boolean;
-  /** Admin and School Staff can enrol students. */
+  /** Manage students (super admin, or institute for its own). */
   canManageStudents: boolean;
-  /** Admin and Controller can view results across all schools. */
+  /** View results across all institutes. */
   canViewAllResults: boolean;
-  /** School Staff can view results for its own school only. */
+  /** View results for the user's own institute only. */
   canViewOwnSchoolResults: boolean;
-  /** Only Admin can create/edit exams and assign roll numbers. */
+  /** Create/edit exams and assign roll numbers. */
   canManageExams: boolean;
-  /** Admin and School Staff can register students as exam candidates. */
+  /** Register students as exam candidates. */
   canRegisterCandidates: boolean;
 }
 
 export function usePermissions(): UsePermissionsReturn {
   const { user } = useAuth();
-  const role = user?.role;
-  const isAdmin = role === UserRole.ADMIN;
-  const isController = role === UserRole.CONTROLLER;
+  const role = resolveRoleForUser(user);
+  const grants = role?.grants ?? [];
+
+  const can = (action: PermissionAction): boolean => grants.some((g) => g.action === action);
+  const scopeFor = (action: PermissionAction): PermissionScope | null =>
+    grants.find((g) => g.action === action)?.scope ?? null;
 
   return {
-    canViewPII: isAdmin || isController,
-    canMark: role === UserRole.EVALUATOR,
-    canSuperviseMarking: isAdmin || isController,
-    canManageSchools: isAdmin,
-    canManageStudents: isAdmin || role === UserRole.SCHOOL_STAFF,
-    canViewAllResults: isAdmin || isController,
-    canViewOwnSchoolResults: role === UserRole.SCHOOL_STAFF,
-    canManageExams: isAdmin,
-    canRegisterCandidates: isAdmin || role === UserRole.SCHOOL_STAFF,
+    can,
+    scopeFor,
+    canViewPII: can('students.viewPII'),
+    canMark: can('marking.mark'),
+    canSuperviseMarking: can('marking.supervise'),
+    canManageSchools: can('institutes.manage'),
+    canManageStudents: can('students.manage'),
+    canViewAllResults: can('results.viewAll'),
+    canViewOwnSchoolResults: can('results.viewOwn'),
+    canManageExams: can('exams.manage'),
+    canRegisterCandidates: can('registrations.manage'),
   };
 }

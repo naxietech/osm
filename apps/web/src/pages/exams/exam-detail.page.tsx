@@ -1,6 +1,6 @@
 /**
  * ExamDetailPage (ADMIN) — doubles as create (no :id) and edit (with :id), driven by
- * the ExamForm organism, mirroring SchoolDetailPage. In edit mode it also exposes the
+ * the ExamForm organism, mirroring InstituteDetailPage. In edit mode it also exposes the
  * board lifecycle actions: open registration, then close it and assign roll numbers.
  *
  * TODO: Replace examService calls with React Query mutations.
@@ -14,9 +14,18 @@ import { Button } from '@/design-system/atoms/button';
 import { Check, ChevronLeft, GraduationCap, Users } from '@/design-system/atoms/icon';
 import { Spinner } from '@/design-system/atoms/spinner';
 import { ExamForm } from '@/design-system/organisms/exam-form';
+import {
+  curriculumSubjectsFor,
+  groupOptionsByLevelMap,
+  levelSelectOptions,
+} from '@/services/academic.service';
 import { examService } from '@/services/exam.service';
+import { INSTITUTE_OPTIONS } from '@/services/users.service';
 
 import { ExamStatusBadge } from './exam-status-badge';
+
+const LEVEL_OPTIONS = levelSelectOptions();
+const GROUP_OPTIONS_BY_LEVEL = groupOptionsByLevelMap();
 
 export function ExamDetailPage(): React.ReactElement {
   const { id } = useParams<{ id: string }>();
@@ -109,7 +118,7 @@ export function ExamDetailPage(): React.ReactElement {
             </h1>
             <p className="mt-1 text-sm text-white/80">
               {isEdit && exam
-                ? `${exam.code} · ${exam.session} · Grade ${exam.gradeId}`
+                ? `${exam.code} · ${exam.session} · Class ${exam.classNumber}`
                 : 'Set up a new exam session and its papers'}
             </p>
           </div>
@@ -170,14 +179,21 @@ export function ExamDetailPage(): React.ReactElement {
           <div className="rounded-xl border border-border bg-card p-6 shadow-sm md:p-8">
             <ExamForm
               mode={isEdit ? 'edit' : 'create'}
+              levelOptions={LEVEL_OPTIONS}
+              groupOptionsByLevel={GROUP_OPTIONS_BY_LEVEL}
+              resolveCurriculum={curriculumSubjectsFor}
+              instituteOptions={INSTITUTE_OPTIONS}
+              lockInstituteScope={Boolean(exam && exam.status !== ExamStatus.DRAFT)}
               initialValues={
                 isEdit && exam
                   ? {
                       code: exam.code,
                       name: exam.name,
                       session: exam.session,
-                      schoolLevel: exam.schoolLevel,
-                      gradeId: exam.gradeId,
+                      levelId: exam.levelId,
+                      groupId: exam.groupId,
+                      instituteScope: exam.instituteScope,
+                      ...(exam.instituteIds ? { instituteIds: exam.instituteIds } : {}),
                       registrationOpensAt: exam.registrationOpensAt,
                       registrationClosesAt: exam.registrationClosesAt,
                       papers: exam.papers,

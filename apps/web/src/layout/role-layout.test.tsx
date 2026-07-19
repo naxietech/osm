@@ -53,7 +53,7 @@ describe('RoleLayout', () => {
     renderShell();
     // Items from the ADMIN nav config.
     expect(screen.getByText('Question Assignments')).toBeInTheDocument();
-    expect(screen.getByText('Schools')).toBeInTheDocument();
+    expect(screen.getByText('Institutes')).toBeInTheDocument();
   });
 
   it('shows the signed-in user', () => {

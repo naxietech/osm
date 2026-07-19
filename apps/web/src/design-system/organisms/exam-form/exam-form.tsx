@@ -1,26 +1,48 @@
 /**
  * ExamForm (organism) — create / edit an exam (session) and its papers.
  *
- * Follows the SchoolForm reference: Formik + Yup for the scalar fields, FormField /
- * SelectField controls, iconed sections, submits a typed CreateExamDto. The variable
- * length paper list is handled by the PapersEditor (own React state) and validated
- * on submit. School level is derived from the grade, so it isn't asked for.
+ * Follows the InstituteForm reference: Formik + Yup for the scalar fields, FormField /
+ * SelectField controls, iconed sections, submits a typed CreateExamDto. An exam is for
+ * a Level + Group; choosing the group pre-fills the papers from that group's curriculum
+ * (via `resolveCurriculum`), which the examiner can then adjust (dates / marks). The
+ * paper list is handled by the PapersEditor (own React state) and validated on submit.
  */
 import React, { useState } from 'react';
 
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 
-import { type CreateExamDto, type CreateExamPaperDto, SchoolLevel } from '@oses/types';
+import type {
+  CreateExamDto,
+  CreateExamPaperDto,
+  CurriculumSubject,
+  ExamInstituteScope,
+} from '@oses/types';
 
 import { Button } from '@/design-system/atoms/button';
-import { Calendar, FileText, GraduationCap, type LucideIcon } from '@/design-system/atoms/icon';
+import {
+  Building2,
+  Calendar,
+  FileText,
+  GraduationCap,
+  type LucideIcon,
+} from '@/design-system/atoms/icon';
 import { FormField } from '@/design-system/molecules/form-field';
 import { SelectField, type SelectOption } from '@/design-system/molecules/select-field';
 import { type PaperDraft, PapersEditor, emptyPaper } from '@/design-system/organisms/papers-editor';
 
 export interface ExamFormProps {
   initialValues?: Partial<CreateExamDto>;
+  /** Levels (Class / Year / Semester) to choose from. */
+  levelOptions: SelectOption[];
+  /** Valid group options keyed by level id. */
+  groupOptionsByLevel: Record<string, SelectOption[]>;
+  /** Resolve the curriculum subjects for a level + group (pre-fills the papers). */
+  resolveCurriculum: (levelId: string, groupId: string) => CurriculumSubject[];
+  /** Institutes selectable when targeting specific institutes. */
+  instituteOptions: SelectOption[];
+  /** Lock the scope controls (e.g. once registration has opened). */
+  lockInstituteScope?: boolean;
   onSubmit: (data: CreateExamDto) => void;
   onCancel?: () => void;
   isSubmitting: boolean;
@@ -31,21 +53,10 @@ interface ExamFormValues {
   code: string;
   name: string;
   session: string;
-  gradeId: string;
+  levelId: string;
+  groupId: string;
   registrationOpensAt: string;
   registrationClosesAt: string;
-}
-
-const GRADE_OPTIONS: SelectOption[] = [
-  { value: '9', label: 'Grade 9' },
-  { value: '10', label: 'Grade 10' },
-  { value: '11', label: 'Grade 11' },
-  { value: '12', label: 'Grade 12' },
-];
-
-/** Secondary covers grades 9–10; higher secondary covers 11–12. */
-function levelForGrade(gradeId: number): SchoolLevel {
-  return gradeId <= 10 ? SchoolLevel.SECONDARY : SchoolLevel.HIGHER_SECONDARY;
 }
 
 const validationSchema = Yup.object({
@@ -64,9 +75,8 @@ const validationSchema = Yup.object({
     .min(3, 'Session is too short')
     .max(50, 'Session is too long')
     .required('Session is required'),
-  gradeId: Yup.string()
-    .oneOf(['9', '10', '11', '12'], 'Select a grade')
-    .required('Grade is required'),
+  levelId: Yup.string().required('Select a level'),
+  groupId: Yup.string().required('Select a group'),
   registrationOpensAt: Yup.string().required('Registration open date is required'),
   registrationClosesAt: Yup.string()
     .required('Registration close date is required')
@@ -86,6 +96,15 @@ function toDraft(paper: CreateExamPaperDto): PaperDraft {
   };
 }
 
+function curriculumToDraft(subject: CurriculumSubject): PaperDraft {
+  return {
+    subject: subject.subject,
+    totalMarks: subject.defaultTotalMarks != null ? String(subject.defaultTotalMarks) : '',
+    paperDate: '',
+    paperType: subject.subjectType,
+  };
+}
+
 /** Validate the paper rows; returns an error string or null when all rows are valid. */
 function validatePapers(papers: PaperDraft[]): string | null {
   if (papers.length === 0) return 'Add at least one paper.';
@@ -100,7 +119,7 @@ function validatePapers(papers: PaperDraft[]): string | null {
   return null;
 }
 
-/** Iconed section heading (matches SchoolForm). */
+/** Iconed section heading (matches InstituteForm). */
 function SectionHeading({
   icon: Icon,
   children,
@@ -120,6 +139,11 @@ function SectionHeading({
 
 export function ExamForm({
   initialValues,
+  levelOptions,
+  groupOptionsByLevel,
+  resolveCurriculum,
+  instituteOptions,
+  lockInstituteScope = false,
   onSubmit,
   onCancel,
   isSubmitting,
@@ -131,6 +155,20 @@ export function ExamForm({
       : [emptyPaper()],
   );
   const [papersError, setPapersError] = useState<string | undefined>(undefined);
+  const [instituteScope, setInstituteScope] = useState<ExamInstituteScope>(
+    initialValues?.instituteScope ?? 'all',
+  );
+  const [selectedInstituteIds, setSelectedInstituteIds] = useState<string[]>(
+    initialValues?.instituteIds ?? [],
+  );
+  const [scopeError, setScopeError] = useState<string | undefined>(undefined);
+
+  const toggleInstitute = (id: string): void => {
+    setScopeError(undefined);
+    setSelectedInstituteIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
 
   const formik = useFormik<ExamFormValues>({
     enableReinitialize: true,
@@ -138,7 +176,8 @@ export function ExamForm({
       code: initialValues?.code ?? '',
       name: initialValues?.name ?? '',
       session: initialValues?.session ?? '',
-      gradeId: initialValues?.gradeId ? String(initialValues.gradeId) : '',
+      levelId: initialValues?.levelId ?? '',
+      groupId: initialValues?.groupId ?? '',
       registrationOpensAt: initialValues?.registrationOpensAt ?? '',
       registrationClosesAt: initialValues?.registrationClosesAt ?? '',
     },
@@ -149,13 +188,18 @@ export function ExamForm({
         setPapersError(error);
         return;
       }
-      const gradeId = Number(values.gradeId);
+      if (instituteScope === 'selected' && selectedInstituteIds.length === 0) {
+        setScopeError('Select at least one institute, or choose All institutes.');
+        return;
+      }
       const dto: CreateExamDto = {
         code: values.code.trim(),
         name: values.name.trim(),
         session: values.session.trim(),
-        schoolLevel: levelForGrade(gradeId),
-        gradeId,
+        levelId: values.levelId,
+        groupId: values.groupId,
+        instituteScope,
+        ...(instituteScope === 'selected' ? { instituteIds: selectedInstituteIds } : {}),
         registrationOpensAt: values.registrationOpensAt,
         registrationClosesAt: values.registrationClosesAt,
         papers: papers.map((p) => ({
@@ -174,6 +218,13 @@ export function ExamForm({
 
   const handlePapersChange = (next: PaperDraft[]): void => {
     setPapers(next);
+    if (papersError) setPapersError(undefined);
+  };
+
+  /** Pre-fill the papers from the chosen level + group's curriculum. */
+  const loadCurriculumPapers = (levelId: string, groupId: string): void => {
+    const subjects = resolveCurriculum(levelId, groupId);
+    if (subjects.length > 0) setPapers(subjects.map(curriculumToDraft));
     if (papersError) setPapersError(undefined);
   };
 
@@ -217,15 +268,33 @@ export function ExamForm({
             required
           />
           <SelectField
-            id="gradeId"
-            name="gradeId"
-            label="Grade"
-            options={GRADE_OPTIONS}
+            id="levelId"
+            name="levelId"
+            label="Level (Class / Year)"
+            options={levelOptions}
             required
-            value={formik.values.gradeId}
-            onChange={(value) => void formik.setFieldValue('gradeId', value)}
-            onBlur={() => void formik.setFieldTouched('gradeId', true)}
-            error={fieldError('gradeId')}
+            value={formik.values.levelId}
+            onChange={(value) => {
+              void formik.setFieldValue('levelId', value);
+              void formik.setFieldValue('groupId', '');
+            }}
+            onBlur={() => void formik.setFieldTouched('levelId', true)}
+            error={fieldError('levelId')}
+          />
+          <SelectField
+            id="groupId"
+            name="groupId"
+            label="Group / Program"
+            options={groupOptionsByLevel[formik.values.levelId] ?? []}
+            disabled={!formik.values.levelId}
+            required
+            value={formik.values.groupId}
+            onChange={(value) => {
+              void formik.setFieldValue('groupId', value);
+              if (value) loadCurriculumPapers(formik.values.levelId, value);
+            }}
+            onBlur={() => void formik.setFieldTouched('groupId', true)}
+            error={fieldError('groupId')}
           />
         </div>
       </section>
@@ -259,7 +328,67 @@ export function ExamForm({
       </section>
 
       <section>
+        <SectionHeading icon={Building2}>Institute Scope</SectionHeading>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Choose which institutes can register candidates into this exam. The class (level + group)
+          still applies to eligibility.
+        </p>
+        <div className="space-y-3">
+          <label className="flex items-center gap-2 text-sm text-foreground">
+            <input
+              type="radio"
+              name="instituteScope"
+              className="h-4 w-4 accent-[var(--brand)]"
+              checked={instituteScope === 'all'}
+              disabled={lockInstituteScope}
+              onChange={() => {
+                setInstituteScope('all');
+                setScopeError(undefined);
+              }}
+            />
+            All institutes
+          </label>
+          <label className="flex items-center gap-2 text-sm text-foreground">
+            <input
+              type="radio"
+              name="instituteScope"
+              className="h-4 w-4 accent-[var(--brand)]"
+              checked={instituteScope === 'selected'}
+              disabled={lockInstituteScope}
+              onChange={() => setInstituteScope('selected')}
+            />
+            Selected institutes
+          </label>
+
+          {instituteScope === 'selected' && (
+            <div className="mt-1 grid gap-2 sm:grid-cols-2">
+              {instituteOptions.map((o) => (
+                <label
+                  key={o.value}
+                  className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-sm text-foreground"
+                >
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-input accent-[var(--brand)]"
+                    checked={selectedInstituteIds.includes(o.value)}
+                    disabled={lockInstituteScope}
+                    onChange={() => toggleInstitute(o.value)}
+                  />
+                  {o.label}
+                </label>
+              ))}
+            </div>
+          )}
+          {scopeError && <p className="text-xs text-danger">{scopeError}</p>}
+        </div>
+      </section>
+
+      <section>
         <SectionHeading icon={FileText}>Papers</SectionHeading>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Papers are pre-filled from the selected group&apos;s curriculum — adjust dates and marks
+          as needed.
+        </p>
         <PapersEditor papers={papers} onChange={handlePapersChange} error={papersError} />
       </section>
 

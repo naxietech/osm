@@ -2,7 +2,7 @@
  * ExamsListPage — the board-side exam list (ADMIN and CONTROLLER).
  *
  * Mounted under /admin/exams and /controller/exams, so navigation is derived from
- * the path (role-agnostic), matching the SchoolsListPage / StudentsListPage pattern.
+ * the path (role-agnostic), matching the InstitutesListPage / StudentsListPage pattern.
  * Admins can create exams and open an exam to edit it; controllers are read-only and
  * jump straight to an exam's candidate list.
  *
@@ -68,9 +68,9 @@ export function ExamsListPage(): React.ReactElement {
       width: '150px',
     },
     {
-      key: 'grade',
-      header: 'Grade',
-      render: (row) => `Grade ${row.gradeId}`,
+      key: 'class',
+      header: 'Class',
+      render: (row) => `Class ${row.classNumber}`,
       width: '110px',
     },
     {

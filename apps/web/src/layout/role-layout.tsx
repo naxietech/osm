@@ -9,24 +9,38 @@ import { Outlet, useNavigate } from 'react-router-dom';
 
 import { ROLE_CONFIG } from '@/config/roles.config';
 import { DashboardLayout } from '@/design-system/templates/dashboard-layout';
-import { useAuth } from '@/hooks';
+import { useAuth, useClient } from '@/hooks';
+
+import { ClientSwitcher } from './client-switcher';
 
 export function RoleLayout(): ReactElement {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const navSections = (user && ROLE_CONFIG[user.role]?.nav) || [];
+  const { isModuleEnabled } = useClient();
+
+  // Gate the role's nav by the active client's enabled modules (untagged items always show).
+  const rawNav = (user && ROLE_CONFIG[user.role]?.nav) || [];
+  const navSections = rawNav
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => isModuleEnabled(item.module)),
+    }))
+    .filter((section) => section.items.length > 0);
 
   return (
-    <DashboardLayout
-      navSections={navSections}
-      user={user ? { fullName: user.fullName, email: user.email } : null}
-      onLogout={() => {
-        logout();
-        void navigate('/login');
-      }}
-    >
-      <Outlet />
-    </DashboardLayout>
+    <>
+      <DashboardLayout
+        navSections={navSections}
+        user={user ? { fullName: user.fullName, email: user.email } : null}
+        onLogout={() => {
+          logout();
+          void navigate('/login');
+        }}
+      >
+        <Outlet />
+      </DashboardLayout>
+      <ClientSwitcher />
+    </>
   );
 }
 

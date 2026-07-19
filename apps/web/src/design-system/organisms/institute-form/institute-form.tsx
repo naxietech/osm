@@ -1,8 +1,8 @@
 /**
- * REFERENCE PATTERN — SchoolForm (organism)
+ * REFERENCE PATTERN — InstituteForm (organism)
  * This is the reference for all future domain forms.
  * Pattern: Formik + Yup validation, FormField (text) + SelectField (dropdown),
- * controlled by `mode` (create/edit). Submits a typed CreateSchoolDto.
+ * controlled by `mode` (create/edit). Submits a typed CreateInstituteDto.
  */
 import React from 'react';
 
@@ -10,11 +10,11 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 
 import {
-  type CreateSchoolDto,
+  type CreateInstituteDto,
+  GenderCategory,
+  InstituteLevel,
   InstitutionType,
   Province,
-  SchoolCategory,
-  SchoolLevel,
 } from '@oses/types';
 
 import { Button } from '@/design-system/atoms/button';
@@ -22,21 +22,21 @@ import { Building2, type LucideIcon, MapPin, User } from '@/design-system/atoms/
 import { FormField } from '@/design-system/molecules/form-field';
 import { SelectField, type SelectOption } from '@/design-system/molecules/select-field';
 
-export interface SchoolFormProps {
-  initialValues?: Partial<CreateSchoolDto>;
-  onSubmit: (data: CreateSchoolDto) => void;
+export interface InstituteFormProps {
+  initialValues?: Partial<CreateInstituteDto>;
+  onSubmit: (data: CreateInstituteDto) => void;
   onCancel?: () => void;
   isSubmitting: boolean;
   mode: 'create' | 'edit';
 }
 
-/** All-string shape used by the form controls; cast to CreateSchoolDto on submit. */
-interface SchoolFormValues {
-  schoolCode: string;
-  schoolName: string;
+/** All-string shape used by the form controls; cast to CreateInstituteDto on submit. */
+interface InstituteFormValues {
+  instituteCode: string;
+  instituteName: string;
   registrationNo: string;
   institutionType: string;
-  schoolLevel: string;
+  instituteLevel: string;
   category: string;
   address: string;
   city: string;
@@ -55,16 +55,16 @@ const INSTITUTION_TYPE_OPTIONS: SelectOption[] = [
   { value: InstitutionType.OTHER, label: 'Other' },
 ];
 
-const SCHOOL_LEVEL_OPTIONS: SelectOption[] = [
-  { value: SchoolLevel.SECONDARY, label: 'Secondary (SSC / Matric)' },
-  { value: SchoolLevel.HIGHER_SECONDARY, label: 'Higher Secondary (HSSC / Intermediate)' },
-  { value: SchoolLevel.BOTH, label: 'Both' },
+const INSTITUTE_LEVEL_OPTIONS: SelectOption[] = [
+  { value: InstituteLevel.SECONDARY, label: 'Secondary (SSC / Matric)' },
+  { value: InstituteLevel.HIGHER_SECONDARY, label: 'Higher Secondary (HSSC / Intermediate)' },
+  { value: InstituteLevel.BOTH, label: 'Both' },
 ];
 
 const CATEGORY_OPTIONS: SelectOption[] = [
-  { value: SchoolCategory.BOYS, label: 'Boys' },
-  { value: SchoolCategory.GIRLS, label: 'Girls' },
-  { value: SchoolCategory.CO_EDUCATION, label: 'Co-education' },
+  { value: GenderCategory.BOYS, label: 'Boys' },
+  { value: GenderCategory.GIRLS, label: 'Girls' },
+  { value: GenderCategory.CO_EDUCATION, label: 'Co-education' },
 ];
 
 const PROVINCE_OPTIONS: SelectOption[] = [
@@ -78,16 +78,16 @@ const PROVINCE_OPTIONS: SelectOption[] = [
 ];
 
 const validationSchema = Yup.object({
-  schoolCode: Yup.string()
+  instituteCode: Yup.string()
     .trim()
-    .min(2, 'School code must be at least 2 characters')
-    .max(20, 'School code is too long')
-    .required('School code is required'),
-  schoolName: Yup.string()
+    .min(2, 'Institute code must be at least 2 characters')
+    .max(20, 'Institute code is too long')
+    .required('Institute code is required'),
+  instituteName: Yup.string()
     .trim()
-    .min(2, 'School name must be at least 2 characters')
-    .max(255, 'School name is too long')
-    .required('School name is required'),
+    .min(2, 'Institute name must be at least 2 characters')
+    .max(255, 'Institute name is too long')
+    .required('Institute name is required'),
   registrationNo: Yup.string()
     .trim()
     .min(2, 'Registration number is too short')
@@ -96,11 +96,11 @@ const validationSchema = Yup.object({
   institutionType: Yup.string()
     .oneOf(Object.values(InstitutionType), 'Select an institution type')
     .required('Institution type is required'),
-  schoolLevel: Yup.string()
-    .oneOf(Object.values(SchoolLevel), 'Select a school level')
-    .required('School level is required'),
+  instituteLevel: Yup.string()
+    .oneOf(Object.values(InstituteLevel), 'Select an institute level')
+    .required('Institute level is required'),
   category: Yup.string()
-    .oneOf(Object.values(SchoolCategory), 'Select a category')
+    .oneOf(Object.values(GenderCategory), 'Select a category')
     .required('Category is required'),
   address: Yup.string()
     .trim()
@@ -157,21 +157,21 @@ function SectionHeading({
   );
 }
 
-export function SchoolForm({
+export function InstituteForm({
   initialValues,
   onSubmit,
   onCancel,
   isSubmitting,
   mode,
-}: SchoolFormProps): React.ReactElement {
-  const formik = useFormik<SchoolFormValues>({
+}: InstituteFormProps): React.ReactElement {
+  const formik = useFormik<InstituteFormValues>({
     enableReinitialize: true,
     initialValues: {
-      schoolCode: initialValues?.schoolCode ?? '',
-      schoolName: initialValues?.schoolName ?? '',
+      instituteCode: initialValues?.instituteCode ?? '',
+      instituteName: initialValues?.instituteName ?? '',
       registrationNo: initialValues?.registrationNo ?? '',
       institutionType: initialValues?.institutionType ?? '',
-      schoolLevel: initialValues?.schoolLevel ?? '',
+      instituteLevel: initialValues?.instituteLevel ?? '',
       category: initialValues?.category ?? '',
       address: initialValues?.address ?? '',
       city: initialValues?.city ?? '',
@@ -184,13 +184,13 @@ export function SchoolForm({
     },
     validationSchema,
     onSubmit: (values) => {
-      const dto: CreateSchoolDto = {
-        schoolCode: values.schoolCode,
-        schoolName: values.schoolName,
+      const dto: CreateInstituteDto = {
+        instituteCode: values.instituteCode,
+        instituteName: values.instituteName,
         registrationNo: values.registrationNo,
         institutionType: values.institutionType as InstitutionType,
-        schoolLevel: values.schoolLevel as SchoolLevel,
-        category: values.category as SchoolCategory,
+        instituteLevel: values.instituteLevel as InstituteLevel,
+        category: values.category as GenderCategory,
         address: values.address,
         city: values.city,
         province: values.province as Province,
@@ -205,12 +205,12 @@ export function SchoolForm({
   });
 
   /** Shared error resolver — only show an error once the field is touched. */
-  const fieldError = (name: keyof SchoolFormValues): string | undefined =>
+  const fieldError = (name: keyof InstituteFormValues): string | undefined =>
     formik.touched[name] ? formik.errors[name] : undefined;
 
   /** Wires the custom SelectField (value + onChange/onBlur/error) to Formik. */
   const selectProps = (
-    name: keyof SchoolFormValues,
+    name: keyof InstituteFormValues,
   ): {
     value: string;
     onChange: (value: string) => void;
@@ -228,28 +228,28 @@ export function SchoolForm({
   return (
     <form onSubmit={formik.handleSubmit} noValidate className="space-y-10">
       <section>
-        <SectionHeading icon={Building2}>School Information</SectionHeading>
+        <SectionHeading icon={Building2}>Institute Information</SectionHeading>
         <div className={gridClass}>
           <FormField
-            id="schoolName"
-            name="schoolName"
-            label="School / Institution Name"
+            id="instituteName"
+            name="instituteName"
+            label="Institute / Institution Name"
             containerClassName="md:col-span-2 lg:col-span-3"
-            value={formik.values.schoolName}
+            value={formik.values.instituteName}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
-            error={fieldError('schoolName')}
+            error={fieldError('instituteName')}
             required
           />
 
           <FormField
-            id="schoolCode"
-            name="schoolCode"
-            label="School / Institution Code"
-            value={formik.values.schoolCode}
+            id="instituteCode"
+            name="instituteCode"
+            label="Institute / Institution Code"
+            value={formik.values.instituteCode}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
-            error={fieldError('schoolCode')}
+            error={fieldError('instituteCode')}
             disabled={mode === 'edit'}
             required
           />
@@ -275,12 +275,12 @@ export function SchoolForm({
           />
 
           <SelectField
-            id="schoolLevel"
-            name="schoolLevel"
-            label="School Level"
-            options={SCHOOL_LEVEL_OPTIONS}
+            id="instituteLevel"
+            name="instituteLevel"
+            label="Institute Level"
+            options={INSTITUTE_LEVEL_OPTIONS}
             required
-            {...selectProps('schoolLevel')}
+            {...selectProps('instituteLevel')}
           />
 
           <SelectField
@@ -395,7 +395,7 @@ export function SchoolForm({
 
       <div className="flex gap-3 border-t border-border pt-6">
         <Button type="submit" size="lg" isLoading={isSubmitting}>
-          {mode === 'create' ? 'Create School' : 'Save Changes'}
+          {mode === 'create' ? 'Create Institute' : 'Save Changes'}
         </Button>
         {onCancel && (
           <Button type="button" variant="ghost" size="lg" onClick={onCancel}>
@@ -407,4 +407,4 @@ export function SchoolForm({
   );
 }
 
-export default SchoolForm;
+export default InstituteForm;

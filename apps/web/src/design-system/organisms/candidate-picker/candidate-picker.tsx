@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 export interface PickerStudent {
   studentRefId: string;
   fullName: string;
-  gradeId: number;
+  classNumber: number;
 }
 
 /** studentRefId -> chosen elective ExamPaper.ids. Presence of the key = selected. */
@@ -77,7 +77,7 @@ export function CandidatePicker({
   if (students.length === 0) {
     return (
       <p className="rounded-lg border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
-        No eligible students to register. Students must be active and in this exam&apos;s grade.
+        No eligible students to register. Students must be active and in this exam&apos;s class.
       </p>
     );
   }
@@ -131,7 +131,7 @@ export function CandidatePicker({
                   <span>
                     <span className="font-medium text-foreground">{student.fullName}</span>
                     <span className="block text-xs text-muted-foreground">
-                      Grade {student.gradeId} ·{' '}
+                      Class {student.classNumber} ·{' '}
                       <span className="font-mono">{student.studentRefId}</span>
                     </span>
                   </span>

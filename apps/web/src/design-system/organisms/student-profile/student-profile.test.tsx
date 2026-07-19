@@ -20,7 +20,7 @@ const RESULTS: StudentResult[] = [
 const STUDENT: Student = {
   id: 'stu_001',
   studentRefId: 'ref-3f8a1c20',
-  schoolId: 'sch_001',
+  instituteId: 'sch_001',
   fullName: 'Ali Hassan',
   fatherOrGuardianName: 'Hassan Raza',
   gender: 'male',
@@ -31,7 +31,9 @@ const STUDENT: Student = {
   address: 'House 12, Street 5',
   city: 'Lahore',
   district: 'Lahore',
-  gradeId: 10,
+  levelId: 'lvl_10',
+  groupId: 'grp_science',
+  classNumber: 10,
   enrollmentStatus: 'active',
   createdAt: '2025-03-01T08:00:00.000Z',
 };
@@ -42,7 +44,7 @@ describe('StudentProfile', () => {
     expect(screen.getByText('Ali Hassan')).toBeInTheDocument();
     expect(screen.getByText(/Hassan Raza/)).toBeInTheDocument(); // "s/o Hassan Raza"
     expect(screen.getByText('Government High School Gulberg')).toBeInTheDocument();
-    expect(screen.getByText(/Grade 10/)).toBeInTheDocument(); // "Grade 10 · A" chip
+    expect(screen.getByText(/Class 10/)).toBeInTheDocument(); // "Class 10 · A" chip
     expect(screen.getByText('Active')).toBeInTheDocument();
     // No input fields in profile view.
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
