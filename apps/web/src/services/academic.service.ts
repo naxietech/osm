@@ -261,6 +261,30 @@ export function subgroupName(classId: string, groupId: string, subgroupId: strin
   return subgroupsFor(classId, groupId).find((s) => s.id === subgroupId)?.name ?? '—';
 }
 
+/** Group options per class (from the class hierarchy), keyed by class id — for form selects. */
+export function classGroupOptionsByLevelMap(): Record<
+  string,
+  Array<{ value: string; label: string }>
+> {
+  const map: Record<string, Array<{ value: string; label: string }>> = {};
+  for (const level of levels) map[level.id] = classGroupOptions(level.id);
+  return map;
+}
+
+/** Subgroup options keyed by `${classId}:${groupId}` — for the class → group → subgroup cascade. */
+export function subgroupOptionsByLevelGroupMap(): Record<
+  string,
+  Array<{ value: string; label: string }>
+> {
+  const map: Record<string, Array<{ value: string; label: string }>> = {};
+  for (const level of levels) {
+    for (const group of classGroupsFor(level.id)) {
+      map[`${level.id}:${group.id}`] = subgroupOptions(level.id, group.id);
+    }
+  }
+  return map;
+}
+
 /** Level options for a form's Level select (sorted by progression). */
 export function levelSelectOptions(
   kind: InstitutionKind = InstitutionKind.SCHOOL,
@@ -406,15 +430,24 @@ let classGroupCounter = 0;
 let subgroupCounter = 0;
 
 /** Input shape for authoring a class's group/subgroup tree in one submit. */
-export interface ClassGroupInput {
+export interface SubgroupInput {
+  /** Existing subgroup id to preserve on edit; omit for a new subgroup. */
+  id?: string;
   name: string;
   code?: string;
-  subgroups: Array<{ name: string; code?: string }>;
+}
+export interface ClassGroupInput {
+  /** Existing group id to preserve on edit; omit for a new group. */
+  id?: string;
+  name: string;
+  code?: string;
+  subgroups: SubgroupInput[];
 }
 
 /**
  * Replace a class's entire group/subgroup tree from the Class form (single submit).
- * Blank names are dropped; ids are freshly assigned.
+ * Blank names are dropped. Ids passed on inputs are PRESERVED (so students/exams that
+ * reference an existing group/subgroup keep pointing at it); only new rows get fresh ids.
  */
 export function replaceClassGroups(classId: string, groups: ClassGroupInput[]): void {
   const level = findLevel(classId);
@@ -422,18 +455,26 @@ export function replaceClassGroups(classId: string, groups: ClassGroupInput[]): 
   level.classGroups = groups
     .filter((g) => g.name.trim().length > 0)
     .map((g): ClassGroup => {
-      classGroupCounter += 1;
+      let groupId = g.id;
+      if (!groupId) {
+        classGroupCounter += 1;
+        groupId = `cg_${classGroupCounter}`;
+      }
       return {
-        id: `cg_${classGroupCounter}`,
+        id: groupId,
         name: g.name.trim(),
         isActive: true,
         ...(g.code ? { code: g.code } : {}),
         subgroups: g.subgroups
           .filter((s) => s.name.trim().length > 0)
           .map((s): Subgroup => {
-            subgroupCounter += 1;
+            let subgroupId = s.id;
+            if (!subgroupId) {
+              subgroupCounter += 1;
+              subgroupId = `sg_${subgroupCounter}`;
+            }
             return {
-              id: `sg_${subgroupCounter}`,
+              id: subgroupId,
               name: s.name.trim(),
               isActive: true,
               ...(s.code ? { code: s.code } : {}),

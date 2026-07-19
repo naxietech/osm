@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { ChevronDown } from '@/design-system/atoms/icon';
 import { cn } from '@/lib/utils';
 
+import { NavBadge } from './nav-badge';
 import type { NavItem } from './nav.types';
 
 export interface NavGroupProps {
@@ -47,6 +48,7 @@ export function NavGroup({ item, pathname }: NavGroupProps): ReactElement {
           />
         )}
         <span className="flex-1">{item.label}</span>
+        {!open && <NavBadge count={item.badge} />}
         <ChevronDown
           size={16}
           className={cn('shrink-0 transition-transform duration-200', open && 'rotate-180')}
@@ -64,7 +66,7 @@ export function NavGroup({ item, pathname }: NavGroupProps): ReactElement {
                 to={child.to ?? '#'}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'relative rounded-md px-3 py-1.5 text-sm transition-colors',
+                  'relative flex items-center rounded-md px-3 py-1.5 text-sm transition-colors',
                   'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                   active
                     ? 'font-medium text-foreground'
@@ -78,6 +80,7 @@ export function NavGroup({ item, pathname }: NavGroupProps): ReactElement {
                   />
                 )}
                 {child.label}
+                <NavBadge count={child.badge} />
               </Link>
             );
           })}

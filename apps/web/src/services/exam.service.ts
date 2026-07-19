@@ -64,6 +64,10 @@ function createExam(dto: CreateExamDto): Promise<Exam> {
     ...(dto.instituteScope === 'selected' && dto.instituteIds
       ? { instituteIds: dto.instituteIds }
       : {}),
+    ...(dto.subgroupId ? { subgroupId: dto.subgroupId } : {}),
+    ...(dto.subjectIds ? { subjectIds: dto.subjectIds } : {}),
+    ...(dto.shift ? { shift: dto.shift } : {}),
+    ...(dto.examCompletedDate ? { examCompletedDate: dto.examCompletedDate } : {}),
     registrationOpensAt: dto.registrationOpensAt,
     registrationClosesAt: dto.registrationClosesAt,
     status: ExamStatus.DRAFT,
@@ -86,6 +90,10 @@ function updateExam(id: string, dto: UpdateExamDto): Promise<Exam> {
     exam.instituteLevel = instituteLevelForOrdinal(exam.classNumber);
   }
   if (dto.groupId !== undefined) exam.groupId = dto.groupId;
+  if (dto.subgroupId !== undefined) exam.subgroupId = dto.subgroupId;
+  if (dto.subjectIds !== undefined) exam.subjectIds = dto.subjectIds;
+  if (dto.shift !== undefined) exam.shift = dto.shift;
+  if (dto.examCompletedDate !== undefined) exam.examCompletedDate = dto.examCompletedDate;
   if (dto.instituteScope !== undefined) {
     exam.instituteScope = dto.instituteScope;
     if (dto.instituteScope === 'all') delete exam.instituteIds;

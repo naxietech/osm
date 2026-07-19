@@ -1,17 +1,20 @@
 /**
- * Classes (super admin) — the Class → Group → Subgroup hierarchy (TRD). One form:
- * enter the class name (+ description), tick "Has group?" to reveal group fields, and
- * per group tick "Has subgroup?" to reveal subgroup fields. Groups have no separate
- * module — they are authored here. This is the source of truth for a class's groups/
- * subgroups that student registration and exam creation read. Gated by `levels.manage`.
+ * Classes (super admin) — the Class → Group → Subgroup hierarchy (TRD). Groups have no
+ * separate module; they're authored inline on the class via the ClassHierarchyForm
+ * organism. This is the source of truth student registration and exam creation read.
+ * Gated by `levels.manage`.
+ *
+ * Thin page: owns the list + row actions + service calls (including a usage-aware
+ * deactivate guard); the form experience lives in the organism.
  */
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 
 import { PageHeader } from '@/components/widgets';
 import { Button } from '@/design-system/atoms/button';
-import { Plus, X } from '@/design-system/atoms/icon';
-import { Input } from '@/design-system/atoms/input';
-import { FormField } from '@/design-system/molecules/form-field';
+import {
+  ClassHierarchyForm,
+  type ClassHierarchyValue,
+} from '@/design-system/organisms/class-hierarchy-form';
 import { type ColumnDef, DataTable } from '@/design-system/organisms/data-table';
 import {
   classGroupsFor,
@@ -21,40 +24,23 @@ import {
   toggleLevelActive,
   updateLevel,
 } from '@/services/academic.service';
-
-interface SubgroupDraft {
-  key: number;
-  name: string;
-}
-interface GroupDraft {
-  key: number;
-  name: string;
-  hasSubgroup: boolean;
-  subgroups: SubgroupDraft[];
-}
-interface ClassForm {
-  name: string;
-  ordinal: string;
-  description: string;
-  hasGroup: boolean;
-  groups: GroupDraft[];
-}
+import { exams, students } from '@/services/mock-store';
 
 interface ClassRow {
   id: string;
   name: string;
   description: string;
   groupCount: number;
+  usage: number;
   isActive: boolean;
 }
 
-const EMPTY_FORM: ClassForm = {
-  name: '',
-  ordinal: '',
-  description: '',
-  hasGroup: false,
-  groups: [],
-};
+/** How many students + exams reference a class (guards deactivation). */
+function classUsage(levelId: string): number {
+  const inStudents = students.filter((s) => s.levelId === levelId).length;
+  const inExams = exams.filter((e) => e.levelId === levelId).length;
+  return inStudents + inExams;
+}
 
 function ActiveBadge({ active }: { active: boolean }): React.ReactElement {
   return active ? (
@@ -68,41 +54,12 @@ function ActiveBadge({ active }: { active: boolean }): React.ReactElement {
   );
 }
 
-function Checkbox({
-  checked,
-  onChange,
-  label,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  label: string;
-}): React.ReactElement {
-  return (
-    <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
-      <input
-        type="checkbox"
-        className="h-4 w-4 rounded border-input accent-[var(--brand)]"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-      />
-      {label}
-    </label>
-  );
-}
-
 export function ClassesPage(): React.ReactElement {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<ClassForm>(EMPTY_FORM);
+  const [pendingToggle, setPendingToggle] = useState<ClassRow | null>(null);
   const [, setTick] = useState(0);
   const refresh = (): void => setTick((t) => t + 1);
-
-  // Stable local keys for draft rows (no Date.now/random in this environment).
-  const keyRef = useRef(0);
-  const nextKey = (): number => {
-    keyRef.current += 1;
-    return keyRef.current;
-  };
 
   const rows: ClassRow[] = levels
     .slice()
@@ -112,136 +69,69 @@ export function ClassesPage(): React.ReactElement {
       name: l.name,
       description: l.description ?? '',
       groupCount: (l.classGroups ?? []).length,
+      usage: classUsage(l.id),
       isActive: l.isActive,
     }));
 
+  const editing = editingId ? levels.find((l) => l.id === editingId) : undefined;
+  const initialValue: ClassHierarchyValue | undefined = editing
+    ? {
+        name: editing.name,
+        ordinal: String(editing.ordinal),
+        description: editing.description ?? '',
+        groups: classGroupsFor(editing.id).map((g) => ({
+          id: g.id,
+          name: g.name,
+          subgroups: g.subgroups.map((s) => ({ id: s.id, name: s.name })),
+        })),
+      }
+    : undefined;
+
   const openCreate = (): void => {
     setEditingId(null);
-    setForm(EMPTY_FORM);
     setIsOpen(true);
   };
-
   const openEdit = (id: string): void => {
-    const level = levels.find((l) => l.id === id);
-    if (!level) return;
-    const groups: GroupDraft[] = classGroupsFor(id).map((g) => ({
-      key: nextKey(),
-      name: g.name,
-      hasSubgroup: g.subgroups.length > 0,
-      subgroups: g.subgroups.map((s) => ({ key: nextKey(), name: s.name })),
-    }));
     setEditingId(id);
-    setForm({
-      name: level.name,
-      ordinal: String(level.ordinal),
-      description: level.description ?? '',
-      hasGroup: groups.length > 0,
-      groups,
-    });
     setIsOpen(true);
   };
-
   const close = (): void => {
     setIsOpen(false);
     setEditingId(null);
   };
 
-  // ---- group / subgroup draft editing ----
-  const newGroup = (): GroupDraft => ({
-    key: nextKey(),
-    name: '',
-    hasSubgroup: false,
-    subgroups: [],
-  });
-
-  const toggleHasGroup = (checked: boolean): void =>
-    setForm((p) => ({
-      ...p,
-      hasGroup: checked,
-      groups: checked ? (p.groups.length > 0 ? p.groups : [newGroup()]) : [],
-    }));
-
-  const addGroup = (): void => setForm((p) => ({ ...p, groups: [...p.groups, newGroup()] }));
-  const setGroupName = (gi: number, name: string): void =>
-    setForm((p) => ({
-      ...p,
-      groups: p.groups.map((g, i) => (i === gi ? { ...g, name } : g)),
-    }));
-  const removeGroup = (gi: number): void =>
-    setForm((p) => ({ ...p, groups: p.groups.filter((_, i) => i !== gi) }));
-
-  const toggleHasSubgroup = (gi: number, checked: boolean): void =>
-    setForm((p) => ({
-      ...p,
-      groups: p.groups.map((g, i) =>
-        i === gi
-          ? {
-              ...g,
-              hasSubgroup: checked,
-              subgroups: checked
-                ? g.subgroups.length > 0
-                  ? g.subgroups
-                  : [{ key: nextKey(), name: '' }]
-                : [],
-            }
-          : g,
-      ),
-    }));
-  const addSubgroup = (gi: number): void =>
-    setForm((p) => ({
-      ...p,
-      groups: p.groups.map((g, i) =>
-        i === gi ? { ...g, subgroups: [...g.subgroups, { key: nextKey(), name: '' }] } : g,
-      ),
-    }));
-  const setSubgroupName = (gi: number, si: number, name: string): void =>
-    setForm((p) => ({
-      ...p,
-      groups: p.groups.map((g, i) =>
-        i === gi
-          ? { ...g, subgroups: g.subgroups.map((s, j) => (j === si ? { ...s, name } : s)) }
-          : g,
-      ),
-    }));
-  const removeSubgroup = (gi: number, si: number): void =>
-    setForm((p) => ({
-      ...p,
-      groups: p.groups.map((g, i) =>
-        i === gi ? { ...g, subgroups: g.subgroups.filter((_, j) => j !== si) } : g,
-      ),
-    }));
-
-  const canSave = form.name.trim().length > 0;
-
-  const save = (): void => {
-    const groupInputs = form.hasGroup
-      ? form.groups.map((g) => ({
-          name: g.name,
-          subgroups: g.hasSubgroup ? g.subgroups.map((s) => ({ name: s.name })) : [],
-        }))
-      : [];
-
+  const handleSave = (value: ClassHierarchyValue): void => {
+    const ordinalNum = Number(value.ordinal || '0');
     if (editingId) {
       updateLevel(editingId, {
-        name: form.name.trim(),
-        ordinal: Number(form.ordinal || '0'),
-        description: form.description.trim(),
+        name: value.name,
+        ordinal: ordinalNum,
+        description: value.description,
       });
-      replaceClassGroups(editingId, groupInputs);
+      replaceClassGroups(editingId, value.groups);
     } else {
       const created = createLevel({
-        name: form.name.trim(),
-        ordinal: Number(form.ordinal || '0'),
-        ...(form.description.trim() ? { description: form.description.trim() } : {}),
+        name: value.name,
+        ordinal: ordinalNum,
+        ...(value.description ? { description: value.description } : {}),
       });
-      replaceClassGroups(created.id, groupInputs);
+      replaceClassGroups(created.id, value.groups);
     }
     refresh();
     close();
   };
 
-  const handleToggleActive = (id: string): void => {
-    toggleLevelActive(id);
+  const requestToggle = (row: ClassRow): void => {
+    if (row.isActive && row.usage > 0) {
+      setPendingToggle(row);
+    } else {
+      toggleLevelActive(row.id);
+      refresh();
+    }
+  };
+  const confirmToggle = (): void => {
+    if (pendingToggle) toggleLevelActive(pendingToggle.id);
+    setPendingToggle(null);
     refresh();
   };
 
@@ -259,6 +149,13 @@ export function ClassesPage(): React.ReactElement {
       render: (r) =>
         r.groupCount > 0 ? `${r.groupCount}` : <span className="text-muted-foreground">—</span>,
       width: '100px',
+    },
+    {
+      key: 'usage',
+      header: 'In use by',
+      render: (r) =>
+        r.usage > 0 ? `${r.usage}` : <span className="text-muted-foreground">—</span>,
+      width: '110px',
     },
     {
       key: 'status',
@@ -286,7 +183,7 @@ export function ClassesPage(): React.ReactElement {
             size="sm"
             onClick={(e) => {
               e.stopPropagation();
-              handleToggleActive(r.id);
+              requestToggle(r);
             }}
           >
             {r.isActive ? 'Deactivate' : 'Activate'}
@@ -311,129 +208,35 @@ export function ClassesPage(): React.ReactElement {
         }
       />
 
+      {pendingToggle && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warning/30 bg-warning-subtle px-4 py-3">
+          <p className="text-sm text-warning-foreground">
+            <span className="font-medium">{pendingToggle.name}</span> is used by{' '}
+            {pendingToggle.usage} student(s) / exam(s). Deactivate anyway?
+          </p>
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setPendingToggle(null)}>
+              Cancel
+            </Button>
+            <Button variant="secondary" size="sm" onClick={confirmToggle}>
+              Deactivate
+            </Button>
+          </div>
+        </div>
+      )}
+
       {isOpen && (
         <div className="mb-6 rounded-lg border border-border bg-card p-6 shadow-sm">
           <h2 className="mb-4 text-sm font-semibold text-foreground">
             {editingId ? 'Edit Class' : 'Add Class'}
           </h2>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField
-              id="class-name"
-              name="name"
-              label="Class Name"
-              value={form.name}
-              onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-              required
-            />
-            <FormField
-              id="class-ordinal"
-              name="ordinal"
-              type="number"
-              label="Order"
-              value={form.ordinal}
-              onChange={(e) => setForm((p) => ({ ...p, ordinal: e.target.value }))}
-              required={false}
-            />
-            <FormField
-              id="class-description"
-              name="description"
-              label="Description"
-              value={form.description}
-              onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-              required={false}
-              containerClassName="sm:col-span-2"
-            />
-          </div>
-
-          {/* Has group? */}
-          <div className="mt-4 border-t border-border pt-4">
-            <Checkbox checked={form.hasGroup} onChange={toggleHasGroup} label="Has group?" />
-
-            {form.hasGroup && (
-              <div className="mt-3 space-y-4">
-                {form.groups.map((group, gi) => (
-                  <div key={group.key} className="rounded-lg border border-border p-4">
-                    <div className="flex items-center gap-2">
-                      <Input
-                        aria-label={`Group ${gi + 1} name`}
-                        placeholder="Group (e.g. Science)"
-                        value={group.name}
-                        onChange={(e) => setGroupName(gi, e.target.value)}
-                      />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        aria-label={`Remove group ${gi + 1}`}
-                        onClick={() => removeGroup(gi)}
-                      >
-                        <X className="h-4 w-4" aria-hidden />
-                      </Button>
-                    </div>
-
-                    {/* Has subgroup? */}
-                    <div className="mt-3 pl-4">
-                      <Checkbox
-                        checked={group.hasSubgroup}
-                        onChange={(v) => toggleHasSubgroup(gi, v)}
-                        label="Has subgroup?"
-                      />
-                      {group.hasSubgroup && (
-                        <div className="mt-2">
-                          <ul className="space-y-2">
-                            {group.subgroups.map((sg, si) => (
-                              <li key={sg.key} className="flex items-center gap-2">
-                                <span className="w-5 shrink-0 text-xs text-muted-foreground">
-                                  {si + 1}.
-                                </span>
-                                <Input
-                                  aria-label={`Group ${gi + 1} subgroup ${si + 1}`}
-                                  placeholder="Subgroup (e.g. Biology)"
-                                  value={sg.name}
-                                  onChange={(e) => setSubgroupName(gi, si, e.target.value)}
-                                />
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  aria-label={`Remove subgroup ${si + 1}`}
-                                  onClick={() => removeSubgroup(gi, si)}
-                                >
-                                  <X className="h-4 w-4" aria-hidden />
-                                </Button>
-                              </li>
-                            ))}
-                          </ul>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="mt-2"
-                            onClick={() => addSubgroup(gi)}
-                          >
-                            <Plus className="h-4 w-4" aria-hidden />
-                            Add Subgroup
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-
-                <Button variant="secondary" size="sm" onClick={addGroup}>
-                  <Plus className="h-4 w-4" aria-hidden />
-                  Add Group
-                </Button>
-              </div>
-            )}
-          </div>
-
-          <div className="mt-6 flex justify-end gap-2">
-            <Button variant="ghost" onClick={close}>
-              Cancel
-            </Button>
-            <Button variant="primary" disabled={!canSave} onClick={save}>
-              {editingId ? 'Save Changes' : 'Add Class'}
-            </Button>
-          </div>
+          <ClassHierarchyForm
+            key={editingId ?? 'new'}
+            mode={editingId ? 'edit' : 'create'}
+            initialValue={initialValue}
+            onSave={handleSave}
+            onCancel={close}
+          />
         </div>
       )}
 

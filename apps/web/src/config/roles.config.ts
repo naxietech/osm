@@ -70,6 +70,7 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
             children: [
               { label: 'View', to: ROUTES.admin.institutesView },
               { label: 'Add', to: ROUTES.admin.institutesAdd },
+              { label: 'Approvals', to: ROUTES.admin.instituteApprovals },
             ],
           },
           {
@@ -116,7 +117,14 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
             ],
           },
           { label: 'Questions Assignment', to: ROUTES.controller.questions, icon: ClipboardList },
-          { label: 'Exams', to: ROUTES.controller.examsView, icon: GraduationCap },
+          {
+            label: 'Exams',
+            icon: GraduationCap,
+            children: [
+              { label: 'View', to: ROUTES.controller.examsView },
+              { label: 'Create', to: ROUTES.controller.examsCreate },
+            ],
+          },
           {
             label: 'Result Compilation',
             to: ROUTES.controller.resultCompilation,

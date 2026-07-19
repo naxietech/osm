@@ -5,6 +5,7 @@
 export const ROUTES = {
   login: '/login',
   unauthorized: '/unauthorized',
+  registerInstitute: '/register/institute', // public self-registration (no auth)
 
   admin: {
     home: '/admin',
@@ -22,6 +23,7 @@ export const ROUTES = {
     institutes: '/admin/institutes',
     institutesView: '/admin/institutes/view',
     institutesAdd: '/admin/institutes/add',
+    instituteApprovals: '/admin/institutes/approvals',
     instituteDetail: '/admin/institutes/:id',
     roles: '/admin/roles',
     rolesNew: '/admin/roles/new',
@@ -49,6 +51,8 @@ export const ROUTES = {
     resultCompilation: '/controller/result-compilation',
     exams: '/controller/exams',
     examsView: '/controller/exams/view',
+    examsCreate: '/controller/exams/create',
+    examDetail: '/controller/exams/:id',
     examCandidates: '/controller/exams/:id/candidates',
   },
 

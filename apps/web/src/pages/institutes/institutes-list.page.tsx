@@ -13,42 +13,17 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { type InstituteListItem, OnboardingStatus } from '@oses/types';
+import { type InstituteListItem } from '@oses/types';
 
 import { PageHeader } from '@/components/widgets';
 import { Button } from '@/design-system/atoms/button';
 import { StatusBadge } from '@/design-system/molecules/status-badge';
 import { type ColumnDef, DataTable } from '@/design-system/organisms/data-table';
-
-const MOCK_INSTITUTES: InstituteListItem[] = [
-  {
-    id: 'sch_001',
-    instituteCode: 'LHR-001',
-    instituteName: 'Government High School Gulberg',
-    city: 'Lahore',
-    onboardingStatus: OnboardingStatus.COMPLETE,
-    isActive: true,
-  },
-  {
-    id: 'sch_002',
-    instituteCode: 'KHI-001',
-    instituteName: 'Government Boys Secondary School Clifton',
-    city: 'Karachi',
-    onboardingStatus: OnboardingStatus.IN_PROGRESS,
-    isActive: true,
-  },
-  {
-    id: 'sch_003',
-    instituteCode: 'ISB-001',
-    instituteName: 'Federal Government School F-8',
-    city: 'Islamabad',
-    onboardingStatus: OnboardingStatus.PENDING,
-    isActive: true,
-  },
-];
+import { listInstitutes } from '@/services/institute.service';
 
 export function InstitutesListPage(): React.ReactElement {
   const navigate = useNavigate();
+  const institutes = listInstitutes();
 
   const columns: ColumnDef<InstituteListItem>[] = [
     {
@@ -109,7 +84,7 @@ export function InstitutesListPage(): React.ReactElement {
 
       <div className="rounded-lg border border-border bg-card shadow-sm">
         <DataTable<InstituteListItem>
-          data={MOCK_INSTITUTES}
+          data={institutes}
           columns={columns}
           onRowClick={(row) => void navigate(`/admin/institutes/${row.id}`)}
           emptyMessage="No institutes found"

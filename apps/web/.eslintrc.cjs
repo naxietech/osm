@@ -11,6 +11,11 @@ const projects = [
 
 module.exports = {
   extends: ['@oses/eslint-config/react'],
+  rules: {
+    // Prettier's import-sort plugin owns import ordering (runs last in the commit hook),
+    // so disable eslint's competing import/order rule to stop the two fighting.
+    'import/order': 'off',
+  },
   parserOptions: {
     project: projects,
     tsconfigRootDir: __dirname,

@@ -4,7 +4,7 @@
  * and routes to the role home.
  */
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { useMutation } from '@tanstack/react-query';
 import { useFormik } from 'formik';
@@ -15,6 +15,7 @@ import { Lock, Mail } from '@/design-system/atoms/icon';
 import { FormField } from '@/design-system/molecules/form-field';
 import { AuthLayout } from '@/design-system/templates/auth-layout';
 import { useAuth } from '@/hooks';
+import { ROUTES } from '@/router/routes';
 import { DEMO_PASSWORD, MOCK_USERS, authService } from '@/services/auth.service';
 
 const validationSchema = Yup.object({
@@ -110,6 +111,13 @@ export function LoginPage(): React.ReactElement {
         <Button type="submit" isLoading={loginMutation.isPending} className="w-full">
           Sign In
         </Button>
+
+        <p className="text-center text-sm text-muted-foreground">
+          Registering an institute?{' '}
+          <Link to={ROUTES.registerInstitute} className="font-medium text-brand hover:underline">
+            Register here
+          </Link>
+        </p>
       </form>
 
       <p className="mt-6 text-center text-xs leading-relaxed text-muted-foreground">

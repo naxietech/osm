@@ -26,6 +26,7 @@ function toQuestions(
       id: `${categoryId}_q${i + 1}`,
       text: q.text.trim(),
       type: q.type,
+      required: q.required ?? false,
       options: questionTypeHasOptions(q.type)
         ? (q.options ?? []).map((o) => o.trim()).filter((o) => o.length > 0)
         : [],
@@ -43,12 +44,14 @@ export const instituteCategories: InstituteCategory[] = [
         id: 'cat_school_q1',
         text: 'Are you an ed-tech institute?',
         type: 'radio',
+        required: true,
         options: ['Yes', 'No'],
       },
       {
         id: 'cat_school_q2',
         text: 'Are you a Nawaz Sharif School of Eminence?',
         type: 'radio',
+        required: false,
         options: ['Yes', 'No'],
       },
     ],
@@ -102,4 +105,15 @@ export function updateInstituteCategory(
 export function toggleInstituteCategoryActive(id: string): void {
   const category = instituteCategories.find((c) => c.id === id);
   if (category) category.isActive = !category.isActive;
+}
+
+/**
+ * Remove a category outright. Only safe when no institute references it — callers must
+ * check {@link countInstitutesInCategory} first. Returns whether a row was removed.
+ */
+export function deleteInstituteCategory(id: string): boolean {
+  const index = instituteCategories.findIndex((c) => c.id === id);
+  if (index === -1) return false;
+  instituteCategories.splice(index, 1);
+  return true;
 }

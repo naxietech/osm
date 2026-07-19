@@ -148,6 +148,20 @@ function registerStudents(dto: CreateExamRegistrationDto): Promise<ExamRegistrat
   return delay(created);
 }
 
+/**
+ * Institute completes its registration: every soft (pending) candidate for this exam +
+ * institute is verified and moved to `submitted`. Returns how many were completed.
+ */
+function confirmRegistrations(examId: string, instituteId: string): Promise<number> {
+  const pending = registrations.filter(
+    (r) => r.examId === examId && r.instituteId === instituteId && r.status === 'pending',
+  );
+  pending.forEach((r) => {
+    r.status = 'submitted';
+  });
+  return delay(pending.length);
+}
+
 /** Project a registration onto a candidate row (resolves student + elective names). */
 function toCandidateRow(exam: Exam, r: ExamRegistration): CandidateListItem {
   const student = findStudentByRef(r.studentRefId);
@@ -212,6 +226,7 @@ export const examRegistrationService = {
   listInstituteExams,
   listRegisterableStudents,
   registerStudents,
+  confirmRegistrations,
   listCandidates,
   listCandidatesForSchool,
   getStudentHistory,

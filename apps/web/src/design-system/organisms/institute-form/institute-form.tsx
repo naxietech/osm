@@ -51,7 +51,7 @@ interface InstituteFormValues {
 const INSTITUTION_TYPE_OPTIONS: SelectOption[] = [
   { value: InstitutionType.GOVERNMENT, label: 'Government' },
   { value: InstitutionType.PRIVATE, label: 'Private' },
-  { value: InstitutionType.FEDERAL, label: 'Federal' },
+  { value: InstitutionType.SEMI_GOVERNMENT, label: 'Semi-Government' },
   { value: InstitutionType.OTHER, label: 'Other' },
 ];
 

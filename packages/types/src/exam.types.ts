@@ -32,6 +32,9 @@ export type ExamPaperType = 'compulsory' | 'elective';
  */
 export type ExamInstituteScope = 'all' | 'selected';
 
+/** Exam sitting shift (static list). */
+export type ExamShift = 'morning' | 'afternoon' | 'evening';
+
 export interface ExamPaper {
   id: string;
   examId: string;
@@ -50,10 +53,14 @@ export interface Exam {
   levelId: string; // configurable Level (Class / Year / Semester)
   groupId: string; // Group / stream / program
   classNumber: number; // derived display value = the level's ordinal
+  subgroupId?: string; // subgroup under the class's group (e.g. Biology)
+  subjectIds?: string[]; // subjects the exam covers (papers are derived one-per-subject)
+  shift?: ExamShift;
   instituteScope: ExamInstituteScope;
   instituteIds?: string[]; // targeted institutes when scope === 'selected'
   registrationOpensAt: string; // YYYY-MM-DD
   registrationClosesAt: string; // YYYY-MM-DD
+  examCompletedDate?: string; // result-announcement day (YYYY-MM-DD)
   status: ExamStatus;
   papers: ExamPaper[];
   createdAt: string;
@@ -91,10 +98,14 @@ export interface CreateExamDto {
   session: string;
   levelId: string;
   groupId: string;
+  subgroupId?: string;
+  subjectIds?: string[];
+  shift?: ExamShift;
   instituteScope: ExamInstituteScope;
   instituteIds?: string[];
   registrationOpensAt: string;
   registrationClosesAt: string;
+  examCompletedDate?: string;
   papers: CreateExamPaperDto[];
 }
 
@@ -103,10 +114,14 @@ export interface UpdateExamDto {
   session?: string;
   levelId?: string;
   groupId?: string;
+  subgroupId?: string;
+  subjectIds?: string[];
+  shift?: ExamShift;
   instituteScope?: ExamInstituteScope;
   instituteIds?: string[];
   registrationOpensAt?: string;
   registrationClosesAt?: string;
+  examCompletedDate?: string;
   status?: ExamStatus;
   papers?: CreateExamPaperDto[];
 }

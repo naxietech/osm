@@ -15,8 +15,8 @@ export enum InstituteLevel {
 /** Ownership / sector of the institute. */
 export enum InstitutionType {
   GOVERNMENT = 'government',
+  SEMI_GOVERNMENT = 'semi_government',
   PRIVATE = 'private',
-  FEDERAL = 'federal',
   OTHER = 'other',
 }
 
@@ -38,11 +38,20 @@ export enum Province {
   GB = 'gb', // Gilgit-Baltistan
 }
 
+/** An institute's answer to one of its category's questions. */
+export interface InstituteQuestionAnswer {
+  questionId: string;
+  values: string[]; // chosen option(s) or the free-text answer as a single-element array
+}
+
 export interface Institute {
   id: string;
-  instituteCode: string;
+  instituteCode: string; // govt-provided code, e.g. "S01"
   instituteName: string;
+  branch?: string; // campus / branch, e.g. "Shakargarh Campus"
   registrationNo: string;
+  categoryId: string; // InstituteCategory link (School / College / Academy / …)
+  questionAnswers: InstituteQuestionAnswer[]; // answers to the category's questions
   institutionType: InstitutionType;
   instituteLevel: InstituteLevel;
   category: GenderCategory;
@@ -56,6 +65,8 @@ export interface Institute {
   contactPhone: string;
   onboardingStatus: OnboardingStatus;
   isActive: boolean;
+  /** Reason captured by the super admin when a registration is rejected. */
+  rejectionReason?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -87,6 +98,30 @@ export interface CreateInstituteDto {
   contactPhone: string;
 }
 
+/**
+ * Public self-registration payload (open link). Creates a PENDING institute the super
+ * admin then approves. Carries the branch, govt code, chosen category + its question
+ * answers, ownership type, address block and contact details.
+ */
+export interface RegisterInstituteDto {
+  instituteName: string;
+  branch?: string;
+  instituteCode: string;
+  categoryId: string;
+  questionAnswers: InstituteQuestionAnswer[];
+  institutionType: InstitutionType;
+  instituteLevel: InstituteLevel;
+  category: GenderCategory;
+  address: string;
+  province: Province;
+  city: string;
+  postalCode?: string;
+  contactPersonName: string;
+  contactPersonDesignation: string;
+  contactEmail: string;
+  contactPhone: string;
+}
+
 export interface UpdateInstituteDto {
   instituteName?: string;
   registrationNo?: string;
@@ -110,7 +145,8 @@ export type CategoryQuestionType =
   | 'text' // free-text answer
   | 'radio' // pick exactly one of `options`
   | 'checkbox' // pick any number of `options`
-  | 'select'; // dropdown — pick one of `options`
+  | 'select' // dropdown — pick one of `options`
+  | 'file'; // upload a document (mock captures the file name only)
 
 /** Whether a question type carries a fixed list of answer options. */
 export function questionTypeHasOptions(type: CategoryQuestionType): boolean {
@@ -120,19 +156,22 @@ export function questionTypeHasOptions(type: CategoryQuestionType): boolean {
 /**
  * A question attached to an institute category. When an institute registers under a
  * category, it answers this category's questions (e.g. "Are you ed-tech?"). Each question
- * has an answer `type`; choice types (radio/checkbox/select) carry their `options`.
+ * has an answer `type`; choice types (radio/checkbox/select) carry their `options`. A
+ * `required` question must be answered before the registration form can be submitted.
  */
 export interface InstituteCategoryQuestion {
   id: string;
   text: string;
   type: CategoryQuestionType;
-  options: string[]; // answer choices for radio/checkbox/select; empty for text
+  required: boolean; // answer mandatory on the public registration form
+  options: string[]; // answer choices for radio/checkbox/select; empty for text/file
 }
 
 /** Question payload when creating/editing a category; the service assigns ids. */
 export interface CategoryQuestionInput {
   text: string;
   type: CategoryQuestionType;
+  required?: boolean;
   options?: string[];
 }
 

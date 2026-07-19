@@ -9,8 +9,14 @@
  * contexts — evaluators only ever get the studentRefId + roll number, never the name.
  */
 
-/** Registration lifecycle for a single candidate. */
-export type RegistrationStatus = 'pending' | 'confirmed' | 'withdrawn';
+/**
+ * Registration lifecycle for a single candidate:
+ *   pending   — soft-registered by the institute (not yet finalised)
+ *   submitted — institute verified (printed) and completed the registration
+ *   confirmed — board assigned a roll number after the window closed
+ *   withdrawn — removed
+ */
+export type RegistrationStatus = 'pending' | 'submitted' | 'confirmed' | 'withdrawn';
 
 export interface ExamRegistration {
   id: string;

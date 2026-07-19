@@ -31,7 +31,8 @@ type CandidateRow = CandidateListItem & { id: string };
 
 const STATUS_BADGE: Record<RegistrationStatus, { label: string; variant: BadgeProps['variant'] }> =
   {
-    pending: { label: 'Pending', variant: 'warning' },
+    pending: { label: 'Soft-registered', variant: 'warning' },
+    submitted: { label: 'Completed', variant: 'info' },
     confirmed: { label: 'Confirmed', variant: 'success' },
     withdrawn: { label: 'Withdrawn', variant: 'default' },
   };

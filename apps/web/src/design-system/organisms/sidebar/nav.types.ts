@@ -15,6 +15,8 @@ export interface NavItem {
   /** Opaque module key for multi-client gating; when set, the item shows only if the
    * active client enables that module. Untagged items always show. */
   module?: string;
+  /** Optional count pill (e.g. pending approvals). Hidden when absent or 0. */
+  badge?: number;
 }
 
 export interface NavSection {

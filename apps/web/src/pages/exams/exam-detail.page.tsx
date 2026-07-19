@@ -15,9 +15,10 @@ import { Check, ChevronLeft, GraduationCap, Users } from '@/design-system/atoms/
 import { Spinner } from '@/design-system/atoms/spinner';
 import { ExamForm } from '@/design-system/organisms/exam-form';
 import {
-  curriculumSubjectsFor,
-  groupOptionsByLevelMap,
+  classGroupOptionsByLevelMap,
   levelSelectOptions,
+  subgroupOptionsByLevelGroupMap,
+  subjects,
 } from '@/services/academic.service';
 import { examService } from '@/services/exam.service';
 import { INSTITUTE_OPTIONS } from '@/services/users.service';
@@ -25,7 +26,11 @@ import { INSTITUTE_OPTIONS } from '@/services/users.service';
 import { ExamStatusBadge } from './exam-status-badge';
 
 const LEVEL_OPTIONS = levelSelectOptions();
-const GROUP_OPTIONS_BY_LEVEL = groupOptionsByLevelMap();
+const GROUP_OPTIONS_BY_LEVEL = classGroupOptionsByLevelMap();
+const SUBGROUP_OPTIONS_BY_LEVEL_GROUP = subgroupOptionsByLevelGroupMap();
+const SUBJECT_OPTIONS = subjects
+  .filter((s) => s.isActive)
+  .map((s) => ({ value: s.id, label: s.name }));
 
 export function ExamDetailPage(): React.ReactElement {
   const { id } = useParams<{ id: string }>();
@@ -181,7 +186,8 @@ export function ExamDetailPage(): React.ReactElement {
               mode={isEdit ? 'edit' : 'create'}
               levelOptions={LEVEL_OPTIONS}
               groupOptionsByLevel={GROUP_OPTIONS_BY_LEVEL}
-              resolveCurriculum={curriculumSubjectsFor}
+              subgroupOptionsByLevelGroup={SUBGROUP_OPTIONS_BY_LEVEL_GROUP}
+              subjectOptions={SUBJECT_OPTIONS}
               instituteOptions={INSTITUTE_OPTIONS}
               lockInstituteScope={Boolean(exam && exam.status !== ExamStatus.DRAFT)}
               initialValues={
@@ -193,10 +199,16 @@ export function ExamDetailPage(): React.ReactElement {
                       levelId: exam.levelId,
                       groupId: exam.groupId,
                       instituteScope: exam.instituteScope,
-                      ...(exam.instituteIds ? { instituteIds: exam.instituteIds } : {}),
                       registrationOpensAt: exam.registrationOpensAt,
                       registrationClosesAt: exam.registrationClosesAt,
                       papers: exam.papers,
+                      ...(exam.subgroupId ? { subgroupId: exam.subgroupId } : {}),
+                      ...(exam.subjectIds ? { subjectIds: exam.subjectIds } : {}),
+                      ...(exam.shift ? { shift: exam.shift } : {}),
+                      ...(exam.examCompletedDate
+                        ? { examCompletedDate: exam.examCompletedDate }
+                        : {}),
+                      ...(exam.instituteIds ? { instituteIds: exam.instituteIds } : {}),
                     }
                   : undefined
               }

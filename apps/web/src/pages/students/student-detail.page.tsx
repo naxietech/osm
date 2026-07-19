@@ -14,7 +14,7 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
-import { type Student, UserRole } from '@oses/types';
+import { Province, type Student, UserRole } from '@oses/types';
 
 import { Button } from '@/design-system/atoms/button';
 import { Check, ChevronLeft, UserPlus } from '@/design-system/atoms/icon';
@@ -22,7 +22,11 @@ import { type SelectOption } from '@/design-system/molecules/select-field';
 import { StudentForm, type StudentFormPayload } from '@/design-system/organisms/student-form';
 import { StudentProfile, type StudentResult } from '@/design-system/organisms/student-profile';
 import { useAuth } from '@/hooks';
-import { groupOptionsByLevelMap, levelSelectOptions } from '@/services/academic.service';
+import {
+  classGroupOptionsByLevelMap,
+  levelSelectOptions,
+  subgroupOptionsByLevelGroupMap,
+} from '@/services/academic.service';
 
 const MOCK_SCHOOL_OPTIONS: SelectOption[] = [
   { value: 'sch_001', label: 'Government High School Gulberg' },
@@ -31,7 +35,8 @@ const MOCK_SCHOOL_OPTIONS: SelectOption[] = [
 ];
 
 const LEVEL_OPTIONS = levelSelectOptions();
-const GROUP_OPTIONS_BY_LEVEL = groupOptionsByLevelMap();
+const GROUP_OPTIONS_BY_LEVEL = classGroupOptionsByLevelMap();
+const SUBGROUP_OPTIONS_BY_LEVEL_GROUP = subgroupOptionsByLevelGroupMap();
 
 const MOCK_STUDENT: Student = {
   id: 'stu_001',
@@ -47,9 +52,11 @@ const MOCK_STUDENT: Student = {
   studentMobile: '03007654321',
   address: 'House 12, Street 5, Gulberg III',
   city: 'Lahore',
+  province: Province.PUNJAB,
   district: 'Lahore',
   levelId: 'lvl_10',
   groupId: 'grp_science',
+  subgroupId: 'sg_10_bio',
   classNumber: 10,
   registrationNumber: '2600420001',
   enrollmentStatus: 'active',
@@ -132,10 +139,12 @@ export function StudentDetailPage(): React.ReactElement {
           studentMobile: student.studentMobile,
           address: student.address,
           city: student.city,
+          province: student.province,
           district: student.district,
           postalAddress: student.postalAddress,
           levelId: student.levelId,
           groupId: student.groupId,
+          subgroupId: student.subgroupId,
           enrollmentStatus: student.enrollmentStatus,
         }
       : isSchoolStaff
@@ -236,6 +245,7 @@ export function StudentDetailPage(): React.ReactElement {
               instituteOptions={instituteOptions}
               levelOptions={LEVEL_OPTIONS}
               groupOptionsByLevel={GROUP_OPTIONS_BY_LEVEL}
+              subgroupOptionsByLevelGroup={SUBGROUP_OPTIONS_BY_LEVEL_GROUP}
               lockInstitute={isSchoolStaff}
               initialValues={initialValues}
               onSubmit={handleSubmit}

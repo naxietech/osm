@@ -113,4 +113,39 @@ describe('examRegistrationService', () => {
     const confirmed = await examRegistrationService.listCandidates('exam_open');
     expect(confirmed.every((c) => c.status === 'confirmed' && Boolean(c.rollNumber))).toBe(true);
   });
+
+  it("completes (confirms) an institute's soft registrations: pending -> submitted", async () => {
+    const created = await examService.createExam({
+      code: 'CONFIRM-TEST',
+      name: 'Confirm Test',
+      session: 'Annual 2026',
+      levelId: 'lvl_10',
+      groupId: 'grp_science',
+      instituteScope: 'all',
+      registrationOpensAt: '2026-06-15',
+      registrationClosesAt: '2026-07-31',
+      papers: [
+        { subject: 'Physics', totalMarks: 100, paperDate: '2026-08-10', paperType: 'compulsory' },
+      ],
+    });
+    await examService.setStatus(created.id, ExamStatus.REGISTRATION_OPEN);
+
+    const eligible = await examRegistrationService.listRegisterableStudents(created.id, 'sch_001');
+    const first = eligible[0];
+    expect(first).toBeDefined();
+    await examRegistrationService.registerStudents({
+      examId: created.id,
+      candidates: [{ studentRefId: first?.studentRefId ?? '', electivePaperIds: [] }],
+    });
+
+    // soft-registered
+    let candidates = await examRegistrationService.listCandidatesForSchool(created.id, 'sch_001');
+    expect(candidates[0]?.status).toBe('pending');
+
+    // institute completes the registration
+    const completed = await examRegistrationService.confirmRegistrations(created.id, 'sch_001');
+    expect(completed).toBe(1);
+    candidates = await examRegistrationService.listCandidatesForSchool(created.id, 'sch_001');
+    expect(candidates[0]?.status).toBe('submitted');
+  });
 });

@@ -40,7 +40,7 @@ function chooseOption(labelRe: RegExp, optionName: string): void {
 /** Fills every required field with valid values. */
 function fillRequired(): void {
   chooseOption(/Institute/i, 'Institute One');
-  chooseOption(/Level/i, 'Class 10');
+  chooseOption(/Class/i, 'Class 10');
   chooseOption(/Group/i, 'Science');
   fireEvent.change(screen.getByLabelText(/Full Name/i), { target: { value: 'Test Student' } });
   fireEvent.change(screen.getByLabelText(/Father \/ Guardian Name/i), {
@@ -61,7 +61,7 @@ describe('StudentForm', () => {
   it('renders the grouped fields', () => {
     render(<StudentForm {...defaultProps} />);
     expect(screen.getByLabelText(/Institute/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Level/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Class/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Group/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Full Name/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Father \/ Guardian Name/i)).toBeInTheDocument();
@@ -181,6 +181,6 @@ describe('StudentForm', () => {
     );
     expect(screen.getByLabelText(/Full Name/i)).toHaveValue('Existing Student');
     expect(screen.getByLabelText(/Father \/ Guardian Name/i)).toHaveValue('Existing Father');
-    expect(screen.getByLabelText(/Level/i)).toHaveTextContent('Class 12');
+    expect(screen.getByLabelText(/^Class/i)).toHaveTextContent('Class 12');
   });
 });

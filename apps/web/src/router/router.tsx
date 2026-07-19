@@ -25,6 +25,8 @@ const EvaluatorHome = lazy(() => import('@/pages/dashboards/evaluator-home'));
 const InstituteHome = lazy(() => import('@/pages/dashboards/institute-home'));
 const InstitutesListPage = lazy(() => import('@/pages/institutes/institutes-list.page'));
 const InstituteDetailPage = lazy(() => import('@/pages/institutes/institute-detail.page'));
+const InstituteApprovalsPage = lazy(() => import('@/pages/institutes/institute-approvals.page'));
+const InstituteRegistrationPage = lazy(() => import('@/pages/public/institute-registration.page'));
 const RolesListPage = lazy(() => import('@/pages/roles/roles-list.page'));
 const RoleDetailPage = lazy(() => import('@/pages/roles/role-detail.page'));
 const UsersListPage = lazy(() => import('@/pages/users/users-list.page'));
@@ -82,6 +84,7 @@ export function RouterConfig(): React.ReactElement {
   return (
     <Routes>
       <Route path={ROUTES.login} element={<LoginPage />} />
+      <Route path={ROUTES.registerInstitute} element={<InstituteRegistrationPage />} />
       <Route path={ROUTES.unauthorized} element={<UnauthorizedPage />} />
 
       <Route element={<ProtectedRoute />}>
@@ -146,6 +149,10 @@ export function RouterConfig(): React.ReactElement {
             <Route
               path={rel(ROUTES.admin.home, ROUTES.admin.institutesAdd)}
               element={<InstituteDetailPage />}
+            />
+            <Route
+              path={rel(ROUTES.admin.home, ROUTES.admin.instituteApprovals)}
+              element={<InstituteApprovalsPage />}
             />
             <Route
               path={rel(ROUTES.admin.home, ROUTES.admin.instituteDetail)}
@@ -236,8 +243,16 @@ export function RouterConfig(): React.ReactElement {
               element={<ExamsListPage />}
             />
             <Route
+              path={rel(ROUTES.controller.home, ROUTES.controller.examsCreate)}
+              element={<ExamDetailPage />}
+            />
+            <Route
               path={rel(ROUTES.controller.home, ROUTES.controller.examCandidates)}
               element={<ExamCandidatesPage />}
+            />
+            <Route
+              path={rel(ROUTES.controller.home, ROUTES.controller.examDetail)}
+              element={<ExamDetailPage />}
             />
             <Route path="*" element={<NotFoundPanel />} />
           </Route>

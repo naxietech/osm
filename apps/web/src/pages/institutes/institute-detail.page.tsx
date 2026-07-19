@@ -8,41 +8,12 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import {
-  type CreateInstituteDto,
-  GenderCategory,
-  type Institute,
-  InstituteLevel,
-  InstitutionType,
-  OnboardingStatus,
-  Province,
-} from '@oses/types';
+import { type CreateInstituteDto } from '@oses/types';
 
 import { Button } from '@/design-system/atoms/button';
 import { Building2, Check, ChevronLeft } from '@/design-system/atoms/icon';
 import { InstituteForm } from '@/design-system/organisms/institute-form';
-
-const MOCK_INSTITUTE: Institute = {
-  id: 'sch_001',
-  instituteCode: 'LHR-001',
-  instituteName: 'Government High School Gulberg',
-  registrationNo: 'FBISE-LHR-2019-001',
-  institutionType: InstitutionType.GOVERNMENT,
-  instituteLevel: InstituteLevel.HIGHER_SECONDARY,
-  category: GenderCategory.BOYS,
-  address: '12 Main Boulevard, Gulberg III',
-  city: 'Lahore',
-  province: Province.PUNJAB,
-  postalCode: '54660',
-  contactPersonName: 'Ahmed Raza',
-  contactPersonDesignation: 'Principal',
-  contactEmail: 'principal@ghsg.edu.pk',
-  contactPhone: '+92-42-35761234',
-  onboardingStatus: OnboardingStatus.COMPLETE,
-  isActive: true,
-  createdAt: '2025-01-15T08:00:00.000Z',
-  updatedAt: '2025-06-10T12:30:00.000Z',
-};
+import { getInstitute } from '@/services/institute.service';
 
 export function InstituteDetailPage(): React.ReactElement {
   const { id } = useParams<{ id: string }>();
@@ -51,8 +22,7 @@ export function InstituteDetailPage(): React.ReactElement {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // TODO: in edit mode, replace with useQuery(['institute', id], () => institutesApi.findOne(id))
-  const institute = isEdit ? MOCK_INSTITUTE : null;
+  const institute = isEdit && id ? (getInstitute(id) ?? null) : null;
 
   const handleSubmit = (dto: CreateInstituteDto): void => {
     setIsSubmitting(true);
