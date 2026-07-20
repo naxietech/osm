@@ -1,4 +1,5 @@
 export * from './auth';
+export * from './checkers';
 export * from './dashboards';
 export * from './exams';
 export * from './institutes';

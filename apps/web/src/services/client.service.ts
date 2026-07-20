@@ -13,6 +13,7 @@ const ALL_MODULES: ModuleKey[] = [
   'dashboard',
   'institutes',
   'students',
+  'checkers',
   'exams',
   'marking',
   'results',

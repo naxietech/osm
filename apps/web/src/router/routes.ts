@@ -31,6 +31,11 @@ export const ROUTES = {
     users: '/admin/users',
     usersNew: '/admin/users/new',
     userDetail: '/admin/users/:id',
+    checkers: '/admin/checkers',
+    checkersView: '/admin/checkers/view',
+    checkersAdd: '/admin/checkers/add',
+    checkerApprovals: '/admin/checkers/approvals',
+    checkerDetail: '/admin/checkers/:id',
     instituteCategories: '/admin/institute-categories',
     subjects: '/admin/subjects',
     slos: '/admin/slos',
@@ -65,6 +70,10 @@ export const ROUTES = {
 
   institute: {
     home: '/institute',
+    checkers: '/institute/checkers',
+    checkersView: '/institute/checkers/view',
+    checkersAdd: '/institute/checkers/add',
+    checkerDetail: '/institute/checkers/:id',
     students: '/institute/students',
     studentsView: '/institute/students/view',
     studentsManage: '/institute/students/manage',

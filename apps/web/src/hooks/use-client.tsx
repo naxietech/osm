@@ -16,7 +16,7 @@ interface ClientContextValue {
   client: Client;
   clients: Client[];
   setClientId: (id: string) => void;
-  isModuleEnabled: (module: string | undefined) => boolean;
+  isModuleEnabled: (module: ModuleKey | undefined) => boolean;
 }
 
 const STORAGE_KEY = 'oses-client';
@@ -77,7 +77,7 @@ export function ClientProvider({ children }: { children: React.ReactNode }): Rea
       client,
       clients,
       setClientId,
-      isModuleEnabled: (module) => !module || client.enabledModules.includes(module as ModuleKey),
+      isModuleEnabled: (module) => !module || client.enabledModules.includes(module),
     }),
     [client, setClientId],
   );

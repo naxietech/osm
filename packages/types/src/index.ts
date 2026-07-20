@@ -1,6 +1,7 @@
 export * from './academic.types';
 export * from './api.types';
 export * from './auth.types';
+export * from './checker.types';
 export * from './client.types';
 export * from './exam.types';
 export * from './exam-registration.types';

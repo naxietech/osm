@@ -27,6 +27,8 @@ export type PermissionAction =
   | 'slos.manage'
   | 'students.manage'
   | 'students.viewPII'
+  | 'checkers.manage'
+  | 'checkers.approve'
   | 'exams.manage'
   | 'exams.assignRolls'
   | 'registrations.manage'

@@ -2,7 +2,7 @@ import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { type SafeUser, UserRole } from '@oses/types';
@@ -88,6 +88,73 @@ describe('RouterConfig module composition', () => {
     seed(UserRole.ADMIN);
     renderAt('/admin/exams');
     expect(await screen.findByRole('heading', { name: /exams/i }, FIND)).toBeInTheDocument();
+  });
+
+  it('mounts the shared checkers module for ADMIN', async () => {
+    seed(UserRole.ADMIN);
+    renderAt('/admin/checkers/view');
+    expect(await screen.findByRole('heading', { name: /checkers/i }, FIND)).toBeInTheDocument();
+  });
+
+  it('mounts the same shared checkers module for INSTITUTE', async () => {
+    seed(UserRole.INSTITUTE);
+    renderAt('/institute/checkers/view');
+    expect(await screen.findByRole('heading', { name: /checkers/i }, FIND)).toBeInTheDocument();
+  });
+
+  it('keeps the static /add path ahead of the dynamic /:id detail route', async () => {
+    seed(UserRole.ADMIN);
+    renderAt('/admin/checkers/add');
+    expect(await screen.findByRole('heading', { name: /add checker/i }, FIND)).toBeInTheDocument();
+  });
+
+  it('opens the shared detail page for a checker id (ADMIN)', async () => {
+    seed(UserRole.ADMIN);
+    renderAt('/admin/checkers/chk_002');
+    expect(await screen.findByText('Imran Shah', undefined, FIND)).toBeInTheDocument();
+  });
+
+  it('opens the same detail page from the institute side', async () => {
+    seed(UserRole.INSTITUTE);
+    renderAt('/institute/checkers/chk_003');
+    expect(await screen.findByText('Sadia Rehman', undefined, FIND)).toBeInTheDocument();
+  });
+
+  // Regression: the list rows must actually navigate. A missing onRowClick typechecks
+  // and renders fine, so only an interaction test catches it.
+  it('opens the detail page when a checkers-list row is clicked (ADMIN)', async () => {
+    seed(UserRole.ADMIN);
+    renderAt('/admin/checkers/view');
+    fireEvent.click(await screen.findByText('Imran Shah', undefined, FIND));
+    expect(await screen.findByText(/Marking Scope/i, undefined, FIND)).toBeInTheDocument();
+  });
+
+  it('opens the detail page when a checkers-list row is clicked (INSTITUTE)', async () => {
+    seed(UserRole.INSTITUTE);
+    renderAt('/institute/checkers/view');
+    fireEvent.click(await screen.findByText('Nadia Iqbal', undefined, FIND));
+    expect(await screen.findByText(/Marking Scope/i, undefined, FIND)).toBeInTheDocument();
+  });
+
+  it('opens the detail page when an approvals row is clicked', async () => {
+    seed(UserRole.ADMIN);
+    renderAt('/admin/checkers/approvals');
+    fireEvent.click(await screen.findByText('Imran Shah', undefined, FIND));
+    expect(await screen.findByText(/Marking Scope/i, undefined, FIND)).toBeInTheDocument();
+  });
+
+  it('mounts the checker approvals queue for ADMIN only', async () => {
+    seed(UserRole.ADMIN);
+    renderAt('/admin/checkers/approvals');
+    expect(
+      await screen.findByRole('heading', { name: /checker approvals/i }, FIND),
+    ).toBeInTheDocument();
+  });
+
+  it('has no checker approvals route on the institute side', async () => {
+    seed(UserRole.INSTITUTE);
+    renderAt('/institute/checkers/approvals');
+    expect(await screen.findByText(/not found/i, undefined, FIND)).toBeInTheDocument();
   });
 
   it('falls through to the in-layout 404 for an unknown child path', async () => {

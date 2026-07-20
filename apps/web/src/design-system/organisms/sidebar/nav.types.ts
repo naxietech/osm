@@ -1,3 +1,5 @@
+import type { ModuleKey } from '@oses/types';
+
 import type { LucideIcon } from '@/design-system/atoms/icon';
 
 /**
@@ -14,7 +16,7 @@ export interface NavItem {
   children?: NavItem[];
   /** Opaque module key for multi-client gating; when set, the item shows only if the
    * active client enables that module. Untagged items always show. */
-  module?: string;
+  module?: ModuleKey;
   /** Optional count pill (e.g. pending approvals). Hidden when absent or 0. */
   badge?: number;
 }

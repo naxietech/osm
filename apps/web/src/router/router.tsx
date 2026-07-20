@@ -21,6 +21,7 @@ import { ModulePlaceholder, NotFoundPanel } from '@/components/widgets';
 import { ROLE_CONFIG } from '@/config/roles.config';
 import { useAuth } from '@/hooks';
 
+import { checkerApprovalRoutes, checkerRoutes } from './modules/checkers.routes';
 import { eSheetRoutes } from './modules/e-sheet.routes';
 import { examRoutes } from './modules/exams.routes';
 import { instituteExamRoutes } from './modules/institute-exams.routes';
@@ -94,6 +95,8 @@ export function RouterConfig(): React.ReactElement {
         <Route element={<RoleRoute allowedRoles={[UserRole.ADMIN]} />}>
           <Route path={admin.home} element={<RoleLayout />}>
             <Route index element={<AdminHome />} />
+            {checkerRoutes(admin.home, admin)}
+            {checkerApprovalRoutes(admin.home, admin.checkerApprovals)}
             {eSheetRoutes(admin.home, admin)}
             {examRoutes(admin.home, admin)}
             {instituteRoutes(admin.home, admin)}
@@ -154,6 +157,7 @@ export function RouterConfig(): React.ReactElement {
         <Route element={<RoleRoute allowedRoles={[UserRole.INSTITUTE]} />}>
           <Route path={institute.home} element={<RoleLayout />}>
             <Route index element={<InstituteHome />} />
+            {checkerRoutes(institute.home, institute)}
             {studentRoutes(institute.home, institute)}
             {instituteExamRoutes(institute.home, institute)}
             <Route
