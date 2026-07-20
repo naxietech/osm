@@ -5,7 +5,7 @@
  * - Edit    (`/:id` + "Edit Profile" clicked): the StudentForm pre-filled; Cancel/Save
  *   returns to Profile.
  *
- * Role-aware: ADMIN may pick any school; SCHOOL_STAFF is locked to their own
+ * Role-aware: ADMIN may pick any institute; INSTITUTE is locked to their own
  * school. Shared by both roles, so navigation is derived from the current path.
  *
  * TODO: Replace mock data with API calls (students.findOne; results.findByStudent;
@@ -14,14 +14,20 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
-import { type Student, UserRole } from '@oses/types';
+import { Province, type Student, UserRole } from '@oses/types';
 
 import { Button } from '@/design-system/atoms/button';
-import { Check, ChevronLeft, UserPlus } from '@/design-system/atoms/icon';
+import { ChevronLeft, UserPlus } from '@/design-system/atoms/icon';
+import { Alert } from '@/design-system/molecules/alert';
 import { type SelectOption } from '@/design-system/molecules/select-field';
 import { StudentForm, type StudentFormPayload } from '@/design-system/organisms/student-form';
 import { StudentProfile, type StudentResult } from '@/design-system/organisms/student-profile';
-import { useAuth } from '@/hooks';
+import { useAuth, usePermissions } from '@/hooks';
+import {
+  classGroupOptionsByLevelMap,
+  levelSelectOptions,
+  subgroupOptionsByLevelGroupMap,
+} from '@/services/academic.service';
 
 const MOCK_SCHOOL_OPTIONS: SelectOption[] = [
   { value: 'sch_001', label: 'Government High School Gulberg' },
@@ -29,10 +35,14 @@ const MOCK_SCHOOL_OPTIONS: SelectOption[] = [
   { value: 'sch_003', label: 'Federal Government School F-8' },
 ];
 
+const LEVEL_OPTIONS = levelSelectOptions();
+const GROUP_OPTIONS_BY_LEVEL = classGroupOptionsByLevelMap();
+const SUBGROUP_OPTIONS_BY_LEVEL_GROUP = subgroupOptionsByLevelGroupMap();
+
 const MOCK_STUDENT: Student = {
   id: 'stu_001',
   studentRefId: 'ref-3f8a1c20',
-  schoolId: 'sch_001',
+  instituteId: 'sch_001',
   fullName: 'Ali Hassan',
   fatherOrGuardianName: 'Hassan Raza',
   gender: 'male',
@@ -43,8 +53,13 @@ const MOCK_STUDENT: Student = {
   studentMobile: '03007654321',
   address: 'House 12, Street 5, Gulberg III',
   city: 'Lahore',
+  province: Province.PUNJAB,
   district: 'Lahore',
-  gradeId: 10,
+  levelId: 'lvl_10',
+  groupId: 'grp_science',
+  subgroupId: 'sg_10_bio',
+  classNumber: 10,
+  registrationNumber: '2600420001',
   enrollmentStatus: 'active',
   createdAt: '2025-03-01T08:00:00.000Z',
 };
@@ -62,7 +77,7 @@ const MOCK_RESULTS: StudentResult[] = [
   },
   {
     id: 'res_2',
-    exam: 'Grade 9 — Final Term 2023',
+    exam: 'Class 9 — Final Term 2023',
     obtainedMarks: 388,
     totalMarks: 500,
     grade: 'B',
@@ -71,7 +86,7 @@ const MOCK_RESULTS: StudentResult[] = [
   },
   {
     id: 'res_3',
-    exam: 'Grade 9 — Mid Term 2023',
+    exam: 'Class 9 — Mid Term 2023',
     obtainedMarks: 410,
     totalMarks: 500,
     grade: 'A',
@@ -85,6 +100,7 @@ export function StudentDetailPage(): React.ReactElement {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { user } = useAuth();
+  const { canViewPII } = usePermissions();
 
   const isExisting = Boolean(id);
   const base = pathname.slice(0, pathname.indexOf('/students') + '/students'.length);
@@ -93,17 +109,18 @@ export function StudentDetailPage(): React.ReactElement {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // School staff can only enrol into their own school; admins pick any.
-  const isSchoolStaff = user?.role === UserRole.SCHOOL_STAFF;
-  // Mock fallback — real SCHOOL_STAFF users carry their own schoolId.
-  const schoolStaffSchoolId = user?.schoolId ?? 'sch_001';
-  const schoolOptions = isSchoolStaff
+  const isSchoolStaff = user?.role === UserRole.INSTITUTE;
+  // Mock fallback — real INSTITUTE users carry their own instituteId.
+  const schoolStaffSchoolId = user?.instituteId ?? 'sch_001';
+  const instituteOptions = isSchoolStaff
     ? MOCK_SCHOOL_OPTIONS.filter((o) => o.value === schoolStaffSchoolId)
     : MOCK_SCHOOL_OPTIONS;
 
   // TODO: in profile/edit mode, replace with useQuery(['student', id], () => studentsApi.findOne(id))
   const student = isExisting ? MOCK_STUDENT : null;
   const schoolName = student
-    ? (MOCK_SCHOOL_OPTIONS.find((o) => o.value === student.schoolId)?.label ?? student.schoolId)
+    ? (MOCK_SCHOOL_OPTIONS.find((o) => o.value === student.instituteId)?.label ??
+      student.instituteId)
     : undefined;
 
   // Show the form when creating, or when editing an existing student.
@@ -112,7 +129,7 @@ export function StudentDetailPage(): React.ReactElement {
   const initialValues: Partial<StudentFormPayload> | undefined =
     isExisting && student
       ? {
-          schoolId: student.schoolId,
+          instituteId: student.instituteId,
           fullName: student.fullName,
           fatherOrGuardianName: student.fatherOrGuardianName,
           gender: student.gender,
@@ -124,13 +141,16 @@ export function StudentDetailPage(): React.ReactElement {
           studentMobile: student.studentMobile,
           address: student.address,
           city: student.city,
+          province: student.province,
           district: student.district,
           postalAddress: student.postalAddress,
-          gradeId: student.gradeId,
+          levelId: student.levelId,
+          groupId: student.groupId,
+          subgroupId: student.subgroupId,
           enrollmentStatus: student.enrollmentStatus,
         }
       : isSchoolStaff
-        ? { schoolId: schoolStaffSchoolId }
+        ? { instituteId: schoolStaffSchoolId }
         : undefined;
 
   const handleSubmit = (payload: StudentFormPayload): void => {
@@ -175,17 +195,7 @@ export function StudentDetailPage(): React.ReactElement {
         Back to Students
       </Button>
 
-      {successMessage && (
-        <div
-          role="status"
-          className="mb-6 flex items-center gap-3 rounded-xl border border-success/30 bg-success-subtle px-4 py-3 text-sm font-medium text-success-foreground"
-        >
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-success text-white">
-            <Check className="h-3.5 w-3.5" aria-hidden />
-          </span>
-          {successMessage}
-        </div>
-      )}
+      {successMessage && <Alert className="mb-6">{successMessage}</Alert>}
 
       {showForm ? (
         <>
@@ -208,7 +218,7 @@ export function StudentDetailPage(): React.ReactElement {
                 </h1>
                 <p className="mt-1 text-sm text-white/80">
                   {isExisting && student
-                    ? `Ref ${student.studentRefId} · Grade ${student.gradeId}`
+                    ? `Ref ${student.studentRefId} · Class ${student.classNumber}`
                     : 'Enrol a new student into the system'}
                 </p>
               </div>
@@ -224,8 +234,11 @@ export function StudentDetailPage(): React.ReactElement {
           <div className="rounded-xl border border-border bg-card p-6 shadow-sm md:p-8">
             <StudentForm
               mode={isExisting ? 'edit' : 'create'}
-              schoolOptions={schoolOptions}
-              lockSchool={isSchoolStaff}
+              instituteOptions={instituteOptions}
+              levelOptions={LEVEL_OPTIONS}
+              groupOptionsByLevel={GROUP_OPTIONS_BY_LEVEL}
+              subgroupOptionsByLevelGroup={SUBGROUP_OPTIONS_BY_LEVEL_GROUP}
+              lockInstitute={isSchoolStaff}
               initialValues={initialValues}
               onSubmit={handleSubmit}
               isSubmitting={isSubmitting}
@@ -241,6 +254,7 @@ export function StudentDetailPage(): React.ReactElement {
             student={student}
             schoolName={schoolName}
             results={MOCK_RESULTS}
+            canViewPII={canViewPII}
             onEdit={() => {
               setIsEditing(true);
               setSuccessMessage(null);

@@ -1,8 +1,16 @@
 /**
- * Router — one role layout per role (ADMIN / CONTROLLER / EVALUATOR / SCHOOL_STAFF),
- * each behind ProtectedRoute + RoleRoute, with nested module routes (scaffold).
- * Route components are lazy-loaded (code splitting); paths come from ./routes so
- * the nav config and the routes can't drift. Each role has an in-layout 404.
+ * Router — one role layout per role (ADMIN / CONTROLLER / EVALUATOR / INSTITUTE),
+ * each behind ProtectedRoute + RoleRoute.
+ *
+ * The module routes themselves live in ./modules, one file per module, each exporting
+ * a factory that takes the hosting role's home path plus its slice of ROUTES. Modules
+ * that more than one role exposes (exams: admin + controller; students: admin +
+ * institute; e-sheet: admin + controller) are therefore declared ONCE and composed
+ * per role, so a module change can't be applied to one role and missed on another.
+ *
+ * This file stays limited to the role shells: which modules each role gets, plus the
+ * auth/public routes and the 404s. Route components are lazy-loaded (code splitting);
+ * paths come from ./routes so the nav config and the routes can't drift.
  */
 import React, { lazy } from 'react';
 import { Link, Navigate, Route, Routes } from 'react-router-dom';
@@ -13,6 +21,14 @@ import { ModulePlaceholder, NotFoundPanel } from '@/components/widgets';
 import { ROLE_CONFIG } from '@/config/roles.config';
 import { useAuth } from '@/hooks';
 
+import { eSheetRoutes } from './modules/e-sheet.routes';
+import { examRoutes } from './modules/exams.routes';
+import { instituteExamRoutes } from './modules/institute-exams.routes';
+import { instituteRoutes } from './modules/institutes.routes';
+import { platformRoutes } from './modules/platform.routes';
+import { rel } from './modules/rel';
+import { setupRoutes } from './modules/setup.routes';
+import { studentRoutes } from './modules/students.routes';
 import { ProtectedRoute } from './protected-route';
 import { RoleRoute } from './role-route';
 import { ROUTES } from './routes';
@@ -22,19 +38,8 @@ const RoleLayout = lazy(() => import('@/layout/role-layout'));
 const AdminHome = lazy(() => import('@/pages/dashboards/admin-home'));
 const ControllerHome = lazy(() => import('@/pages/dashboards/controller-home'));
 const EvaluatorHome = lazy(() => import('@/pages/dashboards/evaluator-home'));
-const SchoolHome = lazy(() => import('@/pages/dashboards/school-home'));
-const SchoolsListPage = lazy(() => import('@/pages/schools/schools-list.page'));
-const SchoolDetailPage = lazy(() => import('@/pages/schools/school-detail.page'));
-const StudentsListPage = lazy(() => import('@/pages/students/students-list.page'));
-const StudentDetailPage = lazy(() => import('@/pages/students/student-detail.page'));
-const ExamsListPage = lazy(() => import('@/pages/exams/exams-list.page'));
-const ExamDetailPage = lazy(() => import('@/pages/exams/exam-detail.page'));
-const ExamCandidatesPage = lazy(() => import('@/pages/exams/exam-candidates.page'));
-const SchoolExamsPage = lazy(() => import('@/pages/exams/school-exams.page'));
-const ExamRegisterPage = lazy(() => import('@/pages/exams/exam-register.page'));
-
-/** Relative child segment of an absolute path under its role home (no drift). */
-const rel = (home: string, full: string): string => full.slice(home.length + 1);
+const InstituteHome = lazy(() => import('@/pages/dashboards/institute-home'));
+const InstituteRegistrationPage = lazy(() => import('@/pages/public/institute-registration.page'));
 
 /** Redirect to the current user's role landing page. */
 function RoleHome(): React.ReactElement {
@@ -71,9 +76,15 @@ function NotFoundPage(): React.ReactElement {
 }
 
 export function RouterConfig(): React.ReactElement {
+  const admin = ROUTES.admin;
+  const controller = ROUTES.controller;
+  const evaluator = ROUTES.evaluator;
+  const institute = ROUTES.institute;
+
   return (
     <Routes>
       <Route path={ROUTES.login} element={<LoginPage />} />
+      <Route path={ROUTES.registerInstitute} element={<InstituteRegistrationPage />} />
       <Route path={ROUTES.unauthorized} element={<UnauthorizedPage />} />
 
       <Route element={<ProtectedRoute />}>
@@ -81,83 +92,21 @@ export function RouterConfig(): React.ReactElement {
 
         {/* ADMIN — all modules */}
         <Route element={<RoleRoute allowedRoles={[UserRole.ADMIN]} />}>
-          <Route path={ROUTES.admin.home} element={<RoleLayout />}>
+          <Route path={admin.home} element={<RoleLayout />}>
             <Route index element={<AdminHome />} />
+            {eSheetRoutes(admin.home, admin)}
+            {examRoutes(admin.home, admin)}
+            {instituteRoutes(admin.home, admin)}
+            {platformRoutes(admin.home, admin)}
+            {setupRoutes(admin.home, admin)}
+            {studentRoutes(admin.home, admin)}
             <Route
-              path={rel(ROUTES.admin.home, ROUTES.admin.eSheet)}
-              element={<Navigate to={ROUTES.admin.eSheetTemplateView} replace />}
-            />
-            <Route
-              path={rel(ROUTES.admin.home, ROUTES.admin.eSheetTemplateAdd)}
-              element={<ModulePlaceholder title="E-Sheet · Add Template" />}
-            />
-            <Route
-              path={rel(ROUTES.admin.home, ROUTES.admin.eSheetTemplateView)}
-              element={<ModulePlaceholder title="E-Sheet · Templates" />}
-            />
-            <Route
-              path={rel(ROUTES.admin.home, ROUTES.admin.eSheetGenerate)}
-              element={<ModulePlaceholder title="Generate E-Sheets" />}
-            />
-            <Route
-              path={rel(ROUTES.admin.home, ROUTES.admin.questions)}
+              path={rel(admin.home, admin.questions)}
               element={<ModulePlaceholder title="Question Assignments" />}
             />
             <Route
-              path={rel(ROUTES.admin.home, ROUTES.admin.results)}
+              path={rel(admin.home, admin.results)}
               element={<ModulePlaceholder title="Results" />}
-            />
-            <Route
-              path={rel(ROUTES.admin.home, ROUTES.admin.exams)}
-              element={<Navigate to={ROUTES.admin.examsView} replace />}
-            />
-            <Route
-              path={rel(ROUTES.admin.home, ROUTES.admin.examsView)}
-              element={<ExamsListPage />}
-            />
-            <Route
-              path={rel(ROUTES.admin.home, ROUTES.admin.examsCreate)}
-              element={<ExamDetailPage />}
-            />
-            <Route
-              path={rel(ROUTES.admin.home, ROUTES.admin.examCandidates)}
-              element={<ExamCandidatesPage />}
-            />
-            <Route
-              path={rel(ROUTES.admin.home, ROUTES.admin.examDetail)}
-              element={<ExamDetailPage />}
-            />
-            <Route
-              path={rel(ROUTES.admin.home, ROUTES.admin.schools)}
-              element={<Navigate to={ROUTES.admin.schoolsView} replace />}
-            />
-            <Route
-              path={rel(ROUTES.admin.home, ROUTES.admin.schoolsView)}
-              element={<SchoolsListPage />}
-            />
-            <Route
-              path={rel(ROUTES.admin.home, ROUTES.admin.schoolsAdd)}
-              element={<SchoolDetailPage />}
-            />
-            <Route
-              path={rel(ROUTES.admin.home, ROUTES.admin.schoolDetail)}
-              element={<SchoolDetailPage />}
-            />
-            <Route
-              path={rel(ROUTES.admin.home, ROUTES.admin.students)}
-              element={<Navigate to={ROUTES.admin.studentsView} replace />}
-            />
-            <Route
-              path={rel(ROUTES.admin.home, ROUTES.admin.studentsView)}
-              element={<StudentsListPage />}
-            />
-            <Route
-              path={rel(ROUTES.admin.home, ROUTES.admin.studentsManage)}
-              element={<StudentDetailPage />}
-            />
-            <Route
-              path={rel(ROUTES.admin.home, ROUTES.admin.studentDetail)}
-              element={<StudentDetailPage />}
             />
             <Route path="*" element={<NotFoundPanel />} />
           </Route>
@@ -165,43 +114,17 @@ export function RouterConfig(): React.ReactElement {
 
         {/* CONTROLLER — examiner */}
         <Route element={<RoleRoute allowedRoles={[UserRole.CONTROLLER]} />}>
-          <Route path={ROUTES.controller.home} element={<RoleLayout />}>
+          <Route path={controller.home} element={<RoleLayout />}>
             <Route index element={<ControllerHome />} />
+            {eSheetRoutes(controller.home, controller)}
+            {examRoutes(controller.home, controller)}
             <Route
-              path={rel(ROUTES.controller.home, ROUTES.controller.eSheet)}
-              element={<Navigate to={ROUTES.controller.eSheetTemplateView} replace />}
-            />
-            <Route
-              path={rel(ROUTES.controller.home, ROUTES.controller.eSheetTemplateAdd)}
-              element={<ModulePlaceholder title="E-Sheet · Add Template" />}
-            />
-            <Route
-              path={rel(ROUTES.controller.home, ROUTES.controller.eSheetTemplateView)}
-              element={<ModulePlaceholder title="E-Sheet · Templates" />}
-            />
-            <Route
-              path={rel(ROUTES.controller.home, ROUTES.controller.eSheetGenerate)}
-              element={<ModulePlaceholder title="Generate E-Sheets" />}
-            />
-            <Route
-              path={rel(ROUTES.controller.home, ROUTES.controller.questions)}
+              path={rel(controller.home, controller.questions)}
               element={<ModulePlaceholder title="Questions Assignment" />}
             />
             <Route
-              path={rel(ROUTES.controller.home, ROUTES.controller.resultCompilation)}
+              path={rel(controller.home, controller.resultCompilation)}
               element={<ModulePlaceholder title="Result Compilation" />}
-            />
-            <Route
-              path={rel(ROUTES.controller.home, ROUTES.controller.exams)}
-              element={<Navigate to={ROUTES.controller.examsView} replace />}
-            />
-            <Route
-              path={rel(ROUTES.controller.home, ROUTES.controller.examsView)}
-              element={<ExamsListPage />}
-            />
-            <Route
-              path={rel(ROUTES.controller.home, ROUTES.controller.examCandidates)}
-              element={<ExamCandidatesPage />}
             />
             <Route path="*" element={<NotFoundPanel />} />
           </Route>
@@ -209,62 +132,36 @@ export function RouterConfig(): React.ReactElement {
 
         {/* EVALUATOR — checker */}
         <Route element={<RoleRoute allowedRoles={[UserRole.EVALUATOR]} />}>
-          <Route path={ROUTES.evaluator.home} element={<RoleLayout />}>
+          <Route path={evaluator.home} element={<RoleLayout />}>
             <Route index element={<EvaluatorHome />} />
             <Route
-              path={rel(ROUTES.evaluator.home, ROUTES.evaluator.assignWork)}
+              path={rel(evaluator.home, evaluator.assignWork)}
               element={<ModulePlaceholder title="Assign Work" />}
             />
             <Route
-              path={rel(ROUTES.evaluator.home, ROUTES.evaluator.history)}
+              path={rel(evaluator.home, evaluator.history)}
               element={<ModulePlaceholder title="History" />}
             />
             <Route
-              path={rel(ROUTES.evaluator.home, ROUTES.evaluator.profile)}
+              path={rel(evaluator.home, evaluator.profile)}
               element={<ModulePlaceholder title="Profile" />}
             />
             <Route path="*" element={<NotFoundPanel />} />
           </Route>
         </Route>
 
-        {/* SCHOOL_STAFF — school */}
-        <Route element={<RoleRoute allowedRoles={[UserRole.SCHOOL_STAFF]} />}>
-          <Route path={ROUTES.school.home} element={<RoleLayout />}>
-            <Route index element={<SchoolHome />} />
+        {/* INSTITUTE — institute */}
+        <Route element={<RoleRoute allowedRoles={[UserRole.INSTITUTE]} />}>
+          <Route path={institute.home} element={<RoleLayout />}>
+            <Route index element={<InstituteHome />} />
+            {studentRoutes(institute.home, institute)}
+            {instituteExamRoutes(institute.home, institute)}
             <Route
-              path={rel(ROUTES.school.home, ROUTES.school.students)}
-              element={<Navigate to={ROUTES.school.studentsView} replace />}
-            />
-            <Route
-              path={rel(ROUTES.school.home, ROUTES.school.studentsView)}
-              element={<StudentsListPage />}
-            />
-            <Route
-              path={rel(ROUTES.school.home, ROUTES.school.studentsManage)}
-              element={<StudentDetailPage />}
-            />
-            <Route
-              path={rel(ROUTES.school.home, ROUTES.school.studentDetail)}
-              element={<StudentDetailPage />}
-            />
-            <Route
-              path={rel(ROUTES.school.home, ROUTES.school.exams)}
-              element={<Navigate to={ROUTES.school.examsView} replace />}
-            />
-            <Route
-              path={rel(ROUTES.school.home, ROUTES.school.examsView)}
-              element={<SchoolExamsPage />}
-            />
-            <Route
-              path={rel(ROUTES.school.home, ROUTES.school.examRegister)}
-              element={<ExamRegisterPage />}
-            />
-            <Route
-              path={rel(ROUTES.school.home, ROUTES.school.results)}
+              path={rel(institute.home, institute.results)}
               element={<ModulePlaceholder title="Results" />}
             />
             <Route
-              path={rel(ROUTES.school.home, ROUTES.school.profile)}
+              path={rel(institute.home, institute.profile)}
               element={<ModulePlaceholder title="Profile" />}
             />
             <Route path="*" element={<NotFoundPanel />} />

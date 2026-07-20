@@ -12,6 +12,7 @@ import {
   type ExamListItem,
   type ExamRegistration,
   ExamStatus,
+  type SafeStudentRef,
   type StudentExamHistoryItem,
 } from '@oses/types';
 
@@ -40,6 +41,11 @@ function registeredRefs(examId: string): Set<string> {
   );
 }
 
+/** Whether an exam's institute scope targets a given institute. */
+function examTargetsInstitute(exam: Exam, instituteId: string): boolean {
+  return exam.instituteScope === 'all' || (exam.instituteIds ?? []).includes(instituteId);
+}
+
 /** Resolve chosen elective paper ids to their subject names for display. */
 function resolveElectiveSubjects(exam: Exam, electivePaperIds: string[]): string[] {
   return electivePaperIds
@@ -53,12 +59,12 @@ function listOpenExams(): Promise<ExamListItem[]> {
   return delay(open.map(toExamListItem));
 }
 
-/** A school-facing exam row: the exam plus this school's own registered count. */
-export interface SchoolExamRow {
+/** An institute-facing exam row: the exam plus this institute's own registered count. */
+export interface InstituteExamRow {
   exam: ExamListItem;
-  /** This school's registered (non-withdrawn) candidates for the exam. */
+  /** This institute's registered (non-withdrawn) candidates for the exam. */
   registeredCount: number;
-  /** Whether the school can still register into it (window open). */
+  /** Whether the institute can still register into it (window open). */
   canRegister: boolean;
 }
 
@@ -66,35 +72,43 @@ export interface SchoolExamRow {
  * Exams relevant to a school: ones open for registration, plus any it has already
  * registered candidates into (so its candidates stay visible after the window closes).
  */
-function listSchoolExams(schoolId: string): Promise<SchoolExamRow[]> {
-  const schoolCount = (examId: string): number =>
+function listInstituteExams(instituteId: string): Promise<InstituteExamRow[]> {
+  const instituteCount = (examId: string): number =>
     registrations.filter(
-      (r) => r.examId === examId && r.schoolId === schoolId && r.status !== 'withdrawn',
+      (r) => r.examId === examId && r.instituteId === instituteId && r.status !== 'withdrawn',
     ).length;
 
   const rows = exams
-    .filter((e) => e.status === ExamStatus.REGISTRATION_OPEN || schoolCount(e.id) > 0)
+    .filter(
+      (e) =>
+        (e.status === ExamStatus.REGISTRATION_OPEN && examTargetsInstitute(e, instituteId)) ||
+        instituteCount(e.id) > 0,
+    )
     .map((e) => ({
       exam: toExamListItem(e),
-      registeredCount: schoolCount(e.id),
-      canRegister: e.status === ExamStatus.REGISTRATION_OPEN,
+      registeredCount: instituteCount(e.id),
+      canRegister:
+        e.status === ExamStatus.REGISTRATION_OPEN && examTargetsInstitute(e, instituteId),
     }));
 
   return delay(rows);
 }
 
 /**
- * A school's students eligible for an exam: same grade, active, own school, and not
+ * A school's students eligible for an exam: same class, active, own school, and not
  * already registered. This is the source for the bulk register (candidate-picker).
  */
-function listRegisterableStudents(examId: string, schoolId: string): Promise<StoredStudent[]> {
+function listRegisterableStudents(examId: string, instituteId: string): Promise<StoredStudent[]> {
   const exam = findExam(examId);
   if (!exam) return delay<StoredStudent[]>([]);
+  // Institute must be targeted by the exam's scope to register anyone.
+  if (!examTargetsInstitute(exam, instituteId)) return delay<StoredStudent[]>([]);
   const already = registeredRefs(examId);
   const eligible = students.filter(
     (s) =>
-      s.schoolId === schoolId &&
-      s.gradeId === exam.gradeId &&
+      s.instituteId === instituteId &&
+      s.levelId === exam.levelId &&
+      s.groupId === exam.groupId &&
       s.enrollmentStatus === 'active' &&
       !already.has(s.studentRefId),
   );
@@ -115,12 +129,14 @@ function registerStudents(dto: CreateExamRegistrationDto): Promise<ExamRegistrat
   for (const candidate of dto.candidates) {
     const student = findStudentByRef(candidate.studentRefId);
     if (!student || already.has(candidate.studentRefId)) continue;
+    // Skip candidates whose institute the exam doesn't target.
+    if (!examTargetsInstitute(exam, student.instituteId)) continue;
 
     const registration: ExamRegistration = {
       id: nextId('reg'),
       examId: dto.examId,
       studentRefId: candidate.studentRefId,
-      schoolId: student.schoolId,
+      instituteId: student.instituteId,
       electivePaperIds: candidate.electivePaperIds,
       status: 'pending',
       registeredAt: new Date().toISOString(),
@@ -133,19 +149,43 @@ function registerStudents(dto: CreateExamRegistrationDto): Promise<ExamRegistrat
   return delay(created);
 }
 
+/**
+ * Institute completes its registration: every soft (pending) candidate for this exam +
+ * institute is verified and moved to `submitted`. Returns how many were completed.
+ */
+function confirmRegistrations(examId: string, instituteId: string): Promise<number> {
+  const pending = registrations.filter(
+    (r) => r.examId === examId && r.instituteId === instituteId && r.status === 'pending',
+  );
+  pending.forEach((r) => {
+    r.status = 'submitted';
+  });
+  return delay(pending.length);
+}
+
 /** Project a registration onto a candidate row (resolves student + elective names). */
 function toCandidateRow(exam: Exam, r: ExamRegistration): CandidateListItem {
   const student = findStudentByRef(r.studentRefId);
   const item: CandidateListItem = {
     registrationId: r.id,
     studentRefId: r.studentRefId,
-    gradeId: student?.gradeId ?? exam.gradeId,
+    classNumber: student?.classNumber ?? exam.classNumber,
     status: r.status,
     electiveSubjects: resolveElectiveSubjects(exam, r.electivePaperIds),
   };
   if (student?.fullName) item.fullName = student.fullName;
   if (r.rollNumber) item.rollNumber = r.rollNumber;
   return item;
+}
+
+/**
+ * Drop every PII field from a candidate row. `CandidateListItem.fullName` is the only
+ * one the shape carries, and the type already marks it optional for exactly this reason.
+ */
+export function stripCandidatePII(row: CandidateListItem): CandidateListItem {
+  const safe = { ...row };
+  delete safe.fullName;
+  return safe;
 }
 
 /** Candidate list for an exam (admin / controller — every school; includes names). */
@@ -158,12 +198,34 @@ function listCandidates(examId: string): Promise<CandidateListItem[]> {
   return delay(rows);
 }
 
+/**
+ * Candidate list for EVALUATOR contexts — studentRefId + roll number only, never a name.
+ * The marking UI must call this rather than filtering `listCandidates` client-side, so
+ * the name never reaches the evaluator's machine in the first place.
+ */
+function listCandidatesForEvaluator(examId: string): Promise<CandidateListItem[]> {
+  return listCandidates(examId).then((rows) => rows.map(stripCandidatePII));
+}
+
+/** The evaluator-safe reference for a student — no PII whatsoever. */
+export function toSafeStudentRef(student: StoredStudent): SafeStudentRef {
+  return {
+    studentRefId: student.studentRefId,
+    levelId: student.levelId,
+    groupId: student.groupId,
+    classNumber: student.classNumber,
+  };
+}
+
 /** Candidate list for one school only — the school's own registered candidates. */
-function listCandidatesForSchool(examId: string, schoolId: string): Promise<CandidateListItem[]> {
+function listCandidatesForSchool(
+  examId: string,
+  instituteId: string,
+): Promise<CandidateListItem[]> {
   const exam = findExam(examId);
   if (!exam) return delay<CandidateListItem[]>([]);
   const rows = registrations
-    .filter((r) => r.examId === examId && r.schoolId === schoolId && r.status !== 'withdrawn')
+    .filter((r) => r.examId === examId && r.instituteId === instituteId && r.status !== 'withdrawn')
     .map((r) => toCandidateRow(exam, r));
   return delay(rows);
 }
@@ -179,7 +241,7 @@ function getStudentHistory(studentRefId: string): Promise<StudentExamHistoryItem
         examId: r.examId,
         examName: exam?.name ?? 'Exam',
         session: exam?.session ?? '',
-        gradeId: exam?.gradeId ?? 0,
+        classNumber: exam?.classNumber ?? 0,
         status: r.status,
       };
       if (r.rollNumber) item.rollNumber = r.rollNumber;
@@ -191,10 +253,12 @@ function getStudentHistory(studentRefId: string): Promise<StudentExamHistoryItem
 
 export const examRegistrationService = {
   listOpenExams,
-  listSchoolExams,
+  listInstituteExams,
   listRegisterableStudents,
   registerStudents,
+  confirmRegistrations,
   listCandidates,
+  listCandidatesForEvaluator,
   listCandidatesForSchool,
   getStudentHistory,
 };

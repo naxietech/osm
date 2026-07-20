@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { DataTable, type ColumnDef } from './data-table';
+import { type ColumnDef, DataTable } from './data-table';
 
 interface TestRow {
   id: string;

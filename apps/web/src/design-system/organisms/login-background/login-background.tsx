@@ -1,6 +1,7 @@
 import { type ReactElement } from 'react';
 
 import { BarGraph } from '@/design-system/atoms/bar-graph';
+import { BrandMark } from '@/design-system/atoms/brand-mark';
 import { CheckMark } from '@/design-system/atoms/check-mark';
 import { GaugeRing } from '@/design-system/atoms/gauge-ring';
 import { LineGraph } from '@/design-system/atoms/line-graph';
@@ -56,19 +57,11 @@ export function LoginBackground(): ReactElement {
 
       {/* faint OSES watermark */}
       <div className="absolute inset-0 grid place-items-center opacity-[0.045]">
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="#2bc79a"
-          strokeWidth="1"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+        <BrandMark
+          className="text-brand"
+          strokeWidth={1}
           style={{ width: 'min(62vw, 560px)', height: 'min(62vw, 560px)' }}
-        >
-          <path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z" />
-          <path d="M22 10v6" />
-          <path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5" />
-        </svg>
+        />
       </div>
     </div>
   );

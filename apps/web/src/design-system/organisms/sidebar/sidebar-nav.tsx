@@ -29,6 +29,7 @@ export function SidebarNav({ sections, pathname }: SidebarNavProps): ReactElemen
                   to={item.to ?? '#'}
                   active={item.to === pathname}
                   icon={item.icon}
+                  badge={item.badge}
                 />
               ),
             )}

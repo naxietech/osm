@@ -7,13 +7,15 @@
  * Use StudentListItem for admin list views (omits all document / contact PII).
  * Only controllers and admins may receive the full Student type.
  */
+import type { Province } from './institute.types';
+
 export type Gender = 'male' | 'female' | 'other';
 export type EnrollmentStatus = 'active' | 'inactive' | 'transferred' | 'graduated';
 
 export interface Student {
   id: string;
   studentRefId: string; // UUID — the only identifier exposed to the exam schema
-  schoolId: string;
+  instituteId: string;
 
   // Identity (PII)
   fullName: string;
@@ -33,11 +35,17 @@ export interface Student {
   // Address
   address: string; // residential / street address (PII)
   city: string;
+  province?: Province;
   district: string;
   postalAddress?: string; // mailing address, only if different from residential (PII)
 
-  // Enrollment
-  gradeId: number;
+  // Academic placement
+  levelId: string; // configurable Level (Class / Year / Semester)
+  groupId: string; // Group / stream / program
+  subgroupId?: string; // Subgroup under the class's group (e.g. Biology)
+  classNumber: number; // derived display value = the level's ordinal (e.g. 10 for "Class 10")
+  registrationNumber?: string; // permanent, number-only student ID (assigned at registration)
+
   enrollmentStatus: EnrollmentStatus;
   createdAt: string;
 }
@@ -45,20 +53,25 @@ export interface Student {
 // Safe for evaluator contexts — no PII whatsoever
 export interface SafeStudentRef {
   studentRefId: string;
-  gradeId: number;
+  levelId: string;
+  groupId: string;
+  classNumber: number;
 }
 
 // Safe for admin list views — no document / contact / address PII
 export interface StudentListItem {
   id: string;
   studentRefId: string;
+  registrationNumber?: string;
   fullName: string;
-  gradeId: number;
+  levelId: string;
+  groupId: string;
+  classNumber: number;
   enrollmentStatus: EnrollmentStatus;
 }
 
 export interface CreateStudentDto {
-  schoolId: string;
+  instituteId: string;
   fullName: string;
   fatherOrGuardianName: string;
   gender: Gender;
@@ -70,9 +83,12 @@ export interface CreateStudentDto {
   studentMobile?: string;
   address: string;
   city: string;
+  province?: Province;
   district: string;
   postalAddress?: string;
-  gradeId: number;
+  levelId: string;
+  groupId: string;
+  subgroupId?: string;
 }
 
 export interface UpdateStudentDto {
@@ -87,8 +103,11 @@ export interface UpdateStudentDto {
   studentMobile?: string;
   address?: string;
   city?: string;
+  province?: Province;
   district?: string;
   postalAddress?: string;
-  gradeId?: number;
+  levelId?: string;
+  groupId?: string;
+  subgroupId?: string;
   enrollmentStatus?: EnrollmentStatus;
 }

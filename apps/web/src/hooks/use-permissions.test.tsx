@@ -57,8 +57,34 @@ describe('usePermissions', () => {
     const { result } = renderHook(() => ({ auth: useAuth(), perms: usePermissions() }), {
       wrapper: Wrapper,
     });
-    act(() => result.current.auth.login(makeUser(UserRole.SCHOOL_STAFF), 'tok'));
+    act(() => result.current.auth.login(makeUser(UserRole.INSTITUTE), 'tok'));
     expect(result.current.perms.canViewOwnSchoolResults).toBe(true);
     expect(result.current.perms.canViewAllResults).toBe(false);
+  });
+
+  it('exposes can() over the role grants', () => {
+    const { result } = renderHook(() => ({ auth: useAuth(), perms: usePermissions() }), {
+      wrapper: Wrapper,
+    });
+    act(() => result.current.auth.login(makeUser(UserRole.ADMIN), 'tok'));
+    expect(result.current.perms.can('roles.manage')).toBe(true);
+    expect(result.current.perms.can('marking.mark')).toBe(false); // super admin supervises, never marks
+  });
+
+  it('reports own-institute scope for the institute role', () => {
+    const { result } = renderHook(() => ({ auth: useAuth(), perms: usePermissions() }), {
+      wrapper: Wrapper,
+    });
+    act(() => result.current.auth.login(makeUser(UserRole.INSTITUTE), 'tok'));
+    expect(result.current.perms.scopeFor('students.manage')).toBe('own-institute');
+    expect(result.current.perms.scopeFor('exams.manage')).toBeNull(); // not granted
+  });
+
+  it('reports all scope for a super-admin action', () => {
+    const { result } = renderHook(() => ({ auth: useAuth(), perms: usePermissions() }), {
+      wrapper: Wrapper,
+    });
+    act(() => result.current.auth.login(makeUser(UserRole.ADMIN), 'tok'));
+    expect(result.current.perms.scopeFor('institutes.manage')).toBe('all');
   });
 });

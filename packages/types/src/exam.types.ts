@@ -1,8 +1,8 @@
-import type { SchoolLevel } from './school.types';
+import type { InstituteLevel } from './institute.types';
 
 /**
  * Exam domain — two levels:
- *   Exam    = the session a student registers into once (e.g. "Grade 10 · Annual 2026").
+ *   Exam    = the session a student registers into once (e.g. "Class 10 · Annual 2026").
  *             Carries one registration window and, once closed, one roll number per candidate.
  *   ExamPaper = a subject paper that sits under an exam. This is what gets marked and
  *             where total marks live. Papers are compulsory (everyone sits them) or
@@ -23,6 +23,18 @@ export enum ExamStatus {
 /** Whether a paper is sat by everyone (compulsory) or optionally chosen (elective). */
 export type ExamPaperType = 'compulsory' | 'elective';
 
+/**
+ * Who can register into an exam:
+ *   all      — every institute (national exam)
+ *   selected — only the institutes listed in `instituteIds` (one or several)
+ * The class (level + group) still binds the exam; this only widens/narrows which
+ * institutes may register their eligible students.
+ */
+export type ExamInstituteScope = 'all' | 'selected';
+
+/** Exam sitting shift (static list). */
+export type ExamShift = 'morning' | 'afternoon' | 'evening';
+
 export interface ExamPaper {
   id: string;
   examId: string;
@@ -35,12 +47,20 @@ export interface ExamPaper {
 export interface Exam {
   id: string;
   code: string; // unique human code, e.g. "G10-ANN-2026"
-  name: string; // display name, e.g. "Grade 10 Annual Examination"
+  name: string; // display name, e.g. "Class 10 Annual Examination"
   session: string; // e.g. "Annual 2026"
-  schoolLevel: SchoolLevel;
-  gradeId: number; // 9, 10, 11 or 12
+  instituteLevel: InstituteLevel;
+  levelId: string; // configurable Level (Class / Year / Semester)
+  groupId: string; // Group / stream / program
+  classNumber: number; // derived display value = the level's ordinal
+  subgroupId?: string; // subgroup under the class's group (e.g. Biology)
+  subjectIds?: string[]; // subjects the exam covers (papers are derived one-per-subject)
+  shift?: ExamShift;
+  instituteScope: ExamInstituteScope;
+  instituteIds?: string[]; // targeted institutes when scope === 'selected'
   registrationOpensAt: string; // YYYY-MM-DD
   registrationClosesAt: string; // YYYY-MM-DD
+  examCompletedDate?: string; // result-announcement day (YYYY-MM-DD)
   status: ExamStatus;
   papers: ExamPaper[];
   createdAt: string;
@@ -52,7 +72,11 @@ export interface ExamListItem {
   code: string;
   name: string;
   session: string;
-  gradeId: number;
+  levelId: string;
+  groupId: string;
+  classNumber: number;
+  instituteScope: ExamInstituteScope;
+  instituteIds?: string[];
   status: ExamStatus;
   paperCount: number;
   candidateCount: number;
@@ -72,20 +96,32 @@ export interface CreateExamDto {
   code: string;
   name: string;
   session: string;
-  schoolLevel: SchoolLevel;
-  gradeId: number;
+  levelId: string;
+  groupId: string;
+  subgroupId?: string;
+  subjectIds?: string[];
+  shift?: ExamShift;
+  instituteScope: ExamInstituteScope;
+  instituteIds?: string[];
   registrationOpensAt: string;
   registrationClosesAt: string;
+  examCompletedDate?: string;
   papers: CreateExamPaperDto[];
 }
 
 export interface UpdateExamDto {
   name?: string;
   session?: string;
-  schoolLevel?: SchoolLevel;
-  gradeId?: number;
+  levelId?: string;
+  groupId?: string;
+  subgroupId?: string;
+  subjectIds?: string[];
+  shift?: ExamShift;
+  instituteScope?: ExamInstituteScope;
+  instituteIds?: string[];
   registrationOpensAt?: string;
   registrationClosesAt?: string;
+  examCompletedDate?: string;
   status?: ExamStatus;
   papers?: CreateExamPaperDto[];
 }

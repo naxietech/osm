@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom';
 import { type LucideIcon } from '@/design-system/atoms/icon';
 import { cn } from '@/lib/utils';
 
+import { NavBadge } from './nav-badge';
+
 export interface NavLeafProps {
   label: string;
   to: string;
@@ -11,10 +13,12 @@ export interface NavLeafProps {
   active: boolean;
   /** Leading icon. */
   icon?: LucideIcon;
+  /** Optional count pill (e.g. pending approvals). */
+  badge?: number;
 }
 
 /** A single sidebar link (leaf). Presentational — active state is passed in. */
-export function NavLeaf({ label, to, active, icon: Icon }: NavLeafProps): ReactElement {
+export function NavLeaf({ label, to, active, icon: Icon, badge }: NavLeafProps): ReactElement {
   return (
     <Link
       to={to}
@@ -37,6 +41,7 @@ export function NavLeaf({ label, to, active, icon: Icon }: NavLeafProps): ReactE
         <span className={cn('h-4 w-4 rounded', active ? 'bg-brand' : 'bg-current opacity-40')} />
       )}
       {label}
+      <NavBadge count={badge} />
     </Link>
   );
 }

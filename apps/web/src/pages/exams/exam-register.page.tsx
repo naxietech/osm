@@ -1,11 +1,11 @@
 /**
- * ExamRegisterPage (SCHOOL_STAFF) — register a class of students for one exam.
+ * ExamRegisterPage (INSTITUTE) — register a class of students for one exam.
  *
- * Two parts: the school's already-registered candidates (read-only, with roll number /
- * status once assigned) and the register form — the school's eligible students (own
- * school, matching grade, active, not yet registered) in the CandidatePicker. Staff
+ * Two parts: the institute's already-registered candidates (read-only, with roll number /
+ * status once assigned) and the register form — the institute's eligible students (own
+ * institute, matching class, active, not yet registered) in the CandidatePicker. Staff
  * tick students, optionally pick elective papers, and submit them all in one call. The
- * school comes from the signed-in user (SafeUser.schoolId).
+ * institute comes from the signed-in user (SafeUser.instituteId).
  *
  * TODO: Replace service calls with React Query.
  */
@@ -22,8 +22,9 @@ import {
 
 import { Badge, type BadgeProps } from '@/design-system/atoms/badge';
 import { Button } from '@/design-system/atoms/button';
-import { Check, ChevronLeft } from '@/design-system/atoms/icon';
+import { ChevronLeft } from '@/design-system/atoms/icon';
 import { Spinner } from '@/design-system/atoms/spinner';
+import { Alert } from '@/design-system/molecules/alert';
 import { type SelectOption } from '@/design-system/molecules/select-field';
 import {
   CandidatePicker,
@@ -36,7 +37,8 @@ import type { StoredStudent } from '@/services/mock-store';
 
 const STATUS_BADGE: Record<RegistrationStatus, { label: string; variant: BadgeProps['variant'] }> =
   {
-    pending: { label: 'Pending', variant: 'warning' },
+    pending: { label: 'Soft-registered', variant: 'warning' },
+    submitted: { label: 'Completed', variant: 'info' },
     confirmed: { label: 'Confirmed', variant: 'success' },
     withdrawn: { label: 'Withdrawn', variant: 'default' },
   };
@@ -46,7 +48,7 @@ export function ExamRegisterPage(): React.ReactElement {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { user } = useAuth();
-  const schoolId = user?.schoolId ?? '';
+  const instituteId = user?.instituteId ?? '';
   const base = pathname.slice(0, pathname.indexOf('/exams') + '/exams'.length);
 
   const [exam, setExam] = useState<Exam | null>(null);
@@ -55,24 +57,25 @@ export function ExamRegisterPage(): React.ReactElement {
   const [selection, setSelection] = useState<CandidateSelectionMap>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const load = useCallback(async (): Promise<void> => {
-    if (!id || !schoolId) {
+    if (!id || !instituteId) {
       setIsLoading(false);
       return;
     }
     const [examData, studentData, registeredData] = await Promise.all([
       examService.getExam(id),
-      examRegistrationService.listRegisterableStudents(id, schoolId),
-      examRegistrationService.listCandidatesForSchool(id, schoolId),
+      examRegistrationService.listRegisterableStudents(id, instituteId),
+      examRegistrationService.listCandidatesForSchool(id, instituteId),
     ]);
     setExam(examData ?? null);
     setStudents(studentData);
     setRegistered(registeredData);
     setIsLoading(false);
-  }, [id, schoolId]);
+  }, [id, instituteId]);
 
   useEffect(() => {
     void load();
@@ -112,12 +115,53 @@ export function ExamRegisterPage(): React.ReactElement {
 
     void examRegistrationService.registerStudents(dto).then((created) => {
       setSuccessMessage(
-        `Registered ${created.length} student${created.length === 1 ? '' : 's'} for ${exam?.name ?? 'the exam'}.`,
+        `Soft-registered ${created.length} student${created.length === 1 ? '' : 's'}. Print to verify, then complete the registration.`,
       );
       setSelection({});
       setIsSubmitting(false);
       void load(); // refresh eligible + registered lists
     });
+  };
+
+  const pendingCount = registered.filter((c) => c.status === 'pending').length;
+
+  /** Complete (finalise) the institute's soft registrations for this exam. */
+  const handleConfirm = (): void => {
+    if (!id || !instituteId) return;
+    setIsConfirming(true);
+    void examRegistrationService.confirmRegistrations(id, instituteId).then((n) => {
+      setSuccessMessage(`Registration completed for ${n} candidate${n === 1 ? '' : 's'}.`);
+      setIsConfirming(false);
+      void load();
+    });
+  };
+
+  /** Open a print-friendly window with the institute's soft-registration list to verify. */
+  const handlePrint = (): void => {
+    const escape = (s: string): string =>
+      s.replace(/[&<>]/g, (c) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;'));
+    const rows = registered
+      .map(
+        (c, i) =>
+          `<tr><td>${i + 1}</td><td>${escape(c.fullName ?? c.studentRefId)}</td><td>${escape(
+            c.electiveSubjects.join(', ') || '—',
+          )}</td><td>${STATUS_BADGE[c.status].label}</td></tr>`,
+      )
+      .join('');
+    const doc = `<!doctype html><html><head><title>Registration — ${escape(
+      exam?.name ?? 'Exam',
+    )}</title><style>body{font-family:system-ui,sans-serif;padding:24px;color:#111}h1{font-size:18px}p{color:#555;font-size:12px}table{width:100%;border-collapse:collapse;margin-top:16px;font-size:13px}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left}th{background:#f3f4f6}</style></head><body><h1>${escape(
+      exam?.name ?? 'Exam',
+    )}</h1><p>${escape(exam?.code ?? '')} · ${escape(exam?.session ?? '')} · Class ${
+      exam?.classNumber ?? ''
+    } — ${registered.length} candidate(s)</p><table><thead><tr><th>#</th><th>Student</th><th>Electives</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
+    const w = window.open('', '_blank');
+    if (w) {
+      w.document.write(doc);
+      w.document.close();
+      w.focus();
+      w.print();
+    }
   };
 
   return (
@@ -138,30 +182,20 @@ export function ExamRegisterPage(): React.ReactElement {
         </h1>
         {exam && (
           <p className="mt-1 text-sm text-muted-foreground">
-            {exam.code} · {exam.session} · Grade {exam.gradeId}
+            {exam.code} · {exam.session} · Class {exam.classNumber}
           </p>
         )}
       </div>
 
-      {successMessage && (
-        <div
-          role="status"
-          className="mb-6 flex items-center gap-3 rounded-xl border border-success/30 bg-success-subtle px-4 py-3 text-sm font-medium text-success-foreground"
-        >
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-success text-white">
-            <Check className="h-3.5 w-3.5" aria-hidden />
-          </span>
-          {successMessage}
-        </div>
-      )}
+      {successMessage && <Alert className="mb-6">{successMessage}</Alert>}
 
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
           <Spinner size="lg" />
         </div>
-      ) : !schoolId ? (
+      ) : !instituteId ? (
         <div className="rounded-xl border border-border bg-card p-10 text-center text-sm text-muted-foreground shadow-sm">
-          Your account isn&apos;t linked to a school, so you can&apos;t register candidates.
+          Your account isn&apos;t linked to an institute, so you can&apos;t register candidates.
         </div>
       ) : !exam ? (
         <div className="rounded-xl border border-border bg-card p-10 text-center text-sm text-muted-foreground shadow-sm">
@@ -198,10 +232,27 @@ export function ExamRegisterPage(): React.ReactElement {
 
           {/* Your registered candidates */}
           <div className="mb-6 overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            <div className="border-b border-border px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
               <h2 className="text-sm font-semibold text-foreground">
                 Your registered candidates ({registered.length})
+                {pendingCount > 0 && (
+                  <span className="ml-2 text-xs font-normal text-warning-foreground">
+                    · {pendingCount} soft-registered, not yet completed
+                  </span>
+                )}
               </h2>
+              {registered.length > 0 && (
+                <div className="flex gap-2">
+                  <Button variant="secondary" size="sm" onClick={handlePrint}>
+                    Print list
+                  </Button>
+                  {pendingCount > 0 && (
+                    <Button size="sm" onClick={handleConfirm} isLoading={isConfirming}>
+                      Complete Registration
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
             {registered.length === 0 ? (
               <p className="px-4 py-8 text-center text-sm text-muted-foreground">

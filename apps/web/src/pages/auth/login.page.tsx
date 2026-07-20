@@ -4,17 +4,19 @@
  * and routes to the role home.
  */
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { useMutation } from '@tanstack/react-query';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 
 import { Button } from '@/design-system/atoms/button';
+import { Checkbox } from '@/design-system/atoms/checkbox';
 import { Lock, Mail } from '@/design-system/atoms/icon';
 import { FormField } from '@/design-system/molecules/form-field';
 import { AuthLayout } from '@/design-system/templates/auth-layout';
 import { useAuth } from '@/hooks';
+import { ROUTES } from '@/router/routes';
 import { DEMO_PASSWORD, MOCK_USERS, authService } from '@/services/auth.service';
 
 const validationSchema = Yup.object({
@@ -51,7 +53,7 @@ export function LoginPage(): React.ReactElement {
   });
 
   return (
-    <AuthLayout title="Sign In" subtitle="On-Screen Exam System — Pakistan">
+    <AuthLayout title="Welcome back" subtitle="Sign in to continue to your dashboard.">
       <form onSubmit={formik.handleSubmit} noValidate className="space-y-4">
         <FormField
           id="email"
@@ -81,6 +83,20 @@ export function LoginPage(): React.ReactElement {
           required
         />
 
+        {/* Remember me / forgot password — visual only for now (not yet wired). */}
+        <div className="flex items-center justify-between text-sm">
+          <Checkbox labelClassName="text-muted-foreground" label="Remember me" />
+          <button
+            type="button"
+            className="font-medium text-brand hover:underline"
+            onClick={() => {
+              /* TODO: wire password reset flow */
+            }}
+          >
+            Forgot password?
+          </button>
+        </div>
+
         {submitError && (
           <div
             role="alert"
@@ -93,6 +109,13 @@ export function LoginPage(): React.ReactElement {
         <Button type="submit" isLoading={loginMutation.isPending} className="w-full">
           Sign In
         </Button>
+
+        <p className="text-center text-sm text-muted-foreground">
+          Registering an institute?{' '}
+          <Link to={ROUTES.registerInstitute} className="font-medium text-brand hover:underline">
+            Register here
+          </Link>
+        </p>
       </form>
 
       <p className="mt-6 text-center text-xs leading-relaxed text-muted-foreground">

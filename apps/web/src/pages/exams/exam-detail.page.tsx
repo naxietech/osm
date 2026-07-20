@@ -1,6 +1,6 @@
 /**
  * ExamDetailPage (ADMIN) — doubles as create (no :id) and edit (with :id), driven by
- * the ExamForm organism, mirroring SchoolDetailPage. In edit mode it also exposes the
+ * the ExamForm organism, mirroring InstituteDetailPage. In edit mode it also exposes the
  * board lifecycle actions: open registration, then close it and assign roll numbers.
  *
  * TODO: Replace examService calls with React Query mutations.
@@ -11,12 +11,27 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { type CreateExamDto, type Exam, ExamStatus } from '@oses/types';
 
 import { Button } from '@/design-system/atoms/button';
-import { Check, ChevronLeft, GraduationCap, Users } from '@/design-system/atoms/icon';
+import { ChevronLeft, GraduationCap, Users } from '@/design-system/atoms/icon';
 import { Spinner } from '@/design-system/atoms/spinner';
+import { Alert } from '@/design-system/molecules/alert';
 import { ExamForm } from '@/design-system/organisms/exam-form';
+import {
+  classGroupOptionsByLevelMap,
+  levelSelectOptions,
+  subgroupOptionsByLevelGroupMap,
+  subjects,
+} from '@/services/academic.service';
 import { examService } from '@/services/exam.service';
+import { INSTITUTE_OPTIONS } from '@/services/users.service';
 
 import { ExamStatusBadge } from './exam-status-badge';
+
+const LEVEL_OPTIONS = levelSelectOptions();
+const GROUP_OPTIONS_BY_LEVEL = classGroupOptionsByLevelMap();
+const SUBGROUP_OPTIONS_BY_LEVEL_GROUP = subgroupOptionsByLevelGroupMap();
+const SUBJECT_OPTIONS = subjects
+  .filter((s) => s.isActive)
+  .map((s) => ({ value: s.id, label: s.name }));
 
 export function ExamDetailPage(): React.ReactElement {
   const { id } = useParams<{ id: string }>();
@@ -109,7 +124,7 @@ export function ExamDetailPage(): React.ReactElement {
             </h1>
             <p className="mt-1 text-sm text-white/80">
               {isEdit && exam
-                ? `${exam.code} · ${exam.session} · Grade ${exam.gradeId}`
+                ? `${exam.code} · ${exam.session} · Class ${exam.classNumber}`
                 : 'Set up a new exam session and its papers'}
             </p>
           </div>
@@ -121,17 +136,7 @@ export function ExamDetailPage(): React.ReactElement {
         </div>
       </div>
 
-      {successMessage && (
-        <div
-          role="status"
-          className="mb-6 flex items-center gap-3 rounded-xl border border-success/30 bg-success-subtle px-4 py-3 text-sm font-medium text-success-foreground"
-        >
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-success text-white">
-            <Check className="h-3.5 w-3.5" aria-hidden />
-          </span>
-          {successMessage}
-        </div>
-      )}
+      {successMessage && <Alert className="mb-6">{successMessage}</Alert>}
 
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
@@ -170,17 +175,31 @@ export function ExamDetailPage(): React.ReactElement {
           <div className="rounded-xl border border-border bg-card p-6 shadow-sm md:p-8">
             <ExamForm
               mode={isEdit ? 'edit' : 'create'}
+              levelOptions={LEVEL_OPTIONS}
+              groupOptionsByLevel={GROUP_OPTIONS_BY_LEVEL}
+              subgroupOptionsByLevelGroup={SUBGROUP_OPTIONS_BY_LEVEL_GROUP}
+              subjectOptions={SUBJECT_OPTIONS}
+              instituteOptions={INSTITUTE_OPTIONS}
+              lockInstituteScope={Boolean(exam && exam.status !== ExamStatus.DRAFT)}
               initialValues={
                 isEdit && exam
                   ? {
                       code: exam.code,
                       name: exam.name,
                       session: exam.session,
-                      schoolLevel: exam.schoolLevel,
-                      gradeId: exam.gradeId,
+                      levelId: exam.levelId,
+                      groupId: exam.groupId,
+                      instituteScope: exam.instituteScope,
                       registrationOpensAt: exam.registrationOpensAt,
                       registrationClosesAt: exam.registrationClosesAt,
                       papers: exam.papers,
+                      ...(exam.subgroupId ? { subgroupId: exam.subgroupId } : {}),
+                      ...(exam.subjectIds ? { subjectIds: exam.subjectIds } : {}),
+                      ...(exam.shift ? { shift: exam.shift } : {}),
+                      ...(exam.examCompletedDate
+                        ? { examCompletedDate: exam.examCompletedDate }
+                        : {}),
+                      ...(exam.instituteIds ? { instituteIds: exam.instituteIds } : {}),
                     }
                   : undefined
               }

@@ -19,7 +19,8 @@ import {
 
 import { Badge, type BadgeProps } from '@/design-system/atoms/badge';
 import { Button } from '@/design-system/atoms/button';
-import { Check, ChevronLeft } from '@/design-system/atoms/icon';
+import { ChevronLeft } from '@/design-system/atoms/icon';
+import { Alert } from '@/design-system/molecules/alert';
 import { type ColumnDef, DataTable } from '@/design-system/organisms/data-table';
 import { usePermissions } from '@/hooks';
 import { examRegistrationService } from '@/services/exam-registration.service';
@@ -31,7 +32,8 @@ type CandidateRow = CandidateListItem & { id: string };
 
 const STATUS_BADGE: Record<RegistrationStatus, { label: string; variant: BadgeProps['variant'] }> =
   {
-    pending: { label: 'Pending', variant: 'warning' },
+    pending: { label: 'Soft-registered', variant: 'warning' },
+    submitted: { label: 'Completed', variant: 'info' },
     confirmed: { label: 'Confirmed', variant: 'success' },
     withdrawn: { label: 'Withdrawn', variant: 'default' },
   };
@@ -40,7 +42,7 @@ export function ExamCandidatesPage(): React.ReactElement {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { canManageExams } = usePermissions();
+  const { canManageExams, canViewPII } = usePermissions();
   const base = pathname.slice(0, pathname.indexOf('/exams') + '/exams'.length);
 
   const [exam, setExam] = useState<Exam | null>(null);
@@ -91,7 +93,12 @@ export function ExamCandidatesPage(): React.ReactElement {
     {
       key: 'fullName',
       header: 'Candidate',
-      render: (row) => <span className="font-medium">{row.fullName ?? '—'}</span>,
+      // Name is PII: without `students.viewPII` the candidate is identified by ref only.
+      render: (row) => (
+        <span className={canViewPII ? 'font-medium' : 'font-mono text-sm text-muted-foreground'}>
+          {canViewPII ? (row.fullName ?? '—') : row.studentRefId}
+        </span>
+      ),
     },
     {
       key: 'studentRefId',
@@ -155,17 +162,7 @@ export function ExamCandidatesPage(): React.ReactElement {
         )}
       </div>
 
-      {successMessage && (
-        <div
-          role="status"
-          className="mb-6 flex items-center gap-3 rounded-xl border border-success/30 bg-success-subtle px-4 py-3 text-sm font-medium text-success-foreground"
-        >
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-success text-white">
-            <Check className="h-3.5 w-3.5" aria-hidden />
-          </span>
-          {successMessage}
-        </div>
-      )}
+      {successMessage && <Alert className="mb-6">{successMessage}</Alert>}
 
       <div className="rounded-lg border border-border bg-card shadow-sm">
         <DataTable<CandidateRow>

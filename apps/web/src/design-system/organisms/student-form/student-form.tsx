@@ -1,12 +1,14 @@
 /**
- * StudentForm (organism) — follows the SchoolForm reference pattern.
+ * StudentForm (organism) — follows the InstituteForm reference pattern.
  * Formik + Yup, FormField (text) + SelectField (dropdown) + ImageUploadField
  * (photo), controlled by `mode`. Fields are grouped into iconed sections.
  *
  * Student-specific:
- * - School is a foreign key picked from `schoolOptions`; pass `lockSchool` (and a
- *   single-school list) for SCHOOL_STAFF, who can only enrol into their own school.
+ * - Institute is a foreign key picked from `instituteOptions`; pass `lockInstitute` (and a
+ *   single-institute list) for INSTITUTE, who can only enrol into their own institute.
  *   School is also locked in edit mode (a move is a transfer, not an edit).
+ * - Academic placement is Level + Group; the valid groups depend on the chosen level
+ *   (`groupOptionsByLevel`). Both come from the Admin-managed academic structure.
  * - PII fields (names, CNICs, DOB, mobiles, address, photo) are entered here; they
  *   never appear in list views.
  * - Enrollment status is shown in edit mode only (create defaults it to active).
@@ -18,7 +20,7 @@ import React, { useState } from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 
-import type { CreateStudentDto, EnrollmentStatus, Gender } from '@oses/types';
+import { type CreateStudentDto, type EnrollmentStatus, type Gender, Province } from '@oses/types';
 
 import { Button } from '@/design-system/atoms/button';
 import {
@@ -42,10 +44,16 @@ export interface StudentFormPayload extends CreateStudentDto {
 
 export interface StudentFormProps {
   initialValues?: Partial<StudentFormPayload>;
-  /** Schools the student can be enrolled into. */
-  schoolOptions: SelectOption[];
-  /** Lock the school field (SCHOOL_STAFF — own school only). */
-  lockSchool?: boolean;
+  /** Institutes the student can be enrolled into. */
+  instituteOptions: SelectOption[];
+  /** Levels (Class / Year / Semester) to choose from. */
+  levelOptions: SelectOption[];
+  /** Valid group options keyed by level id (a class's groups). */
+  groupOptionsByLevel: Record<string, SelectOption[]>;
+  /** Subgroup options keyed by `${levelId}:${groupId}`. When empty for a pair, no subgroup select shows. */
+  subgroupOptionsByLevelGroup?: Record<string, SelectOption[]>;
+  /** Lock the institute field (institute staff — own institute only). */
+  lockInstitute?: boolean;
   onSubmit: (data: StudentFormPayload) => void;
   onCancel?: () => void;
   isSubmitting: boolean;
@@ -54,7 +62,7 @@ export interface StudentFormProps {
 
 /** All-string shape used by the form controls; cast to the payload on submit. */
 interface StudentFormValues {
-  schoolId: string;
+  instituteId: string;
   fullName: string;
   fatherOrGuardianName: string;
   fatherOrGuardianCnic: string;
@@ -65,9 +73,12 @@ interface StudentFormValues {
   studentMobile: string;
   address: string;
   city: string;
+  province: string;
   district: string;
   postalAddress: string;
-  gradeId: string;
+  levelId: string;
+  groupId: string;
+  subgroupId: string;
   enrollmentStatus: string;
 }
 
@@ -77,11 +88,14 @@ const GENDER_OPTIONS: SelectOption[] = [
   { value: 'other', label: 'Other' },
 ];
 
-const GRADE_OPTIONS: SelectOption[] = [
-  { value: '9', label: 'Grade 9 (SSC)' },
-  { value: '10', label: 'Grade 10 (SSC)' },
-  { value: '11', label: 'Grade 11 (HSSC)' },
-  { value: '12', label: 'Grade 12 (HSSC)' },
+const PROVINCE_OPTIONS: SelectOption[] = [
+  { value: Province.PUNJAB, label: 'Punjab' },
+  { value: Province.SINDH, label: 'Sindh' },
+  { value: Province.KPK, label: 'Khyber Pakhtunkhwa' },
+  { value: Province.BALOCHISTAN, label: 'Balochistan' },
+  { value: Province.ICT, label: 'Islamabad (ICT)' },
+  { value: Province.AJK, label: 'Azad Jammu & Kashmir' },
+  { value: Province.GB, label: 'Gilgit-Baltistan' },
 ];
 
 const ENROLLMENT_STATUS_OPTIONS: SelectOption[] = [
@@ -91,8 +105,6 @@ const ENROLLMENT_STATUS_OPTIONS: SelectOption[] = [
   { value: 'graduated', label: 'Graduated' },
 ];
 
-const GRADE_VALUES = GRADE_OPTIONS.map((o) => o.value);
-
 /** CNIC / B-Form: 13 digits, optionally dashed (xxxxx-xxxxxxx-x). */
 const CNIC_REGEX = /^\d{5}-?\d{7}-?\d$/;
 /** Pakistani mobile: 03xxxxxxxxx or +923xxxxxxxxx. */
@@ -100,7 +112,7 @@ const MOBILE_REGEX = /^(?:\+92|0)3\d{9}$/;
 const MOBILE_MESSAGE = 'Enter a valid mobile number (e.g. 03001234567)';
 
 const validationSchema = Yup.object({
-  schoolId: Yup.string().required('Select a school'),
+  instituteId: Yup.string().required('Select an institute'),
   fullName: Yup.string()
     .trim()
     .min(2, 'Full name must be at least 2 characters')
@@ -143,7 +155,8 @@ const validationSchema = Yup.object({
   city: Yup.string().trim().max(85, 'City is too long').required('City is required'),
   district: Yup.string().trim().max(85, 'District is too long').required('District is required'),
   postalAddress: Yup.string().trim().max(250, 'Postal address is too long'),
-  gradeId: Yup.string().oneOf(GRADE_VALUES, 'Select a grade').required('Grade is required'),
+  levelId: Yup.string().required('Select a level'),
+  groupId: Yup.string().required('Select a group'),
   enrollmentStatus: Yup.string().oneOf(
     ['active', 'inactive', 'transferred', 'graduated'],
     'Select a status',
@@ -170,8 +183,11 @@ function SectionHeading({
 
 export function StudentForm({
   initialValues,
-  schoolOptions,
-  lockSchool = false,
+  instituteOptions,
+  levelOptions,
+  groupOptionsByLevel,
+  subgroupOptionsByLevelGroup = {},
+  lockInstitute = false,
   onSubmit,
   onCancel,
   isSubmitting,
@@ -182,7 +198,7 @@ export function StudentForm({
   const formik = useFormik<StudentFormValues>({
     enableReinitialize: true,
     initialValues: {
-      schoolId: initialValues?.schoolId ?? '',
+      instituteId: initialValues?.instituteId ?? '',
       fullName: initialValues?.fullName ?? '',
       fatherOrGuardianName: initialValues?.fatherOrGuardianName ?? '',
       fatherOrGuardianCnic: initialValues?.fatherOrGuardianCnic ?? '',
@@ -193,15 +209,18 @@ export function StudentForm({
       studentMobile: initialValues?.studentMobile ?? '',
       address: initialValues?.address ?? '',
       city: initialValues?.city ?? '',
+      province: initialValues?.province ?? '',
       district: initialValues?.district ?? '',
       postalAddress: initialValues?.postalAddress ?? '',
-      gradeId: initialValues?.gradeId != null ? String(initialValues.gradeId) : '',
+      levelId: initialValues?.levelId ?? '',
+      groupId: initialValues?.groupId ?? '',
+      subgroupId: initialValues?.subgroupId ?? '',
       enrollmentStatus: initialValues?.enrollmentStatus ?? 'active',
     },
     validationSchema,
     onSubmit: (values) => {
       const dto: CreateStudentDto = {
-        schoolId: values.schoolId,
+        instituteId: values.instituteId,
         fullName: values.fullName.trim(),
         fatherOrGuardianName: values.fatherOrGuardianName.trim(),
         fatherOrGuardianCnic: values.fatherOrGuardianCnic.trim(),
@@ -211,11 +230,14 @@ export function StudentForm({
         address: values.address.trim(),
         city: values.city.trim(),
         district: values.district.trim(),
-        gradeId: Number(values.gradeId),
+        levelId: values.levelId,
+        groupId: values.groupId,
       };
       if (values.cnicOrBform) dto.cnicOrBform = values.cnicOrBform.trim();
       if (values.studentMobile) dto.studentMobile = values.studentMobile.trim();
       if (values.postalAddress) dto.postalAddress = values.postalAddress.trim();
+      if (values.province) dto.province = values.province as Province;
+      if (values.subgroupId) dto.subgroupId = values.subgroupId;
 
       const payload: StudentFormPayload = { ...dto };
       if (photo) payload.photoFile = photo;
@@ -246,30 +268,66 @@ export function StudentForm({
   });
 
   const gridClass = 'grid grid-cols-1 gap-x-6 gap-y-2 md:grid-cols-2 lg:grid-cols-3';
+  const subgroupOpts =
+    subgroupOptionsByLevelGroup[`${formik.values.levelId}:${formik.values.groupId}`] ?? [];
 
   return (
     <form onSubmit={formik.handleSubmit} noValidate className="space-y-10">
       <section>
-        <SectionHeading icon={GraduationCap}>School &amp; Class</SectionHeading>
+        <SectionHeading icon={GraduationCap}>Institute &amp; Class</SectionHeading>
         <div className={gridClass}>
           <SelectField
-            id="schoolId"
-            name="schoolId"
-            label="School"
-            options={schoolOptions}
-            disabled={mode === 'edit' || lockSchool}
+            id="instituteId"
+            name="instituteId"
+            label="Institute"
+            options={instituteOptions}
+            disabled={mode === 'edit' || lockInstitute}
             required
-            {...selectProps('schoolId')}
+            {...selectProps('instituteId')}
           />
 
           <SelectField
-            id="gradeId"
-            name="gradeId"
-            label="Grade"
-            options={GRADE_OPTIONS}
+            id="levelId"
+            name="levelId"
+            label="Class"
+            options={levelOptions}
             required
-            {...selectProps('gradeId')}
+            value={formik.values.levelId}
+            onChange={(value) => {
+              void formik.setFieldValue('levelId', value);
+              void formik.setFieldValue('groupId', ''); // reset group + subgroup when class changes
+              void formik.setFieldValue('subgroupId', '');
+            }}
+            onBlur={() => void formik.setFieldTouched('levelId', true)}
+            error={fieldError('levelId')}
           />
+
+          <SelectField
+            id="groupId"
+            name="groupId"
+            label="Group"
+            options={groupOptionsByLevel[formik.values.levelId] ?? []}
+            disabled={!formik.values.levelId}
+            required
+            value={formik.values.groupId}
+            onChange={(value) => {
+              void formik.setFieldValue('groupId', value);
+              void formik.setFieldValue('subgroupId', ''); // reset subgroup when group changes
+            }}
+            onBlur={() => void formik.setFieldTouched('groupId', true)}
+            error={fieldError('groupId')}
+          />
+
+          {subgroupOpts.length > 0 && (
+            <SelectField
+              id="subgroupId"
+              name="subgroupId"
+              label="Subgroup"
+              options={subgroupOpts}
+              disabled={!formik.values.groupId}
+              {...selectProps('subgroupId')}
+            />
+          )}
 
           {mode === 'edit' && (
             <SelectField
@@ -421,6 +479,14 @@ export function StudentForm({
             onBlur={formik.handleBlur}
             error={fieldError('city')}
             required
+          />
+
+          <SelectField
+            id="province"
+            name="province"
+            label="Province"
+            options={PROVINCE_OPTIONS}
+            {...selectProps('province')}
           />
 
           <FormField

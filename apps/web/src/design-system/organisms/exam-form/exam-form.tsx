@@ -1,26 +1,45 @@
 /**
- * ExamForm (organism) — create / edit an exam (session) and its papers.
+ * ExamForm (organism) — create / edit an exam (Controller Examiner).
  *
- * Follows the SchoolForm reference: Formik + Yup for the scalar fields, FormField /
- * SelectField controls, iconed sections, submits a typed CreateExamDto. The variable
- * length paper list is handled by the PapersEditor (own React state) and validated
- * on submit. School level is derived from the grade, so it isn't asked for.
+ * Per the TRD an exam is: Name/Code, Class → Group → Subgroup, one or more Subjects,
+ * a Shift, a registration window and an exam-completed (result) date, targeting all or
+ * selected institutes. There is no manual paper editor — one paper is derived per chosen
+ * subject on submit (so the registration/candidate engine keeps working).
  */
-import React, { useState } from 'react';
+import React from 'react';
 
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 
-import { type CreateExamDto, type CreateExamPaperDto, SchoolLevel } from '@oses/types';
+import type { CreateExamDto, ExamInstituteScope, ExamShift } from '@oses/types';
 
 import { Button } from '@/design-system/atoms/button';
-import { Calendar, FileText, GraduationCap, type LucideIcon } from '@/design-system/atoms/icon';
+import {
+  Building2,
+  Calendar,
+  FileText,
+  GraduationCap,
+  type LucideIcon,
+} from '@/design-system/atoms/icon';
+import { Radio } from '@/design-system/atoms/radio';
 import { FormField } from '@/design-system/molecules/form-field';
+import { MultiSelectField } from '@/design-system/molecules/multi-select-field';
 import { SelectField, type SelectOption } from '@/design-system/molecules/select-field';
-import { type PaperDraft, PapersEditor, emptyPaper } from '@/design-system/organisms/papers-editor';
 
 export interface ExamFormProps {
   initialValues?: Partial<CreateExamDto>;
+  /** Classes (levels) to choose from. */
+  levelOptions: SelectOption[];
+  /** Valid group options keyed by class id. */
+  groupOptionsByLevel: Record<string, SelectOption[]>;
+  /** Subgroup options keyed by `${levelId}:${groupId}`. */
+  subgroupOptionsByLevelGroup: Record<string, SelectOption[]>;
+  /** Subjects selectable for the exam (value = subject id, label = name). */
+  subjectOptions: SelectOption[];
+  /** Institutes selectable when targeting specific institutes. */
+  instituteOptions: SelectOption[];
+  /** Lock the scope controls (e.g. once registration has opened). */
+  lockInstituteScope?: boolean;
   onSubmit: (data: CreateExamDto) => void;
   onCancel?: () => void;
   isSubmitting: boolean;
@@ -31,28 +50,30 @@ interface ExamFormValues {
   code: string;
   name: string;
   session: string;
-  gradeId: string;
+  levelId: string;
+  groupId: string;
+  subgroupId: string;
+  shift: string;
   registrationOpensAt: string;
   registrationClosesAt: string;
+  examCompletedDate: string;
+  /** Dynamic fields — held here (not in useState) so Yup gates the submit button too. */
+  subjectIds: string[];
+  instituteScope: ExamInstituteScope;
+  instituteIds: string[];
 }
 
-const GRADE_OPTIONS: SelectOption[] = [
-  { value: '9', label: 'Grade 9' },
-  { value: '10', label: 'Grade 10' },
-  { value: '11', label: 'Grade 11' },
-  { value: '12', label: 'Grade 12' },
+const SHIFT_OPTIONS: SelectOption[] = [
+  { value: 'morning', label: 'Morning' },
+  { value: 'afternoon', label: 'Afternoon' },
+  { value: 'evening', label: 'Evening' },
 ];
-
-/** Secondary covers grades 9–10; higher secondary covers 11–12. */
-function levelForGrade(gradeId: number): SchoolLevel {
-  return gradeId <= 10 ? SchoolLevel.SECONDARY : SchoolLevel.HIGHER_SECONDARY;
-}
 
 const validationSchema = Yup.object({
   code: Yup.string()
     .trim()
     .min(2, 'Code must be at least 2 characters')
-    .max(30, 'Code is too long')
+    .max(40, 'Code is too long')
     .required('Exam code is required'),
   name: Yup.string()
     .trim()
@@ -64,9 +85,11 @@ const validationSchema = Yup.object({
     .min(3, 'Session is too short')
     .max(50, 'Session is too long')
     .required('Session is required'),
-  gradeId: Yup.string()
-    .oneOf(['9', '10', '11', '12'], 'Select a grade')
-    .required('Grade is required'),
+  levelId: Yup.string().required('Select a class'),
+  groupId: Yup.string().required('Select a group'),
+  shift: Yup.string()
+    .oneOf(['morning', 'afternoon', 'evening'], 'Select a shift')
+    .required('Select a shift'),
   registrationOpensAt: Yup.string().required('Registration open date is required'),
   registrationClosesAt: Yup.string()
     .required('Registration close date is required')
@@ -75,32 +98,19 @@ const validationSchema = Yup.object({
       if (!value || !registrationOpensAt) return true;
       return value >= registrationOpensAt;
     }),
+  examCompletedDate: Yup.string().required('Exam completed date is required'),
+  subjectIds: Yup.array().of(Yup.string().defined()).min(1, 'Select at least one subject.'),
+  instituteScope: Yup.string().oneOf(['all', 'selected']).required(),
+  // Only meaningful when the exam targets a chosen set of institutes.
+  instituteIds: Yup.array()
+    .of(Yup.string().defined())
+    .when('instituteScope', {
+      is: 'selected',
+      then: (schema) => schema.min(1, 'Select at least one institute, or choose All institutes.'),
+    }),
 });
 
-function toDraft(paper: CreateExamPaperDto): PaperDraft {
-  return {
-    subject: paper.subject,
-    totalMarks: String(paper.totalMarks),
-    paperDate: paper.paperDate,
-    paperType: paper.paperType,
-  };
-}
-
-/** Validate the paper rows; returns an error string or null when all rows are valid. */
-function validatePapers(papers: PaperDraft[]): string | null {
-  if (papers.length === 0) return 'Add at least one paper.';
-  for (const [i, p] of papers.entries()) {
-    const at = `Paper ${i + 1}:`;
-    if (!p.subject.trim()) return `${at} subject is required.`;
-    const marks = Number(p.totalMarks);
-    if (!p.totalMarks.trim() || Number.isNaN(marks) || marks <= 0)
-      return `${at} enter total marks greater than 0.`;
-    if (!p.paperDate) return `${at} paper date is required.`;
-  }
-  return null;
-}
-
-/** Iconed section heading (matches SchoolForm). */
+/** Iconed section heading (matches InstituteForm). */
 function SectionHeading({
   icon: Icon,
   children,
@@ -120,64 +130,81 @@ function SectionHeading({
 
 export function ExamForm({
   initialValues,
+  levelOptions,
+  groupOptionsByLevel,
+  subgroupOptionsByLevelGroup,
+  subjectOptions,
+  instituteOptions,
+  lockInstituteScope = false,
   onSubmit,
   onCancel,
   isSubmitting,
   mode,
 }: ExamFormProps): React.ReactElement {
-  const [papers, setPapers] = useState<PaperDraft[]>(
-    initialValues?.papers && initialValues.papers.length > 0
-      ? initialValues.papers.map(toDraft)
-      : [emptyPaper()],
-  );
-  const [papersError, setPapersError] = useState<string | undefined>(undefined);
-
   const formik = useFormik<ExamFormValues>({
     enableReinitialize: true,
     initialValues: {
       code: initialValues?.code ?? '',
       name: initialValues?.name ?? '',
       session: initialValues?.session ?? '',
-      gradeId: initialValues?.gradeId ? String(initialValues.gradeId) : '',
+      levelId: initialValues?.levelId ?? '',
+      groupId: initialValues?.groupId ?? '',
+      subgroupId: initialValues?.subgroupId ?? '',
+      shift: initialValues?.shift ?? 'morning',
       registrationOpensAt: initialValues?.registrationOpensAt ?? '',
       registrationClosesAt: initialValues?.registrationClosesAt ?? '',
+      examCompletedDate: initialValues?.examCompletedDate ?? '',
+      subjectIds: initialValues?.subjectIds ?? [],
+      instituteScope: initialValues?.instituteScope ?? 'all',
+      instituteIds: initialValues?.instituteIds ?? [],
     },
     validationSchema,
     onSubmit: (values) => {
-      const error = validatePapers(papers);
-      if (error) {
-        setPapersError(error);
-        return;
-      }
-      const gradeId = Number(values.gradeId);
+      // One paper per chosen subject (compulsory) — sat on the exam-completed date.
+      const paperDate = values.examCompletedDate || values.registrationClosesAt;
+      const papers = values.subjectIds.map((sid) => ({
+        subject: subjectOptions.find((o) => o.value === sid)?.label ?? sid,
+        totalMarks: 100,
+        paperDate,
+        paperType: 'compulsory' as const,
+      }));
+
       const dto: CreateExamDto = {
         code: values.code.trim(),
         name: values.name.trim(),
         session: values.session.trim(),
-        schoolLevel: levelForGrade(gradeId),
-        gradeId,
+        levelId: values.levelId,
+        groupId: values.groupId,
+        subjectIds: values.subjectIds,
+        shift: values.shift as ExamShift,
+        instituteScope: values.instituteScope,
         registrationOpensAt: values.registrationOpensAt,
         registrationClosesAt: values.registrationClosesAt,
-        papers: papers.map((p) => ({
-          subject: p.subject.trim(),
-          totalMarks: Number(p.totalMarks),
-          paperDate: p.paperDate,
-          paperType: p.paperType,
-        })),
+        examCompletedDate: values.examCompletedDate,
+        papers,
+        ...(values.subgroupId ? { subgroupId: values.subgroupId } : {}),
+        ...(values.instituteScope === 'selected' ? { instituteIds: values.instituteIds } : {}),
       };
       onSubmit(dto);
     },
   });
 
   const fieldError = (name: keyof ExamFormValues): string | undefined =>
-    formik.touched[name] ? formik.errors[name] : undefined;
+    formik.touched[name] ? (formik.errors[name] as string | undefined) : undefined;
 
-  const handlePapersChange = (next: PaperDraft[]): void => {
-    setPapers(next);
-    if (papersError) setPapersError(undefined);
-  };
+  /**
+   * The multi-selects have no blur to mark them touched, so their message shows as soon
+   * as the schema objects — matching how the rest of the form reads while being filled.
+   */
+  const listError = (name: 'subjectIds' | 'instituteIds'): string | undefined =>
+    formik.errors[name] as string | undefined;
+
+  const setField = (name: keyof ExamFormValues, value: unknown): void =>
+    void formik.setFieldValue(name, value, true);
 
   const gridClass = 'grid grid-cols-1 gap-x-6 gap-y-2 md:grid-cols-2 lg:grid-cols-3';
+  const subgroupOpts =
+    subgroupOptionsByLevelGroup[`${formik.values.levelId}:${formik.values.groupId}`] ?? [];
 
   return (
     <form onSubmit={formik.handleSubmit} noValidate className="space-y-10">
@@ -187,7 +214,7 @@ export function ExamForm({
           <FormField
             id="name"
             name="name"
-            label="Exam Name"
+            label="Exam Name (e.g. SSC-9th-science-bio)"
             containerClassName="md:col-span-2 lg:col-span-3"
             value={formik.values.name}
             onChange={formik.handleChange}
@@ -217,26 +244,84 @@ export function ExamForm({
             required
           />
           <SelectField
-            id="gradeId"
-            name="gradeId"
-            label="Grade"
-            options={GRADE_OPTIONS}
+            id="shift"
+            name="shift"
+            label="Shift"
+            options={SHIFT_OPTIONS}
             required
-            value={formik.values.gradeId}
-            onChange={(value) => void formik.setFieldValue('gradeId', value)}
-            onBlur={() => void formik.setFieldTouched('gradeId', true)}
-            error={fieldError('gradeId')}
+            value={formik.values.shift}
+            onChange={(value) => void formik.setFieldValue('shift', value)}
+            onBlur={() => void formik.setFieldTouched('shift', true)}
+            error={fieldError('shift')}
           />
+          <SelectField
+            id="levelId"
+            name="levelId"
+            label="Class"
+            options={levelOptions}
+            required
+            value={formik.values.levelId}
+            onChange={(value) => {
+              void formik.setFieldValue('levelId', value);
+              void formik.setFieldValue('groupId', '');
+              void formik.setFieldValue('subgroupId', '');
+            }}
+            onBlur={() => void formik.setFieldTouched('levelId', true)}
+            error={fieldError('levelId')}
+          />
+          <SelectField
+            id="groupId"
+            name="groupId"
+            label="Group"
+            options={groupOptionsByLevel[formik.values.levelId] ?? []}
+            disabled={!formik.values.levelId}
+            required
+            value={formik.values.groupId}
+            onChange={(value) => {
+              void formik.setFieldValue('groupId', value);
+              void formik.setFieldValue('subgroupId', '');
+            }}
+            onBlur={() => void formik.setFieldTouched('groupId', true)}
+            error={fieldError('groupId')}
+          />
+          {subgroupOpts.length > 0 && (
+            <SelectField
+              id="subgroupId"
+              name="subgroupId"
+              label="Subgroup"
+              options={subgroupOpts}
+              disabled={!formik.values.groupId}
+              value={formik.values.subgroupId}
+              onChange={(value) => void formik.setFieldValue('subgroupId', value)}
+              onBlur={() => void formik.setFieldTouched('subgroupId', true)}
+            />
+          )}
         </div>
       </section>
 
       <section>
-        <SectionHeading icon={Calendar}>Registration Window</SectionHeading>
+        <SectionHeading icon={FileText}>Subjects</SectionHeading>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Choose the subjects this exam covers — one paper is created per subject.
+        </p>
+        <MultiSelectField
+          label="Subjects"
+          options={subjectOptions}
+          value={formik.values.subjectIds}
+          onChange={(next) => setField('subjectIds', next)}
+          searchPlaceholder="Search subjects…"
+          emptyMessage="No subjects match"
+          error={listError('subjectIds')}
+        />
+      </section>
+
+      <section>
+        <SectionHeading icon={Calendar}>Registration &amp; Result</SectionHeading>
         <div className={gridClass}>
           <FormField
             id="registrationOpensAt"
             name="registrationOpensAt"
-            label="Opens On"
+            label="Registration Opens"
             type="date"
             value={formik.values.registrationOpensAt}
             onChange={formik.handleChange}
@@ -247,7 +332,7 @@ export function ExamForm({
           <FormField
             id="registrationClosesAt"
             name="registrationClosesAt"
-            label="Closes On"
+            label="Registration Closes"
             type="date"
             value={formik.values.registrationClosesAt}
             onChange={formik.handleChange}
@@ -255,12 +340,56 @@ export function ExamForm({
             error={fieldError('registrationClosesAt')}
             required
           />
+          <FormField
+            id="examCompletedDate"
+            name="examCompletedDate"
+            label="Exam Completed (result day)"
+            type="date"
+            value={formik.values.examCompletedDate}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={fieldError('examCompletedDate')}
+            required
+          />
         </div>
       </section>
 
       <section>
-        <SectionHeading icon={FileText}>Papers</SectionHeading>
-        <PapersEditor papers={papers} onChange={handlePapersChange} error={papersError} />
+        <SectionHeading icon={Building2}>Institute Scope</SectionHeading>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Choose which institutes can register candidates into this exam.
+        </p>
+        <div className="space-y-3">
+          <Radio
+            name="instituteScope"
+            label="All institutes"
+            checked={formik.values.instituteScope === 'all'}
+            disabled={lockInstituteScope}
+            onChange={() => setField('instituteScope', 'all')}
+          />
+          <Radio
+            name="instituteScope"
+            label="Selected institutes"
+            checked={formik.values.instituteScope === 'selected'}
+            disabled={lockInstituteScope}
+            onChange={() => setField('instituteScope', 'selected')}
+          />
+
+          {formik.values.instituteScope === 'selected' && (
+            <div className="mt-1">
+              <MultiSelectField
+                label="Institutes"
+                options={instituteOptions}
+                value={formik.values.instituteIds}
+                onChange={(next) => setField('instituteIds', next)}
+                searchPlaceholder="Search institutes…"
+                emptyMessage="No institutes match"
+                error={listError('instituteIds')}
+                disabled={lockInstituteScope}
+              />
+            </div>
+          )}
+        </div>
       </section>
 
       <div className="flex gap-3 border-t border-border pt-6">

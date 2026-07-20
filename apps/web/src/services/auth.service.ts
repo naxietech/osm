@@ -5,6 +5,8 @@
  */
 import { type SafeUser, UserRole } from '@oses/types';
 
+import { SYSTEM_ROLE_IDS } from './roles.service';
+
 export interface LoginResult {
   user: SafeUser;
   token: string;
@@ -19,6 +21,7 @@ export const MOCK_USERS: SafeUser[] = [
     id: 'usr_admin',
     email: 'admin@oses.pk',
     role: UserRole.ADMIN,
+    roleId: SYSTEM_ROLE_IDS.superAdmin,
     fullName: 'Board Admin',
     createdAt: '2026-01-01T00:00:00.000Z',
   },
@@ -26,6 +29,7 @@ export const MOCK_USERS: SafeUser[] = [
     id: 'usr_controller',
     email: 'controller@oses.pk',
     role: UserRole.CONTROLLER,
+    roleId: SYSTEM_ROLE_IDS.controller,
     fullName: 'Examiner',
     createdAt: '2026-01-01T00:00:00.000Z',
   },
@@ -33,15 +37,17 @@ export const MOCK_USERS: SafeUser[] = [
     id: 'usr_evaluator',
     email: 'evaluator@oses.pk',
     role: UserRole.EVALUATOR,
+    roleId: SYSTEM_ROLE_IDS.checker,
     fullName: 'Checker',
     createdAt: '2026-01-01T00:00:00.000Z',
   },
   {
     id: 'usr_school',
     email: 'school@oses.pk',
-    role: UserRole.SCHOOL_STAFF,
-    schoolId: 'sch_001', // ties school staff to their school (drives exam registration scope)
-    fullName: 'School Staff',
+    role: UserRole.INSTITUTE,
+    roleId: SYSTEM_ROLE_IDS.institute,
+    instituteId: 'sch_001', // ties institute staff to their institute (drives exam registration scope)
+    fullName: 'Institute Staff',
     createdAt: '2026-01-01T00:00:00.000Z',
   },
 ];

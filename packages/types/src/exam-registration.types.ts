@@ -9,14 +9,20 @@
  * contexts — evaluators only ever get the studentRefId + roll number, never the name.
  */
 
-/** Registration lifecycle for a single candidate. */
-export type RegistrationStatus = 'pending' | 'confirmed' | 'withdrawn';
+/**
+ * Registration lifecycle for a single candidate:
+ *   pending   — soft-registered by the institute (not yet finalised)
+ *   submitted — institute verified (printed) and completed the registration
+ *   confirmed — board assigned a roll number after the window closed
+ *   withdrawn — removed
+ */
+export type RegistrationStatus = 'pending' | 'submitted' | 'confirmed' | 'withdrawn';
 
 export interface ExamRegistration {
   id: string;
   examId: string;
   studentRefId: string; // links to Student.studentRefId (never Student.id)
-  schoolId: string;
+  instituteId: string;
   /** Assigned by the board after the registration window closes. */
   rollNumber?: string;
   /** Chosen elective papers (any number) — ExamPaper.ids on the exam. */
@@ -30,7 +36,7 @@ export interface CandidateListItem {
   registrationId: string;
   studentRefId: string;
   fullName?: string; // PII — omitted for evaluator-facing responses
-  gradeId: number;
+  classNumber: number;
   rollNumber?: string;
   status: RegistrationStatus;
   /** Resolved elective subject names for display (from the chosen papers). */
@@ -55,7 +61,7 @@ export interface StudentExamHistoryItem {
   examId: string;
   examName: string;
   session: string;
-  gradeId: number;
+  classNumber: number;
   rollNumber?: string;
   status: RegistrationStatus;
 }

@@ -11,10 +11,17 @@ import {
   type ExamListItem,
   type ExamPaper,
   ExamStatus,
+  InstituteLevel,
   type UpdateExamDto,
 } from '@oses/types';
 
+import { levelOrdinal } from './academic.service';
 import { exams, findExam, nextId, registrations, toExamListItem } from './mock-store';
+
+/** Secondary covers ordinals ≤10; higher secondary covers 11–12. */
+function instituteLevelForOrdinal(ordinal: number): InstituteLevel {
+  return ordinal <= 10 ? InstituteLevel.SECONDARY : InstituteLevel.HIGHER_SECONDARY;
+}
 
 const LATENCY = 400;
 function delay<T>(value: T): Promise<T> {
@@ -43,13 +50,24 @@ function getExam(id: string): Promise<Exam | undefined> {
 
 function createExam(dto: CreateExamDto): Promise<Exam> {
   const id = nextId('exam');
+  const classNumber = levelOrdinal(dto.levelId);
   const exam: Exam = {
     id,
     code: dto.code,
     name: dto.name,
     session: dto.session,
-    schoolLevel: dto.schoolLevel,
-    gradeId: dto.gradeId,
+    instituteLevel: instituteLevelForOrdinal(classNumber),
+    levelId: dto.levelId,
+    groupId: dto.groupId,
+    classNumber,
+    instituteScope: dto.instituteScope,
+    ...(dto.instituteScope === 'selected' && dto.instituteIds
+      ? { instituteIds: dto.instituteIds }
+      : {}),
+    ...(dto.subgroupId ? { subgroupId: dto.subgroupId } : {}),
+    ...(dto.subjectIds ? { subjectIds: dto.subjectIds } : {}),
+    ...(dto.shift ? { shift: dto.shift } : {}),
+    ...(dto.examCompletedDate ? { examCompletedDate: dto.examCompletedDate } : {}),
     registrationOpensAt: dto.registrationOpensAt,
     registrationClosesAt: dto.registrationClosesAt,
     status: ExamStatus.DRAFT,
@@ -66,8 +84,23 @@ function updateExam(id: string, dto: UpdateExamDto): Promise<Exam> {
 
   if (dto.name !== undefined) exam.name = dto.name;
   if (dto.session !== undefined) exam.session = dto.session;
-  if (dto.schoolLevel !== undefined) exam.schoolLevel = dto.schoolLevel;
-  if (dto.gradeId !== undefined) exam.gradeId = dto.gradeId;
+  if (dto.levelId !== undefined) {
+    exam.levelId = dto.levelId;
+    exam.classNumber = levelOrdinal(dto.levelId);
+    exam.instituteLevel = instituteLevelForOrdinal(exam.classNumber);
+  }
+  if (dto.groupId !== undefined) exam.groupId = dto.groupId;
+  if (dto.subgroupId !== undefined) exam.subgroupId = dto.subgroupId;
+  if (dto.subjectIds !== undefined) exam.subjectIds = dto.subjectIds;
+  if (dto.shift !== undefined) exam.shift = dto.shift;
+  if (dto.examCompletedDate !== undefined) exam.examCompletedDate = dto.examCompletedDate;
+  if (dto.instituteScope !== undefined) {
+    exam.instituteScope = dto.instituteScope;
+    if (dto.instituteScope === 'all') delete exam.instituteIds;
+    else if (dto.instituteIds !== undefined) exam.instituteIds = dto.instituteIds;
+  } else if (dto.instituteIds !== undefined) {
+    exam.instituteIds = dto.instituteIds;
+  }
   if (dto.registrationOpensAt !== undefined) exam.registrationOpensAt = dto.registrationOpensAt;
   if (dto.registrationClosesAt !== undefined) exam.registrationClosesAt = dto.registrationClosesAt;
   if (dto.status !== undefined) exam.status = dto.status;
@@ -91,13 +124,19 @@ function assignRollNumbers(examId: string): Promise<Exam> {
   const exam = findExam(examId);
   if (!exam) return Promise.reject(new Error('Exam not found'));
 
+  const yy = exam.registrationClosesAt.slice(2, 4); // 'YY' of the exam year
   const candidates = registrations
     .filter((r) => r.examId === examId && r.status !== 'withdrawn')
-    .sort((a, b) => a.registeredAt.localeCompare(b.registeredAt));
+    // block by school (consecutive serials per school), then by registration order
+    .sort(
+      (a, b) =>
+        a.instituteId.localeCompare(b.instituteId) || a.registeredAt.localeCompare(b.registeredAt),
+    );
 
   candidates.forEach((reg, index) => {
     if (!reg.rollNumber) {
-      reg.rollNumber = `${exam.code}-${String(index + 1).padStart(4, '0')}`;
+      // 8-digit, number-only: YY + 6-digit serial (never repeats across years)
+      reg.rollNumber = `${yy}${String(index + 1).padStart(6, '0')}`;
     }
     reg.status = 'confirmed';
   });

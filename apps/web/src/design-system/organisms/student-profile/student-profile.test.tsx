@@ -20,7 +20,7 @@ const RESULTS: StudentResult[] = [
 const STUDENT: Student = {
   id: 'stu_001',
   studentRefId: 'ref-3f8a1c20',
-  schoolId: 'sch_001',
+  instituteId: 'sch_001',
   fullName: 'Ali Hassan',
   fatherOrGuardianName: 'Hassan Raza',
   gender: 'male',
@@ -31,7 +31,9 @@ const STUDENT: Student = {
   address: 'House 12, Street 5',
   city: 'Lahore',
   district: 'Lahore',
-  gradeId: 10,
+  levelId: 'lvl_10',
+  groupId: 'grp_science',
+  classNumber: 10,
   enrollmentStatus: 'active',
   createdAt: '2025-03-01T08:00:00.000Z',
 };
@@ -42,7 +44,7 @@ describe('StudentProfile', () => {
     expect(screen.getByText('Ali Hassan')).toBeInTheDocument();
     expect(screen.getByText(/Hassan Raza/)).toBeInTheDocument(); // "s/o Hassan Raza"
     expect(screen.getByText('Government High School Gulberg')).toBeInTheDocument();
-    expect(screen.getByText(/Grade 10/)).toBeInTheDocument(); // "Grade 10 · A" chip
+    expect(screen.getByText(/Class 10/)).toBeInTheDocument(); // "Class 10 · A" chip
     expect(screen.getByText('Active')).toBeInTheDocument();
     // No input fields in profile view.
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
@@ -75,5 +77,23 @@ describe('StudentProfile', () => {
     rerender(<StudentProfile student={STUDENT} onEdit={onEdit} />);
     fireEvent.click(screen.getByRole('button', { name: /edit profile/i }));
     expect(onEdit).toHaveBeenCalledTimes(1);
+  });
+});
+
+// PII is withheld unless the viewer holds `students.viewPII`. The profile itself must
+// enforce this — route guards key off the legacy role enum, not the grant.
+describe('StudentProfile PII gating', () => {
+  it('withholds CNICs and date of birth by default', () => {
+    render(<StudentProfile student={STUDENT} />);
+    expect(screen.queryByText('35202-1234567-1')).not.toBeInTheDocument();
+    expect(screen.queryByText('35202-7654321-9')).not.toBeInTheDocument();
+    expect(screen.getAllByText('••••••').length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('shows them when canViewPII is granted', () => {
+    render(<StudentProfile student={STUDENT} canViewPII />);
+    expect(screen.getByText('35202-1234567-1')).toBeInTheDocument();
+    expect(screen.getByText('35202-7654321-9')).toBeInTheDocument();
+    expect(screen.queryByText('••••••')).not.toBeInTheDocument();
   });
 });

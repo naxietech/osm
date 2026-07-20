@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ExamStatus, SchoolLevel } from '@oses/types';
+import { ExamStatus } from '@oses/types';
 
 import { examService } from './exam.service';
 
@@ -19,7 +19,7 @@ describe('examService', () => {
 
   it('returns a full exam with its papers, or undefined for an unknown id', async () => {
     const exam = await examService.getExam('exam_open');
-    expect(exam?.gradeId).toBe(10);
+    expect(exam?.classNumber).toBe(10);
     expect(exam?.papers.some((p) => p.paperType === 'elective')).toBe(true);
 
     expect(await examService.getExam('nope')).toBeUndefined();
@@ -28,10 +28,11 @@ describe('examService', () => {
   it('creates a draft exam and assigns ids to its papers', async () => {
     const created = await examService.createExam({
       code: 'G11-ANN-2026',
-      name: 'Grade 11 Annual Examination',
+      name: 'Class 11 Annual Examination',
       session: 'Annual 2026',
-      schoolLevel: SchoolLevel.HIGHER_SECONDARY,
-      gradeId: 11,
+      levelId: 'lvl_11',
+      groupId: 'grp_premed',
+      instituteScope: 'all',
       registrationOpensAt: '2026-06-15',
       registrationClosesAt: '2026-07-31',
       papers: [
