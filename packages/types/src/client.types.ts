@@ -12,6 +12,7 @@ export type ModuleKey =
   | 'dashboard'
   | 'institutes'
   | 'students'
+  | 'checkers'
   | 'exams'
   | 'marking'
   | 'results'

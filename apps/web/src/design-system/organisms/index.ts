@@ -1,4 +1,6 @@
 export * from './candidate-picker';
+export * from './checker-form';
+export * from './checker-profile';
 export * from './class-hierarchy-form';
 export * from './data-table';
 export * from './exam-form';

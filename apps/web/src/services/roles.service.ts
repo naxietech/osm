@@ -71,6 +71,13 @@ export const PERMISSION_CATALOG: PermissionMeta[] = [
   { action: 'slos.manage', module: 'Academic', label: 'Manage SLOs', scopeable: false },
   { action: 'students.manage', module: 'Students', label: 'Manage students', scopeable: true },
   { action: 'students.viewPII', module: 'Students', label: 'View student PII', scopeable: true },
+  { action: 'checkers.manage', module: 'Checkers', label: 'Add / edit checkers', scopeable: true },
+  {
+    action: 'checkers.approve',
+    module: 'Checkers',
+    label: 'Approve checker registrations',
+    scopeable: false,
+  },
   { action: 'exams.manage', module: 'Exams', label: 'Create / edit exams', scopeable: false },
   { action: 'exams.assignRolls', module: 'Exams', label: 'Assign roll numbers', scopeable: false },
   {
@@ -173,6 +180,7 @@ export const roles: Role[] = [
     grants: grants('own-institute', [
       'students.manage',
       'students.viewPII',
+      'checkers.manage',
       'registrations.manage',
       'results.viewOwn',
       'dashboard.view',

@@ -12,15 +12,21 @@ import { type NavItem } from '@/design-system/organisms/sidebar';
 import { DashboardLayout } from '@/design-system/templates/dashboard-layout';
 import { useAuth, useClient } from '@/hooks';
 import { ROUTES } from '@/router/routes';
+import { countPendingCheckers } from '@/services/checker.service';
 import { countPendingInstitutes } from '@/services/institute.service';
 
 import { ClientSwitcher } from './client-switcher';
 
-/** Stamp a live count onto the Approvals leaf (and bubble it to its parent group). */
-function withApprovalsBadge(item: NavItem, pending: number): NavItem {
-  if (item.to === ROUTES.admin.instituteApprovals) return { ...item, badge: pending };
+/**
+ * Stamp live counts onto each Approvals leaf (and bubble them to the parent group), so a
+ * collapsed group still shows how much is waiting. Keyed by route, so adding another
+ * approval queue means adding one entry rather than another traversal.
+ */
+function withApprovalsBadges(item: NavItem, counts: Record<string, number>): NavItem {
+  const pending = item.to ? counts[item.to] : undefined;
+  if (pending !== undefined) return { ...item, badge: pending };
   if (item.children) {
-    const children = item.children.map((child) => withApprovalsBadge(child, pending));
+    const children = item.children.map((child) => withApprovalsBadges(child, counts));
     const badge = children.reduce((sum, c) => sum + (c.badge ?? 0), 0);
     return { ...item, children, ...(badge > 0 ? { badge } : {}) };
   }
@@ -32,7 +38,10 @@ export function RoleLayout(): ReactElement {
   const { user, logout } = useAuth();
   const { isModuleEnabled } = useClient();
 
-  const pending = countPendingInstitutes();
+  const approvalCounts: Record<string, number> = {
+    [ROUTES.admin.instituteApprovals]: countPendingInstitutes(),
+    [ROUTES.admin.checkerApprovals]: countPendingCheckers(),
+  };
 
   // Gate the role's nav by the active client's enabled modules (untagged items always show).
   const rawNav = (user && ROLE_CONFIG[user.role]?.nav) || [];
@@ -41,7 +50,7 @@ export function RoleLayout(): ReactElement {
       ...section,
       items: section.items
         .filter((item) => isModuleEnabled(item.module))
-        .map((item) => withApprovalsBadge(item, pending)),
+        .map((item) => withApprovalsBadges(item, approvalCounts)),
     }))
     .filter((section) => section.items.length > 0);
 

@@ -7,6 +7,7 @@
 export * from './academic.service';
 export * from './api-client';
 export * from './auth.service';
+export * from './checker.service';
 export * from './client.service';
 export * from './exam-registration.service';
 export * from './exam.service';

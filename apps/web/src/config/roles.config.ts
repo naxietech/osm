@@ -64,6 +64,16 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
             ],
           },
           {
+            label: 'Checkers',
+            icon: ClipboardCheck,
+            module: 'checkers',
+            children: [
+              { label: 'View', to: ROUTES.admin.checkersView },
+              { label: 'Add', to: ROUTES.admin.checkersAdd },
+              { label: 'Approvals', to: ROUTES.admin.checkerApprovals },
+            ],
+          },
+          {
             label: 'Institutes',
             icon: Building2,
             module: 'institutes',
@@ -163,6 +173,14 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
             children: [
               { label: 'View', to: ROUTES.institute.studentsView },
               { label: 'Add / Delete', to: ROUTES.institute.studentsManage },
+            ],
+          },
+          {
+            label: 'Checkers',
+            icon: ClipboardCheck,
+            children: [
+              { label: 'View', to: ROUTES.institute.checkersView },
+              { label: 'Add', to: ROUTES.institute.checkersAdd },
             ],
           },
           { label: 'Exams', to: ROUTES.institute.examsView, icon: GraduationCap },

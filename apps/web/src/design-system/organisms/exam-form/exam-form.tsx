@@ -189,18 +189,23 @@ export function ExamForm({
     },
   });
 
+  /**
+   * A field only complains once the user has engaged with it, or once they have tried to
+   * submit — otherwise a blank form would open covered in errors.
+   */
   const fieldError = (name: keyof ExamFormValues): string | undefined =>
-    formik.touched[name] ? (formik.errors[name] as string | undefined) : undefined;
+    formik.touched[name] || formik.submitCount > 0
+      ? (formik.errors[name] as string | undefined)
+      : undefined;
 
   /**
-   * The multi-selects have no blur to mark them touched, so their message shows as soon
-   * as the schema objects — matching how the rest of the form reads while being filled.
+   * Set a value and mark the field touched. Multi-selects and dropdowns never fire a
+   * blur, so choosing a value is the only engagement signal they give.
    */
-  const listError = (name: 'subjectIds' | 'instituteIds'): string | undefined =>
-    formik.errors[name] as string | undefined;
-
-  const setField = (name: keyof ExamFormValues, value: unknown): void =>
+  const setField = (name: keyof ExamFormValues, value: unknown): void => {
     void formik.setFieldValue(name, value, true);
+    void formik.setFieldTouched(name, true, false);
+  };
 
   const gridClass = 'grid grid-cols-1 gap-x-6 gap-y-2 md:grid-cols-2 lg:grid-cols-3';
   const subgroupOpts =
@@ -311,7 +316,7 @@ export function ExamForm({
           onChange={(next) => setField('subjectIds', next)}
           searchPlaceholder="Search subjects…"
           emptyMessage="No subjects match"
-          error={listError('subjectIds')}
+          error={fieldError('subjectIds')}
         />
       </section>
 
@@ -384,7 +389,7 @@ export function ExamForm({
                 onChange={(next) => setField('instituteIds', next)}
                 searchPlaceholder="Search institutes…"
                 emptyMessage="No institutes match"
-                error={listError('instituteIds')}
+                error={fieldError('instituteIds')}
                 disabled={lockInstituteScope}
               />
             </div>
