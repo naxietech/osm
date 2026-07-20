@@ -12,6 +12,7 @@ import {
   type ExamListItem,
   type ExamRegistration,
   ExamStatus,
+  type SafeStudentRef,
   type StudentExamHistoryItem,
 } from '@oses/types';
 
@@ -177,6 +178,16 @@ function toCandidateRow(exam: Exam, r: ExamRegistration): CandidateListItem {
   return item;
 }
 
+/**
+ * Drop every PII field from a candidate row. `CandidateListItem.fullName` is the only
+ * one the shape carries, and the type already marks it optional for exactly this reason.
+ */
+export function stripCandidatePII(row: CandidateListItem): CandidateListItem {
+  const safe = { ...row };
+  delete safe.fullName;
+  return safe;
+}
+
 /** Candidate list for an exam (admin / controller — every school; includes names). */
 function listCandidates(examId: string): Promise<CandidateListItem[]> {
   const exam = findExam(examId);
@@ -185,6 +196,25 @@ function listCandidates(examId: string): Promise<CandidateListItem[]> {
     .filter((r) => r.examId === examId && r.status !== 'withdrawn')
     .map((r) => toCandidateRow(exam, r));
   return delay(rows);
+}
+
+/**
+ * Candidate list for EVALUATOR contexts — studentRefId + roll number only, never a name.
+ * The marking UI must call this rather than filtering `listCandidates` client-side, so
+ * the name never reaches the evaluator's machine in the first place.
+ */
+function listCandidatesForEvaluator(examId: string): Promise<CandidateListItem[]> {
+  return listCandidates(examId).then((rows) => rows.map(stripCandidatePII));
+}
+
+/** The evaluator-safe reference for a student — no PII whatsoever. */
+export function toSafeStudentRef(student: StoredStudent): SafeStudentRef {
+  return {
+    studentRefId: student.studentRefId,
+    levelId: student.levelId,
+    groupId: student.groupId,
+    classNumber: student.classNumber,
+  };
 }
 
 /** Candidate list for one school only — the school's own registered candidates. */
@@ -228,6 +258,7 @@ export const examRegistrationService = {
   registerStudents,
   confirmRegistrations,
   listCandidates,
+  listCandidatesForEvaluator,
   listCandidatesForSchool,
   getStudentHistory,
 };

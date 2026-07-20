@@ -16,9 +16,10 @@ import { type EnrollmentStatus, type StudentListItem, UserRole } from '@oses/typ
 import { PageHeader } from '@/components/widgets';
 import { Badge, type BadgeProps } from '@/design-system/atoms/badge';
 import { Button } from '@/design-system/atoms/button';
-import { Check, Upload, X } from '@/design-system/atoms/icon';
+import { Upload, X } from '@/design-system/atoms/icon';
+import { Alert } from '@/design-system/molecules/alert';
 import { type ColumnDef, DataTable } from '@/design-system/organisms/data-table';
-import { useAuth } from '@/hooks';
+import { useAuth, usePermissions } from '@/hooks';
 
 /** Minimal CSV parser (mock): first row = headers, comma-separated, no quoted-comma support. */
 interface ParsedCsv {
@@ -79,6 +80,7 @@ export function StudentsListPage(): React.ReactElement {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { user } = useAuth();
+  const { canViewPII } = usePermissions();
   // e.g. "/admin/students/view" or "/school/students/view" -> ".../students"
   const base = pathname.slice(0, pathname.indexOf('/students') + '/students'.length);
 
@@ -107,7 +109,12 @@ export function StudentsListPage(): React.ReactElement {
     {
       key: 'fullName',
       header: 'Student Name',
-      render: (row) => <span className="font-medium">{row.fullName}</span>,
+      // Name is PII: without `students.viewPII` the student is identified by ref only.
+      render: (row) => (
+        <span className={canViewPII ? 'font-medium' : 'font-mono text-sm text-muted-foreground'}>
+          {canViewPII ? row.fullName : row.studentRefId}
+        </span>
+      ),
     },
     {
       key: 'registrationNumber',
@@ -183,15 +190,9 @@ export function StudentsListPage(): React.ReactElement {
       />
 
       {importedCount !== null && (
-        <div
-          role="status"
-          className="mb-6 flex items-center gap-3 rounded-xl border border-success/30 bg-success-subtle px-4 py-3 text-sm font-medium text-success-foreground"
-        >
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-success text-white">
-            <Check className="h-3.5 w-3.5" aria-hidden />
-          </span>
+        <Alert className="mb-6">
           Imported {importedCount} student{importedCount === 1 ? '' : 's'}.
-        </div>
+        </Alert>
       )}
 
       {/* CSV preview before confirming the import */}

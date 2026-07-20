@@ -11,6 +11,7 @@ import React, { useState } from 'react';
 
 import { PageHeader } from '@/components/widgets';
 import { Button } from '@/design-system/atoms/button';
+import { ActiveBadge } from '@/design-system/molecules/status-badge';
 import {
   ClassHierarchyForm,
   type ClassHierarchyValue,
@@ -40,18 +41,6 @@ function classUsage(levelId: string): number {
   const inStudents = students.filter((s) => s.levelId === levelId).length;
   const inExams = exams.filter((e) => e.levelId === levelId).length;
   return inStudents + inExams;
-}
-
-function ActiveBadge({ active }: { active: boolean }): React.ReactElement {
-  return active ? (
-    <span className="rounded-full bg-success-subtle px-2.5 py-0.5 text-xs font-medium text-success-foreground">
-      Active
-    </span>
-  ) : (
-    <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-      Inactive
-    </span>
-  );
 }
 
 export function ClassesPage(): React.ReactElement {

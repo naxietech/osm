@@ -11,8 +11,9 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { type CreateExamDto, type Exam, ExamStatus } from '@oses/types';
 
 import { Button } from '@/design-system/atoms/button';
-import { Check, ChevronLeft, GraduationCap, Users } from '@/design-system/atoms/icon';
+import { ChevronLeft, GraduationCap, Users } from '@/design-system/atoms/icon';
 import { Spinner } from '@/design-system/atoms/spinner';
+import { Alert } from '@/design-system/molecules/alert';
 import { ExamForm } from '@/design-system/organisms/exam-form';
 import {
   classGroupOptionsByLevelMap,
@@ -135,17 +136,7 @@ export function ExamDetailPage(): React.ReactElement {
         </div>
       </div>
 
-      {successMessage && (
-        <div
-          role="status"
-          className="mb-6 flex items-center gap-3 rounded-xl border border-success/30 bg-success-subtle px-4 py-3 text-sm font-medium text-success-foreground"
-        >
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-success text-white">
-            <Check className="h-3.5 w-3.5" aria-hidden />
-          </span>
-          {successMessage}
-        </div>
-      )}
+      {successMessage && <Alert className="mb-6">{successMessage}</Alert>}
 
       {isLoading ? (
         <div className="flex items-center justify-center py-20">

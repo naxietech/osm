@@ -17,7 +17,7 @@ import {
   DonutStat,
   TrendAreaChart,
   type TrendPoint,
-} from '@/design-system/organisms/charts';
+} from '@/design-system/molecules/charts';
 
 // TODO: replace mock data with React Query (board analytics endpoints).
 const MARKING_TREND: TrendPoint[] = [

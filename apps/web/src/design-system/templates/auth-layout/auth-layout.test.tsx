@@ -5,12 +5,20 @@ import { AuthLayout } from './auth-layout';
 
 describe('AuthLayout', () => {
   it('renders title', () => {
-    render(<AuthLayout title="Sign In"><div>form</div></AuthLayout>);
+    render(
+      <AuthLayout title="Sign In">
+        <div>form</div>
+      </AuthLayout>,
+    );
     expect(screen.getByText('Sign In')).toBeInTheDocument();
   });
 
   it('renders children', () => {
-    render(<AuthLayout title="Sign In"><div>login form here</div></AuthLayout>);
+    render(
+      <AuthLayout title="Sign In">
+        <div>login form here</div>
+      </AuthLayout>,
+    );
     expect(screen.getByText('login form here')).toBeInTheDocument();
   });
 
@@ -24,7 +32,11 @@ describe('AuthLayout', () => {
   });
 
   it('does not render subtitle element when subtitle is omitted', () => {
-    render(<AuthLayout title="Sign In"><div>form</div></AuthLayout>);
+    render(
+      <AuthLayout title="Sign In">
+        <div>form</div>
+      </AuthLayout>,
+    );
     expect(screen.queryByText('Enter your credentials')).not.toBeInTheDocument();
   });
 });

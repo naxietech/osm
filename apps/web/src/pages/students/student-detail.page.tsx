@@ -17,11 +17,12 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Province, type Student, UserRole } from '@oses/types';
 
 import { Button } from '@/design-system/atoms/button';
-import { Check, ChevronLeft, UserPlus } from '@/design-system/atoms/icon';
+import { ChevronLeft, UserPlus } from '@/design-system/atoms/icon';
+import { Alert } from '@/design-system/molecules/alert';
 import { type SelectOption } from '@/design-system/molecules/select-field';
 import { StudentForm, type StudentFormPayload } from '@/design-system/organisms/student-form';
 import { StudentProfile, type StudentResult } from '@/design-system/organisms/student-profile';
-import { useAuth } from '@/hooks';
+import { useAuth, usePermissions } from '@/hooks';
 import {
   classGroupOptionsByLevelMap,
   levelSelectOptions,
@@ -99,6 +100,7 @@ export function StudentDetailPage(): React.ReactElement {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { user } = useAuth();
+  const { canViewPII } = usePermissions();
 
   const isExisting = Boolean(id);
   const base = pathname.slice(0, pathname.indexOf('/students') + '/students'.length);
@@ -193,17 +195,7 @@ export function StudentDetailPage(): React.ReactElement {
         Back to Students
       </Button>
 
-      {successMessage && (
-        <div
-          role="status"
-          className="mb-6 flex items-center gap-3 rounded-xl border border-success/30 bg-success-subtle px-4 py-3 text-sm font-medium text-success-foreground"
-        >
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-success text-white">
-            <Check className="h-3.5 w-3.5" aria-hidden />
-          </span>
-          {successMessage}
-        </div>
-      )}
+      {successMessage && <Alert className="mb-6">{successMessage}</Alert>}
 
       {showForm ? (
         <>
@@ -262,6 +254,7 @@ export function StudentDetailPage(): React.ReactElement {
             student={student}
             schoolName={schoolName}
             results={MOCK_RESULTS}
+            canViewPII={canViewPII}
             onEdit={() => {
               setIsEditing(true);
               setSuccessMessage(null);

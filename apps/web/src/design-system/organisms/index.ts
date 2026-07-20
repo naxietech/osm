@@ -1,5 +1,4 @@
 export * from './candidate-picker';
-export * from './charts';
 export * from './class-hierarchy-form';
 export * from './data-table';
 export * from './exam-form';

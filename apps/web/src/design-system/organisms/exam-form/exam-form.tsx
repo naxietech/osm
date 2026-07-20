@@ -6,7 +6,7 @@
  * selected institutes. There is no manual paper editor — one paper is derived per chosen
  * subject on submit (so the registration/candidate engine keeps working).
  */
-import React, { useState } from 'react';
+import React from 'react';
 
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
@@ -21,6 +21,7 @@ import {
   GraduationCap,
   type LucideIcon,
 } from '@/design-system/atoms/icon';
+import { Radio } from '@/design-system/atoms/radio';
 import { FormField } from '@/design-system/molecules/form-field';
 import { MultiSelectField } from '@/design-system/molecules/multi-select-field';
 import { SelectField, type SelectOption } from '@/design-system/molecules/select-field';
@@ -56,6 +57,10 @@ interface ExamFormValues {
   registrationOpensAt: string;
   registrationClosesAt: string;
   examCompletedDate: string;
+  /** Dynamic fields — held here (not in useState) so Yup gates the submit button too. */
+  subjectIds: string[];
+  instituteScope: ExamInstituteScope;
+  instituteIds: string[];
 }
 
 const SHIFT_OPTIONS: SelectOption[] = [
@@ -94,6 +99,15 @@ const validationSchema = Yup.object({
       return value >= registrationOpensAt;
     }),
   examCompletedDate: Yup.string().required('Exam completed date is required'),
+  subjectIds: Yup.array().of(Yup.string().defined()).min(1, 'Select at least one subject.'),
+  instituteScope: Yup.string().oneOf(['all', 'selected']).required(),
+  // Only meaningful when the exam targets a chosen set of institutes.
+  instituteIds: Yup.array()
+    .of(Yup.string().defined())
+    .when('instituteScope', {
+      is: 'selected',
+      then: (schema) => schema.min(1, 'Select at least one institute, or choose All institutes.'),
+    }),
 });
 
 /** Iconed section heading (matches InstituteForm). */
@@ -127,18 +141,6 @@ export function ExamForm({
   isSubmitting,
   mode,
 }: ExamFormProps): React.ReactElement {
-  const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>(
-    initialValues?.subjectIds ?? [],
-  );
-  const [subjectsError, setSubjectsError] = useState<string | undefined>(undefined);
-  const [instituteScope, setInstituteScope] = useState<ExamInstituteScope>(
-    initialValues?.instituteScope ?? 'all',
-  );
-  const [selectedInstituteIds, setSelectedInstituteIds] = useState<string[]>(
-    initialValues?.instituteIds ?? [],
-  );
-  const [scopeError, setScopeError] = useState<string | undefined>(undefined);
-
   const formik = useFormik<ExamFormValues>({
     enableReinitialize: true,
     initialValues: {
@@ -152,20 +154,15 @@ export function ExamForm({
       registrationOpensAt: initialValues?.registrationOpensAt ?? '',
       registrationClosesAt: initialValues?.registrationClosesAt ?? '',
       examCompletedDate: initialValues?.examCompletedDate ?? '',
+      subjectIds: initialValues?.subjectIds ?? [],
+      instituteScope: initialValues?.instituteScope ?? 'all',
+      instituteIds: initialValues?.instituteIds ?? [],
     },
     validationSchema,
     onSubmit: (values) => {
-      if (selectedSubjectIds.length === 0) {
-        setSubjectsError('Select at least one subject.');
-        return;
-      }
-      if (instituteScope === 'selected' && selectedInstituteIds.length === 0) {
-        setScopeError('Select at least one institute, or choose All institutes.');
-        return;
-      }
       // One paper per chosen subject (compulsory) — sat on the exam-completed date.
       const paperDate = values.examCompletedDate || values.registrationClosesAt;
-      const papers = selectedSubjectIds.map((sid) => ({
+      const papers = values.subjectIds.map((sid) => ({
         subject: subjectOptions.find((o) => o.value === sid)?.label ?? sid,
         totalMarks: 100,
         paperDate,
@@ -178,22 +175,32 @@ export function ExamForm({
         session: values.session.trim(),
         levelId: values.levelId,
         groupId: values.groupId,
-        subjectIds: selectedSubjectIds,
+        subjectIds: values.subjectIds,
         shift: values.shift as ExamShift,
-        instituteScope,
+        instituteScope: values.instituteScope,
         registrationOpensAt: values.registrationOpensAt,
         registrationClosesAt: values.registrationClosesAt,
         examCompletedDate: values.examCompletedDate,
         papers,
         ...(values.subgroupId ? { subgroupId: values.subgroupId } : {}),
-        ...(instituteScope === 'selected' ? { instituteIds: selectedInstituteIds } : {}),
+        ...(values.instituteScope === 'selected' ? { instituteIds: values.instituteIds } : {}),
       };
       onSubmit(dto);
     },
   });
 
   const fieldError = (name: keyof ExamFormValues): string | undefined =>
-    formik.touched[name] ? formik.errors[name] : undefined;
+    formik.touched[name] ? (formik.errors[name] as string | undefined) : undefined;
+
+  /**
+   * The multi-selects have no blur to mark them touched, so their message shows as soon
+   * as the schema objects — matching how the rest of the form reads while being filled.
+   */
+  const listError = (name: 'subjectIds' | 'instituteIds'): string | undefined =>
+    formik.errors[name] as string | undefined;
+
+  const setField = (name: keyof ExamFormValues, value: unknown): void =>
+    void formik.setFieldValue(name, value, true);
 
   const gridClass = 'grid grid-cols-1 gap-x-6 gap-y-2 md:grid-cols-2 lg:grid-cols-3';
   const subgroupOpts =
@@ -300,14 +307,11 @@ export function ExamForm({
         <MultiSelectField
           label="Subjects"
           options={subjectOptions}
-          value={selectedSubjectIds}
-          onChange={(next) => {
-            setSubjectsError(undefined);
-            setSelectedSubjectIds(next);
-          }}
+          value={formik.values.subjectIds}
+          onChange={(next) => setField('subjectIds', next)}
           searchPlaceholder="Search subjects…"
           emptyMessage="No subjects match"
-          error={subjectsError}
+          error={listError('subjectIds')}
         />
       </section>
 
@@ -356,51 +360,34 @@ export function ExamForm({
           Choose which institutes can register candidates into this exam.
         </p>
         <div className="space-y-3">
-          <label className="flex items-center gap-2 text-sm text-foreground">
-            <input
-              type="radio"
-              name="instituteScope"
-              className="h-4 w-4 accent-[var(--brand)]"
-              checked={instituteScope === 'all'}
-              disabled={lockInstituteScope}
-              onChange={() => {
-                setInstituteScope('all');
-                setScopeError(undefined);
-              }}
-            />
-            All institutes
-          </label>
-          <label className="flex items-center gap-2 text-sm text-foreground">
-            <input
-              type="radio"
-              name="instituteScope"
-              className="h-4 w-4 accent-[var(--brand)]"
-              checked={instituteScope === 'selected'}
-              disabled={lockInstituteScope}
-              onChange={() => setInstituteScope('selected')}
-            />
-            Selected institutes
-          </label>
+          <Radio
+            name="instituteScope"
+            label="All institutes"
+            checked={formik.values.instituteScope === 'all'}
+            disabled={lockInstituteScope}
+            onChange={() => setField('instituteScope', 'all')}
+          />
+          <Radio
+            name="instituteScope"
+            label="Selected institutes"
+            checked={formik.values.instituteScope === 'selected'}
+            disabled={lockInstituteScope}
+            onChange={() => setField('instituteScope', 'selected')}
+          />
 
-          {instituteScope === 'selected' && (
+          {formik.values.instituteScope === 'selected' && (
             <div className="mt-1">
               <MultiSelectField
                 label="Institutes"
                 options={instituteOptions}
-                value={selectedInstituteIds}
-                onChange={(next) => {
-                  setScopeError(undefined);
-                  setSelectedInstituteIds(next);
-                }}
+                value={formik.values.instituteIds}
+                onChange={(next) => setField('instituteIds', next)}
                 searchPlaceholder="Search institutes…"
                 emptyMessage="No institutes match"
-                error={scopeError}
+                error={listError('instituteIds')}
                 disabled={lockInstituteScope}
               />
             </div>
-          )}
-          {instituteScope === 'all' && scopeError && (
-            <p className="text-xs text-danger">{scopeError}</p>
           )}
         </div>
       </section>

@@ -1,13 +1,21 @@
 /**
  * InstituteRegistrationForm (organism) — the body of the public self-registration
- * form. Presentational: it owns the working draft (scalar fields + category question
- * answers), validates it (required fields, email/phone format, unique institute code,
- * required category questions), and calls `onSubmit` with a ready RegisterInstituteDto.
+ * form. Presentational: Formik + Yup own the working draft (scalar fields + category
+ * question answers) and the validation (required fields, email/phone format, unique
+ * institute code, required category questions), and `onSubmit` receives a ready
+ * RegisterInstituteDto.
+ *
+ * The dynamic category questions live under a single `answers` field rather than a
+ * schema rebuilt per category: one object-level `.test()` reads the selected category
+ * and checks its required questions, which keeps the schema static.
  *
  * The page owns the surrounding chrome (header, success screen) and the service call.
  * `isCodeTaken` is injected so the organism stays free of service imports.
  */
-import React, { useState } from 'react';
+import React, { useMemo } from 'react';
+
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
 
 import {
   type CategoryQuestionType,
@@ -21,7 +29,9 @@ import {
 } from '@oses/types';
 
 import { Button } from '@/design-system/atoms/button';
+import { Checkbox } from '@/design-system/atoms/checkbox';
 import { Input } from '@/design-system/atoms/input';
+import { Radio } from '@/design-system/atoms/radio';
 import { FormField } from '@/design-system/molecules/form-field';
 import { SelectField, type SelectOption } from '@/design-system/molecules/select-field';
 
@@ -70,6 +80,8 @@ interface FormState {
   contactPersonDesignation: string;
   contactEmail: string;
   contactPhone: string;
+  /** Category question answers keyed by questionId (one value for single-answer types). */
+  answers: Record<string, string[]>;
 }
 
 const EMPTY: FormState = {
@@ -88,15 +100,26 @@ const EMPTY: FormState = {
   contactPersonDesignation: '',
   contactEmail: '',
   contactPhone: '',
+  answers: {},
 };
 
-/** Loose but real checks — the backend re-validates; these just catch obvious typos. */
-function isEmail(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-}
-function isPhone(value: string): boolean {
-  return /^[+\d][\d\s\-()]{6,}$/.test(value);
-}
+/** Loose but real patterns — the backend re-validates; these just catch obvious typos. */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_PATTERN = /^[+\d][\d\s\-()]{6,}$/;
+
+/** Scalar fields that are simply required, with the message each shows. */
+const REQUIRED_TEXT: Array<[keyof FormState, string]> = [
+  ['instituteName', 'Institute name is required'],
+  ['categoryId', 'Institute category is required'],
+  ['institutionType', 'Type is required'],
+  ['instituteLevel', 'Education level is required'],
+  ['category', 'Gender is required'],
+  ['address', 'Address is required'],
+  ['province', 'Province is required'],
+  ['city', 'City is required'],
+  ['contactPersonName', 'Contact name is required'],
+  ['contactPersonDesignation', 'Designation is required'],
+];
 
 export interface InstituteRegistrationFormProps {
   /** Active categories (with their dynamic questions) the institute can register under. */
@@ -113,95 +136,110 @@ export function InstituteRegistrationForm({
 }: InstituteRegistrationFormProps): React.ReactElement {
   const categoryOptions: SelectOption[] = categories.map((c) => ({ value: c.id, label: c.name }));
 
-  const [form, setForm] = useState<FormState>(EMPTY);
-  // answers keyed by questionId; values is a list (one item for text/radio/select, many for checkbox)
-  const [answers, setAnswers] = useState<Record<string, string[]>>({});
+  const validationSchema = useMemo(() => {
+    const shape: Record<string, Yup.AnySchema> = {
+      instituteCode: Yup.string()
+        .trim()
+        .required('Institute code is required')
+        .test(
+          'unique-code',
+          'This institute code is already registered.',
+          (value) => !value || !isCodeTaken(value.trim()),
+        ),
+      contactEmail: Yup.string()
+        .trim()
+        .required('Contact email is required')
+        .matches(EMAIL_PATTERN, 'Enter a valid email address.'),
+      contactPhone: Yup.string()
+        .trim()
+        .required('Contact phone is required')
+        .matches(PHONE_PATTERN, 'Enter a valid phone number.'),
+      // Every required question of the SELECTED category must carry a non-empty answer.
+      answers: Yup.object().test(
+        'required-questions',
+        'Answer all required questions.',
+        (value, ctx) => {
+          const { categoryId } = ctx.parent as FormState;
+          const questions = categories.find((c) => c.id === categoryId)?.questions ?? [];
+          const given = (value ?? {}) as Record<string, string[]>;
+          return questions
+            .filter((q) => q.required)
+            .every((q) => (given[q.id] ?? []).some((v) => v.trim().length > 0));
+        },
+      ),
+    };
+    for (const [key, message] of REQUIRED_TEXT) {
+      shape[key] = Yup.string().trim().required(message);
+    }
+    return Yup.object(shape);
+  }, [categories, isCodeTaken]);
 
-  const selectedCategory = categories.find((c) => c.id === form.categoryId);
+  const formik = useFormik<FormState>({
+    initialValues: EMPTY,
+    validationSchema,
+    // The submit button reflects validity from the first render, before any field is touched.
+    validateOnMount: true,
+    onSubmit: (values) => {
+      const questions = categories.find((c) => c.id === values.categoryId)?.questions ?? [];
+      const questionAnswers: InstituteQuestionAnswer[] = questions
+        .map((q) => ({ questionId: q.id, values: values.answers[q.id] ?? [] }))
+        .filter((a) => a.values.length > 0);
+
+      const dto: RegisterInstituteDto = {
+        instituteName: values.instituteName.trim(),
+        instituteCode: values.instituteCode.trim(),
+        categoryId: values.categoryId,
+        questionAnswers,
+        institutionType: values.institutionType as InstitutionType,
+        instituteLevel: values.instituteLevel as InstituteLevel,
+        category: values.category as GenderCategory,
+        address: values.address.trim(),
+        province: values.province as Province,
+        city: values.city.trim(),
+        contactPersonName: values.contactPersonName.trim(),
+        contactPersonDesignation: values.contactPersonDesignation.trim(),
+        contactEmail: values.contactEmail.trim(),
+        contactPhone: values.contactPhone.trim(),
+        ...(values.branch.trim() ? { branch: values.branch.trim() } : {}),
+        ...(values.postalCode.trim() ? { postalCode: values.postalCode.trim() } : {}),
+      };
+      onSubmit(dto);
+    },
+  });
+
+  const selectedCategory = categories.find((c) => c.id === formik.values.categoryId);
   const questions = selectedCategory?.questions ?? [];
 
-  const set = (key: keyof FormState, value: string): void =>
-    setForm((prev) => ({ ...prev, [key]: value }));
+  /**
+   * Show a field's error once the user has either left it or typed into it — a bad
+   * email or an already-registered code must surface as it is typed, not only on blur.
+   */
+  const errorFor = (key: keyof Omit<FormState, 'answers'>): string | undefined =>
+    formik.touched[key] || formik.values[key].length > 0 ? formik.errors[key] : undefined;
+
+  const setValue = (key: keyof FormState, value: string): void =>
+    void formik.setFieldValue(key, value, true);
 
   const changeCategory = (value: string): void => {
-    setForm((prev) => ({ ...prev, categoryId: value }));
-    setAnswers({}); // questions changed
+    // The question set changed, so previous answers no longer apply.
+    void formik.setValues({ ...formik.values, categoryId: value, answers: {} }, true);
   };
 
   const setSingle = (qid: string, value: string): void =>
-    setAnswers((prev) => ({ ...prev, [qid]: [value] }));
-  const toggleMulti = (qid: string, option: string, checked: boolean): void =>
-    setAnswers((prev) => {
-      const current = prev[qid] ?? [];
-      return {
-        ...prev,
-        [qid]: checked ? [...current, option] : current.filter((o) => o !== option),
-      };
-    });
+    void formik.setFieldValue('answers', { ...formik.values.answers, [qid]: [value] }, true);
 
-  const requiredKeys: Array<keyof FormState> = [
-    'instituteName',
-    'instituteCode',
-    'categoryId',
-    'institutionType',
-    'instituteLevel',
-    'category',
-    'address',
-    'province',
-    'city',
-    'contactPersonName',
-    'contactPersonDesignation',
-    'contactEmail',
-    'contactPhone',
-  ];
-
-  const email = form.contactEmail.trim();
-  const phone = form.contactPhone.trim();
-  const code = form.instituteCode.trim();
-  const emailError = email.length > 0 && !isEmail(email) ? 'Enter a valid email address.' : '';
-  const phoneError = phone.length > 0 && !isPhone(phone) ? 'Enter a valid phone number.' : '';
-  const codeError =
-    code.length > 0 && isCodeTaken(code) ? 'This institute code is already registered.' : '';
-
-  const requiredQuestionsAnswered = questions
-    .filter((q) => q.required)
-    .every((q) => (answers[q.id] ?? []).some((v) => v.trim().length > 0));
-
-  const canSubmit =
-    requiredKeys.every((k) => form[k].trim().length > 0) &&
-    isEmail(email) &&
-    isPhone(phone) &&
-    !codeError &&
-    requiredQuestionsAnswered;
-
-  const submit = (): void => {
-    const questionAnswers: InstituteQuestionAnswer[] = questions
-      .map((q) => ({ questionId: q.id, values: answers[q.id] ?? [] }))
-      .filter((a) => a.values.length > 0);
-
-    const dto: RegisterInstituteDto = {
-      instituteName: form.instituteName.trim(),
-      instituteCode: code,
-      categoryId: form.categoryId,
-      questionAnswers,
-      institutionType: form.institutionType as InstitutionType,
-      instituteLevel: form.instituteLevel as InstituteLevel,
-      category: form.category as GenderCategory,
-      address: form.address.trim(),
-      province: form.province as Province,
-      city: form.city.trim(),
-      contactPersonName: form.contactPersonName.trim(),
-      contactPersonDesignation: form.contactPersonDesignation.trim(),
-      contactEmail: email,
-      contactPhone: phone,
-      ...(form.branch.trim() ? { branch: form.branch.trim() } : {}),
-      ...(form.postalCode.trim() ? { postalCode: form.postalCode.trim() } : {}),
-    };
-    onSubmit(dto);
+  const toggleMulti = (qid: string, option: string, checked: boolean): void => {
+    const current = formik.values.answers[qid] ?? [];
+    const next = checked ? [...current, option] : current.filter((o) => o !== option);
+    void formik.setFieldValue('answers', { ...formik.values.answers, [qid]: next }, true);
   };
 
   return (
-    <div className="space-y-8 rounded-xl border border-border bg-card p-6 shadow-sm md:p-8">
+    <form
+      onSubmit={formik.handleSubmit}
+      noValidate
+      className="space-y-8 rounded-xl border border-border bg-card p-6 shadow-sm md:p-8"
+    >
       {/* Institute details */}
       <section>
         <h2 className="mb-4 text-sm font-semibold text-foreground">Institute details</h2>
@@ -210,53 +248,57 @@ export function InstituteRegistrationForm({
             id="instituteName"
             name="instituteName"
             label="Institute Name"
-            value={form.instituteName}
-            onChange={(e) => set('instituteName', e.target.value)}
+            value={formik.values.instituteName}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={formik.touched.instituteName ? formik.errors.instituteName : undefined}
             required
           />
           <FormField
             id="branch"
             name="branch"
             label="Branch / Campus"
-            value={form.branch}
-            onChange={(e) => set('branch', e.target.value)}
+            value={formik.values.branch}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
             required={false}
           />
           <FormField
             id="instituteCode"
             name="instituteCode"
             label="Institute Code (govt-provided)"
-            value={form.instituteCode}
-            onChange={(e) => set('instituteCode', e.target.value)}
-            error={codeError}
+            value={formik.values.instituteCode}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={errorFor('instituteCode')}
             required
           />
           <SelectField
             label="Institute Category"
             options={categoryOptions}
-            value={form.categoryId}
+            value={formik.values.categoryId}
             onChange={changeCategory}
             required
           />
           <SelectField
             label="Type"
             options={TYPE_OPTIONS}
-            value={form.institutionType}
-            onChange={(v) => set('institutionType', v)}
+            value={formik.values.institutionType}
+            onChange={(v) => setValue('institutionType', v)}
             required
           />
           <SelectField
             label="Education Level"
             options={LEVEL_OPTIONS}
-            value={form.instituteLevel}
-            onChange={(v) => set('instituteLevel', v)}
+            value={formik.values.instituteLevel}
+            onChange={(v) => setValue('instituteLevel', v)}
             required
           />
           <SelectField
             label="Gender"
             options={GENDER_OPTIONS}
-            value={form.category}
-            onChange={(v) => set('category', v)}
+            value={formik.values.category}
+            onChange={(v) => setValue('category', v)}
             required
           />
         </div>
@@ -277,7 +319,7 @@ export function InstituteRegistrationForm({
                 type={q.type}
                 required={q.required}
                 options={q.options}
-                values={answers[q.id] ?? []}
+                values={formik.values.answers[q.id] ?? []}
                 onSingle={(v) => setSingle(q.id, v)}
                 onToggle={(opt, checked) => toggleMulti(q.id, opt, checked)}
               />
@@ -294,32 +336,37 @@ export function InstituteRegistrationForm({
             id="address"
             name="address"
             label="Address"
-            value={form.address}
-            onChange={(e) => set('address', e.target.value)}
+            value={formik.values.address}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={formik.touched.address ? formik.errors.address : undefined}
             required
             containerClassName="sm:col-span-2"
           />
           <SelectField
             label="Province"
             options={PROVINCE_OPTIONS}
-            value={form.province}
-            onChange={(v) => set('province', v)}
+            value={formik.values.province}
+            onChange={(v) => setValue('province', v)}
             required
           />
           <FormField
             id="city"
             name="city"
             label="City"
-            value={form.city}
-            onChange={(e) => set('city', e.target.value)}
+            value={formik.values.city}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={formik.touched.city ? formik.errors.city : undefined}
             required
           />
           <FormField
             id="postalCode"
             name="postalCode"
             label="Postal Code"
-            value={form.postalCode}
-            onChange={(e) => set('postalCode', e.target.value)}
+            value={formik.values.postalCode}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
             required={false}
           />
         </div>
@@ -333,16 +380,24 @@ export function InstituteRegistrationForm({
             id="contactPersonName"
             name="contactPersonName"
             label="Contact Name"
-            value={form.contactPersonName}
-            onChange={(e) => set('contactPersonName', e.target.value)}
+            value={formik.values.contactPersonName}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={formik.touched.contactPersonName ? formik.errors.contactPersonName : undefined}
             required
           />
           <FormField
             id="contactPersonDesignation"
             name="contactPersonDesignation"
             label="Designation"
-            value={form.contactPersonDesignation}
-            onChange={(e) => set('contactPersonDesignation', e.target.value)}
+            value={formik.values.contactPersonDesignation}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={
+              formik.touched.contactPersonDesignation
+                ? formik.errors.contactPersonDesignation
+                : undefined
+            }
             required
           />
           <FormField
@@ -350,29 +405,31 @@ export function InstituteRegistrationForm({
             name="contactEmail"
             type="email"
             label="Contact Email"
-            value={form.contactEmail}
-            onChange={(e) => set('contactEmail', e.target.value)}
-            error={emailError}
+            value={formik.values.contactEmail}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={errorFor('contactEmail')}
             required
           />
           <FormField
             id="contactPhone"
             name="contactPhone"
             label="Contact No"
-            value={form.contactPhone}
-            onChange={(e) => set('contactPhone', e.target.value)}
-            error={phoneError}
+            value={formik.values.contactPhone}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={errorFor('contactPhone')}
             required
           />
         </div>
       </section>
 
       <div className="flex justify-end">
-        <Button variant="primary" disabled={!canSubmit} onClick={submit}>
+        <Button type="submit" variant="primary" disabled={!formik.isValid}>
           Submit Registration
         </Button>
       </div>
-    </div>
+    </form>
   );
 }
 
@@ -429,31 +486,25 @@ function QuestionField({
       {type === 'radio' && (
         <div className="flex flex-wrap gap-4">
           {options.map((opt) => (
-            <label key={opt} className="flex cursor-pointer items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name={id}
-                className="h-4 w-4 accent-[var(--brand)]"
-                checked={values[0] === opt}
-                onChange={() => onSingle(opt)}
-              />
-              {opt}
-            </label>
+            <Radio
+              key={opt}
+              name={id}
+              label={opt}
+              checked={values[0] === opt}
+              onChange={() => onSingle(opt)}
+            />
           ))}
         </div>
       )}
       {type === 'checkbox' && (
         <div className="flex flex-wrap gap-4">
           {options.map((opt) => (
-            <label key={opt} className="flex cursor-pointer items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-input accent-[var(--brand)]"
-                checked={values.includes(opt)}
-                onChange={(e) => onToggle(opt, e.target.checked)}
-              />
-              {opt}
-            </label>
+            <Checkbox
+              key={opt}
+              checked={values.includes(opt)}
+              onChange={(e) => onToggle(opt, e.target.checked)}
+              label={opt}
+            />
           ))}
         </div>
       )}

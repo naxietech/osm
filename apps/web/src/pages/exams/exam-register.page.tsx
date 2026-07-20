@@ -22,8 +22,9 @@ import {
 
 import { Badge, type BadgeProps } from '@/design-system/atoms/badge';
 import { Button } from '@/design-system/atoms/button';
-import { Check, ChevronLeft } from '@/design-system/atoms/icon';
+import { ChevronLeft } from '@/design-system/atoms/icon';
 import { Spinner } from '@/design-system/atoms/spinner';
+import { Alert } from '@/design-system/molecules/alert';
 import { type SelectOption } from '@/design-system/molecules/select-field';
 import {
   CandidatePicker,
@@ -186,17 +187,7 @@ export function ExamRegisterPage(): React.ReactElement {
         )}
       </div>
 
-      {successMessage && (
-        <div
-          role="status"
-          className="mb-6 flex items-center gap-3 rounded-xl border border-success/30 bg-success-subtle px-4 py-3 text-sm font-medium text-success-foreground"
-        >
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-success text-white">
-            <Check className="h-3.5 w-3.5" aria-hidden />
-          </span>
-          {successMessage}
-        </div>
-      )}
+      {successMessage && <Alert className="mb-6">{successMessage}</Alert>}
 
       {isLoading ? (
         <div className="flex items-center justify-center py-20">

@@ -1,31 +1,13 @@
 import React, { useRef } from 'react';
 
+import { BrandMark } from '@/design-system/atoms/brand-mark';
+import { Check, ShieldCheck } from '@/design-system/atoms/icon';
 import { Mascot } from '@/design-system/atoms/mascot';
 
 export interface AuthLayoutProps {
   children: React.ReactNode;
   title: string;
   subtitle?: string;
-}
-
-/** OSES shield/graduation mark used in the brand lockup. */
-function BrandMark({ className }: { className?: string }): React.ReactElement {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden
-    >
-      <path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z" />
-      <path d="M22 10v6" />
-      <path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5" />
-    </svg>
-  );
 }
 
 const TRUST_POINTS = [
@@ -87,18 +69,7 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps): Reac
               {TRUST_POINTS.map((point) => (
                 <li key={point} className="flex items-center gap-3 text-[14.5px] text-white/90">
                   <span className="flex h-6 w-6 flex-none items-center justify-center rounded-md bg-white/15 ring-1 ring-inset ring-white/20">
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={3}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="h-3.5 w-3.5"
-                      aria-hidden
-                    >
-                      <path d="M20 6 9 17l-5-5" />
-                    </svg>
+                    <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden />
                   </span>
                   {point}
                 </li>
@@ -108,19 +79,7 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps): Reac
 
           {/* secure footer */}
           <div className="flex items-center gap-2.5 text-[13px] text-white/75">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-4 w-4"
-              aria-hidden
-            >
-              <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
-              <path d="m9 12 2 2 4-4" />
-            </svg>
+            <ShieldCheck className="h-4 w-4" aria-hidden />
             Government-grade security
           </div>
         </div>

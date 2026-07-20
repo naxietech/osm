@@ -13,6 +13,7 @@ import React, { useState } from 'react';
 import { PageHeader } from '@/components/widgets';
 import { Button } from '@/design-system/atoms/button';
 import { Trash2 } from '@/design-system/atoms/icon';
+import { ActiveBadge } from '@/design-system/molecules/status-badge';
 import { type ColumnDef, DataTable } from '@/design-system/organisms/data-table';
 import {
   InstituteCategoryForm,
@@ -35,18 +36,6 @@ interface CategoryRow {
   questionCount: number;
   isActive: boolean;
   instituteCount: number;
-}
-
-function ActiveBadge({ active }: { active: boolean }): React.ReactElement {
-  return active ? (
-    <span className="rounded-full bg-success-subtle px-2.5 py-0.5 text-xs font-medium text-success-foreground">
-      Active
-    </span>
-  ) : (
-    <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-      Inactive
-    </span>
-  );
 }
 
 export function InstituteCategoriesPage(): React.ReactElement {

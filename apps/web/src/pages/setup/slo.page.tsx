@@ -9,7 +9,9 @@ import React, { useMemo, useRef, useState } from 'react';
 import { PageHeader } from '@/components/widgets';
 import { Button } from '@/design-system/atoms/button';
 import { Upload } from '@/design-system/atoms/icon';
+import { Alert } from '@/design-system/molecules/alert';
 import { SelectField, type SelectOption } from '@/design-system/molecules/select-field';
+import { ActiveBadge } from '@/design-system/molecules/status-badge';
 import { type ColumnDef, DataTable } from '@/design-system/organisms/data-table';
 import { SloForm, type SloFormValue } from '@/design-system/organisms/slo-form';
 import { levelSelectOptions, subjects } from '@/services/academic.service';
@@ -51,18 +53,6 @@ function parseSloCsv(text: string): SloImportRow[] {
     rows.push({ code, name, ...(description ? { description } : {}) });
   });
   return rows;
-}
-
-function ActiveBadge({ active }: { active: boolean }): React.ReactElement {
-  return active ? (
-    <span className="rounded-full bg-success-subtle px-2.5 py-0.5 text-xs font-medium text-success-foreground">
-      Active
-    </span>
-  ) : (
-    <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-      Inactive
-    </span>
-  );
 }
 
 export function SloPage(): React.ReactElement {
@@ -317,16 +307,13 @@ export function SloPage(): React.ReactElement {
       ) : (
         <>
           {importResult && (
-            <div
-              role="status"
-              className="mb-6 rounded-xl border border-success/30 bg-success-subtle px-4 py-3 text-sm font-medium text-success-foreground"
-            >
+            <Alert className="mb-6">
               Imported {importResult.created} SLO{importResult.created === 1 ? '' : 's'}
               {importResult.skipped > 0
                 ? ` · skipped ${importResult.skipped} (duplicate or incomplete)`
                 : ''}
               .
-            </div>
+            </Alert>
           )}
 
           {importPreview && (

@@ -11,6 +11,7 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 
 import { Button } from '@/design-system/atoms/button';
+import { Checkbox } from '@/design-system/atoms/checkbox';
 import { Lock, Mail } from '@/design-system/atoms/icon';
 import { FormField } from '@/design-system/molecules/form-field';
 import { AuthLayout } from '@/design-system/templates/auth-layout';
@@ -84,10 +85,7 @@ export function LoginPage(): React.ReactElement {
 
         {/* Remember me / forgot password — visual only for now (not yet wired). */}
         <div className="flex items-center justify-between text-sm">
-          <label className="flex cursor-pointer items-center gap-2 text-muted-foreground">
-            <input type="checkbox" className="h-4 w-4 rounded border-input accent-[var(--brand)]" />
-            Remember me
-          </label>
+          <Checkbox labelClassName="text-muted-foreground" label="Remember me" />
           <button
             type="button"
             className="font-medium text-brand hover:underline"

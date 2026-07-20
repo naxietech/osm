@@ -8,6 +8,7 @@
  */
 import React, { useMemo, useState } from 'react';
 
+import { Checkbox } from '@/design-system/atoms/checkbox';
 import { Input } from '@/design-system/atoms/input';
 import { type SelectOption } from '@/design-system/molecules/select-field';
 import { cn } from '@/lib/utils';
@@ -94,17 +95,19 @@ export function CandidatePicker({
           className="h-10 max-w-xs text-sm"
           aria-label="Search students by name"
         />
-        <label className="flex cursor-pointer items-center gap-2.5 text-sm font-medium text-foreground">
-          <input
-            type="checkbox"
-            checked={allFilteredSelected}
-            onChange={toggleAllFiltered}
-            disabled={filtered.length === 0}
-            className="h-4 w-4 rounded border-input accent-brand"
-          />
-          Select all
-          <span className="font-normal text-muted-foreground">({selectedCount} selected)</span>
-        </label>
+        <Checkbox
+          labelClassName="gap-2.5 font-medium"
+          checked={allFilteredSelected}
+          indeterminate={selectedCount > 0}
+          onChange={toggleAllFiltered}
+          disabled={filtered.length === 0}
+          label={
+            <>
+              Select all
+              <span className="font-normal text-muted-foreground">({selectedCount} selected)</span>
+            </>
+          }
+        />
       </div>
 
       {filtered.length === 0 ? (
@@ -121,21 +124,20 @@ export function CandidatePicker({
                 key={student.studentRefId}
                 className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
               >
-                <label className="flex cursor-pointer items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => toggleOne(student.studentRefId)}
-                    className="h-4 w-4 rounded border-input accent-brand"
-                  />
-                  <span>
-                    <span className="font-medium text-foreground">{student.fullName}</span>
-                    <span className="block text-xs text-muted-foreground">
-                      Class {student.classNumber} ·{' '}
-                      <span className="font-mono">{student.studentRefId}</span>
+                <Checkbox
+                  labelClassName="gap-3"
+                  checked={isSelected}
+                  onChange={() => toggleOne(student.studentRefId)}
+                  label={
+                    <span>
+                      <span className="font-medium text-foreground">{student.fullName}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        Class {student.classNumber} ·{' '}
+                        <span className="font-mono">{student.studentRefId}</span>
+                      </span>
                     </span>
-                  </span>
-                </label>
+                  }
+                />
 
                 {electives.length > 0 && (
                   <div className="flex flex-wrap gap-2 sm:justify-end">

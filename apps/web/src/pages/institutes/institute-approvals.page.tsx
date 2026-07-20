@@ -8,7 +8,7 @@ import React, { useState } from 'react';
 
 import { PageHeader } from '@/components/widgets';
 import { Button } from '@/design-system/atoms/button';
-import { Check } from '@/design-system/atoms/icon';
+import { Alert } from '@/design-system/molecules/alert';
 import { getInstituteCategory } from '@/services/institute-category.service';
 import {
   approveInstitute,
@@ -65,17 +65,7 @@ export function InstituteApprovalsPage(): React.ReactElement {
         subtitle="Review and approve institutes that registered via the public link"
       />
 
-      {banner && (
-        <div
-          role="status"
-          className="mb-6 flex items-center gap-3 rounded-xl border border-success/30 bg-success-subtle px-4 py-3 text-sm font-medium text-success-foreground"
-        >
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-success text-white">
-            <Check className="h-3.5 w-3.5" aria-hidden />
-          </span>
-          {banner}
-        </div>
-      )}
+      {banner && <Alert className="mb-6">{banner}</Alert>}
 
       {pending.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border bg-card p-10 text-center text-sm text-muted-foreground shadow-sm">

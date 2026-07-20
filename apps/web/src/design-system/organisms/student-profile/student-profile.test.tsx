@@ -79,3 +79,21 @@ describe('StudentProfile', () => {
     expect(onEdit).toHaveBeenCalledTimes(1);
   });
 });
+
+// PII is withheld unless the viewer holds `students.viewPII`. The profile itself must
+// enforce this — route guards key off the legacy role enum, not the grant.
+describe('StudentProfile PII gating', () => {
+  it('withholds CNICs and date of birth by default', () => {
+    render(<StudentProfile student={STUDENT} />);
+    expect(screen.queryByText('35202-1234567-1')).not.toBeInTheDocument();
+    expect(screen.queryByText('35202-7654321-9')).not.toBeInTheDocument();
+    expect(screen.getAllByText('••••••').length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('shows them when canViewPII is granted', () => {
+    render(<StudentProfile student={STUDENT} canViewPII />);
+    expect(screen.getByText('35202-1234567-1')).toBeInTheDocument();
+    expect(screen.getByText('35202-7654321-9')).toBeInTheDocument();
+    expect(screen.queryByText('••••••')).not.toBeInTheDocument();
+  });
+});

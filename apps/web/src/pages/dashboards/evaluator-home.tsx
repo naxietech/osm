@@ -9,7 +9,7 @@ import {
   BreakdownBarChart,
   type DonutSegment,
   DonutStat,
-} from '@/design-system/organisms/charts';
+} from '@/design-system/molecules/charts';
 
 /**
  * Evaluator dashboard — PII-safe by design. Markers never see student identity:

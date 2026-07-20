@@ -3,12 +3,18 @@
  * including the dynamic registration-question builder and a live preview of how those
  * questions appear on the public registration form.
  *
- * Self-contained and presentational: it owns the working draft (scalar fields +
- * questions), validates it, and calls `onSave` with a cleaned value. The parent page
+ * Self-contained and presentational: Formik + Yup own the working draft (scalar fields
+ * + questions) and validation, and `onSave` receives a cleaned value. The parent page
  * owns the service calls (create vs update) — mirroring InstituteForm / ExamForm.
  * Remount it (via a React `key`) to reset the draft when switching edit targets.
+ *
+ * The question rows use Formik's FieldArray, but each row still carries its own `key`:
+ * Formik does not solve React keying, and an index key loses focus/state on reorder.
  */
-import React, { useRef, useState } from 'react';
+import React, { useRef } from 'react';
+
+import { FieldArray, FormikProvider, useFormik } from 'formik';
+import * as Yup from 'yup';
 
 import {
   type CategoryQuestionInput,
@@ -17,6 +23,7 @@ import {
 } from '@oses/types';
 
 import { Button } from '@/design-system/atoms/button';
+import { Checkbox } from '@/design-system/atoms/checkbox';
 import { ChevronDown, ChevronUp, Plus, Upload, X } from '@/design-system/atoms/icon';
 import { Input } from '@/design-system/atoms/input';
 import { FormField } from '@/design-system/molecules/form-field';
@@ -68,6 +75,47 @@ function questionError(q: QuestionDraft): string | null {
   return null;
 }
 
+interface CategoryFormValues {
+  code: string;
+  name: string;
+  description: string;
+  questions: QuestionDraft[];
+}
+
+/**
+ * Gates the save button. Each question row is judged by `questionError`, which stays the
+ * single definition of what makes a row valid (the row's own message is derived from it
+ * too — see `questionErrorAt`).
+ */
+const validationSchema = Yup.object({
+  code: Yup.string().trim().required('Code is required'),
+  name: Yup.string().trim().required('Name is required'),
+  description: Yup.string(),
+  questions: Yup.array().of(
+    Yup.object({
+      key: Yup.string().defined(),
+      text: Yup.string().defined(),
+      type: Yup.string().defined(),
+      required: Yup.boolean().defined(),
+      options: Yup.array().of(Yup.string().defined()).defined(),
+    }).test('question-valid', 'Invalid question', (value, ctx) => {
+      // Yup runs object tests against the partially-cast row, so normalise before
+      // handing it to the domain rule — an absent field just means "not filled in".
+      if (!value) return true;
+      const message = questionError({
+        key: '',
+        text: typeof value.text === 'string' ? value.text : '',
+        type: value.type as CategoryQuestionType,
+        required: Boolean(value.required),
+        options: Array.isArray(value.options)
+          ? value.options.filter((o): o is string => typeof o === 'string')
+          : [],
+      });
+      return message === null ? true : ctx.createError({ message });
+    }),
+  ),
+});
+
 export function InstituteCategoryForm({
   initialValue,
   mode,
@@ -80,282 +128,304 @@ export function InstituteCategoryForm({
     return `q${keySeq.current}`;
   };
 
-  const [code, setCode] = useState(initialValue?.code ?? '');
-  const [name, setName] = useState(initialValue?.name ?? '');
-  const [description, setDescription] = useState(initialValue?.description ?? '');
-  const [questions, setQuestions] = useState<QuestionDraft[]>(() =>
-    (initialValue?.questions ?? []).map((q) => ({
-      key: nextKey(),
-      text: q.text,
-      type: q.type,
-      required: q.required ?? false,
-      options: q.options ?? [],
-    })),
-  );
+  const formik = useFormik<CategoryFormValues>({
+    initialValues: {
+      code: initialValue?.code ?? '',
+      name: initialValue?.name ?? '',
+      description: initialValue?.description ?? '',
+      questions: (initialValue?.questions ?? []).map((q) => ({
+        key: nextKey(),
+        text: q.text,
+        type: q.type,
+        required: q.required ?? false,
+        options: q.options ?? [],
+      })),
+    },
+    validationSchema,
+    // The save button reflects validity from the first render, before any field is touched.
+    validateOnMount: true,
+    onSubmit: (values) => {
+      const cleaned: CategoryQuestionInput[] = values.questions
+        .filter((q) => q.text.trim().length > 0)
+        .map((q) => ({
+          text: q.text.trim(),
+          type: q.type,
+          required: q.required,
+          ...(questionTypeHasOptions(q.type)
+            ? { options: q.options.map((o) => o.trim()).filter((o) => o.length > 0) }
+            : {}),
+        }));
+      onSave({
+        code: values.code.trim(),
+        name: values.name.trim(),
+        description: values.description.trim(),
+        questions: cleaned,
+      });
+    },
+  });
 
-  const mutateQuestion = (i: number, patch: Partial<QuestionDraft>): void =>
-    setQuestions((prev) => prev.map((q, idx) => (idx === i ? { ...q, ...patch } : q)));
+  const questions = formik.values.questions;
 
-  const addQuestion = (): void =>
-    setQuestions((prev) => [
-      ...prev,
-      { key: nextKey(), text: '', type: 'text', required: false, options: [] },
-    ]);
-
-  const removeQuestion = (i: number): void =>
-    setQuestions((prev) => prev.filter((_, idx) => idx !== i));
+  const mutateQuestion = (i: number, patch: Partial<QuestionDraft>): void => {
+    const current = questions[i];
+    if (!current) return;
+    void formik.setFieldValue(`questions[${i}]`, { ...current, ...patch }, true);
+  };
 
   const setQuestionType = (i: number, type: CategoryQuestionType): void => {
     const current = questions[i];
-    const needsOptions = questionTypeHasOptions(type);
+    if (!current) return;
     // Seed two blank options when switching to a choice type; clear otherwise.
-    const options = needsOptions
-      ? current && current.options.length > 0
+    const options = questionTypeHasOptions(type)
+      ? current.options.length > 0
         ? current.options
         : ['', '']
       : [];
     mutateQuestion(i, { type, options });
   };
 
-  /** Swap a question with its neighbour (dir -1 = up, +1 = down). */
-  const moveQuestion = (i: number, dir: -1 | 1): void =>
-    setQuestions((prev) => {
-      const j = i + dir;
-      if (j < 0 || j >= prev.length) return prev;
-      const next = [...prev];
-      const a = next[i];
-      const b = next[j];
-      if (!a || !b) return prev;
-      next[i] = b;
-      next[j] = a;
-      return next;
-    });
+  const setOptions = (qi: number, options: string[]): void => mutateQuestion(qi, { options });
 
-  const addOption = (qi: number): void =>
-    mutateQuestion(qi, { options: [...(questions[qi]?.options ?? []), ''] });
-  const setOption = (qi: number, oi: number, value: string): void => {
-    const options = (questions[qi]?.options ?? []).map((o, idx) => (idx === oi ? value : o));
-    mutateQuestion(qi, { options });
-  };
-  const removeOption = (qi: number, oi: number): void => {
-    const options = (questions[qi]?.options ?? []).filter((_, idx) => idx !== oi);
-    mutateQuestion(qi, { options });
-  };
+  const addOption = (qi: number): void => setOptions(qi, [...(questions[qi]?.options ?? []), '']);
+  const setOption = (qi: number, oi: number, value: string): void =>
+    setOptions(
+      qi,
+      (questions[qi]?.options ?? []).map((o, idx) => (idx === oi ? value : o)),
+    );
+  const removeOption = (qi: number, oi: number): void =>
+    setOptions(
+      qi,
+      (questions[qi]?.options ?? []).filter((_, idx) => idx !== oi),
+    );
 
-  const errors = questions.map(questionError);
-  const hasQuestionErrors = errors.some((e) => e !== null);
-  const canSave = code.trim().length > 0 && name.trim().length > 0 && !hasQuestionErrors;
-
-  const handleSave = (): void => {
-    const cleaned: CategoryQuestionInput[] = questions
-      .filter((q) => q.text.trim().length > 0)
-      .map((q) => ({
-        text: q.text.trim(),
-        type: q.type,
-        required: q.required,
-        ...(questionTypeHasOptions(q.type)
-          ? { options: q.options.map((o) => o.trim()).filter((o) => o.length > 0) }
-          : {}),
-      }));
-    onSave({
-      code: code.trim(),
-      name: name.trim(),
-      description: description.trim(),
-      questions: cleaned,
-    });
+  /**
+   * The row-level message. Derived from `questionError` rather than read out of
+   * `formik.errors`: Yup nests an object-level test error under the row instead of
+   * exposing a plain string there. Both paths call the SAME rule, so the message shown
+   * and the validity that gates the save button can't disagree.
+   */
+  const questionErrorAt = (i: number): string | undefined => {
+    const q = questions[i];
+    return q ? (questionError(q) ?? undefined) : undefined;
   };
 
   return (
-    <div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <FormField
-          id="cat-code"
-          name="code"
-          label="Code"
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          required
-        />
-        <FormField
-          id="cat-name"
-          name="name"
-          label="Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-        />
-        <FormField
-          id="cat-description"
-          name="description"
-          label="Description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          required={false}
-          containerClassName="sm:col-span-2"
-        />
-      </div>
+    <FormikProvider value={formik}>
+      <form onSubmit={formik.handleSubmit} noValidate>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField
+            id="cat-code"
+            name="code"
+            label="Code"
+            value={formik.values.code}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={formik.touched.code ? formik.errors.code : undefined}
+            required
+          />
+          <FormField
+            id="cat-name"
+            name="name"
+            label="Name"
+            value={formik.values.name}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={formik.touched.name ? formik.errors.name : undefined}
+            required
+          />
+          <FormField
+            id="cat-description"
+            name="description"
+            label="Description"
+            value={formik.values.description}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            required={false}
+            containerClassName="sm:col-span-2"
+          />
+        </div>
 
-      {/* Builder + live preview side by side on large screens */}
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        {/* Dynamic questions builder */}
-        <div>
-          <div className="mb-2 flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-foreground">Registration Questions</h3>
-              <p className="text-xs text-muted-foreground">
-                Questions institutes answer when registering under this category.
-              </p>
-            </div>
-            <Button type="button" variant="secondary" size="sm" onClick={addQuestion}>
-              <Plus className="h-4 w-4" aria-hidden />
-              Add Question
-            </Button>
-          </div>
-
-          {questions.length === 0 ? (
-            <p className="rounded-md border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
-              No questions yet.
-            </p>
-          ) : (
-            <ul className="space-y-4">
-              {questions.map((q, i) => (
-                <li key={q.key} className="rounded-lg border border-border p-4">
-                  <div className="mb-3 flex items-center justify-between">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      Question {i + 1}
-                    </span>
-                    <div className="flex items-center gap-0.5">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        aria-label={`Move question ${i + 1} up`}
-                        disabled={i === 0}
-                        onClick={() => moveQuestion(i, -1)}
-                      >
-                        <ChevronUp className="h-4 w-4" aria-hidden />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        aria-label={`Move question ${i + 1} down`}
-                        disabled={i === questions.length - 1}
-                        onClick={() => moveQuestion(i, 1)}
-                      >
-                        <ChevronDown className="h-4 w-4" aria-hidden />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        aria-label={`Remove question ${i + 1}`}
-                        onClick={() => removeQuestion(i)}
-                      >
-                        <X className="h-4 w-4" aria-hidden />
-                      </Button>
-                    </div>
+        {/* Builder + live preview side by side on large screens */}
+        <div className="mt-6 grid gap-6 lg:grid-cols-2">
+          {/* Dynamic questions builder */}
+          <FieldArray name="questions">
+            {(helpers) => (
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">
+                      Registration Questions
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      Questions institutes answer when registering under this category.
+                    </p>
                   </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() =>
+                      helpers.push({
+                        key: nextKey(),
+                        text: '',
+                        type: 'text',
+                        required: false,
+                        options: [],
+                      })
+                    }
+                  >
+                    <Plus className="h-4 w-4" aria-hidden />
+                    Add Question
+                  </Button>
+                </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Input
-                      aria-label={`Question ${i + 1} text`}
-                      value={q.text}
-                      onChange={(e) => mutateQuestion(i, { text: e.target.value })}
-                      placeholder="e.g. Are you an ed-tech institute?"
-                    />
-                    <SelectField
-                      label="Answer type"
-                      options={TYPE_OPTIONS}
-                      value={q.type}
-                      onChange={(v) => setQuestionType(i, v as CategoryQuestionType)}
-                    />
-                  </div>
-
-                  <label className="mt-3 flex w-fit cursor-pointer items-center gap-2 text-xs text-muted-foreground">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-input accent-[var(--brand)]"
-                      checked={q.required}
-                      onChange={(e) => mutateQuestion(i, { required: e.target.checked })}
-                    />
-                    Required — institute must answer this
-                  </label>
-
-                  {/* Answer options for choice types */}
-                  {questionTypeHasOptions(q.type) && (
-                    <div className="mt-3 pl-4">
-                      <p className="mb-2 text-xs font-medium text-muted-foreground">
-                        Answer options
-                      </p>
-                      <ul className="space-y-2">
-                        {q.options.map((opt, oi) => (
-                          // eslint-disable-next-line react/no-array-index-key -- option rows have no stable id
-                          <li key={oi} className="flex items-center gap-2">
-                            <span className="w-5 shrink-0 text-xs text-muted-foreground">
-                              {oi + 1}.
-                            </span>
-                            <Input
-                              aria-label={`Question ${i + 1} option ${oi + 1}`}
-                              value={opt}
-                              onChange={(e) => setOption(i, oi, e.target.value)}
-                              placeholder="e.g. Yes"
-                            />
+                {questions.length === 0 ? (
+                  <p className="rounded-md border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
+                    No questions yet.
+                  </p>
+                ) : (
+                  <ul className="space-y-4">
+                    {questions.map((q, i) => (
+                      <li key={q.key} className="rounded-lg border border-border p-4">
+                        <div className="mb-3 flex items-center justify-between">
+                          <span className="text-xs font-medium text-muted-foreground">
+                            Question {i + 1}
+                          </span>
+                          <div className="flex items-center gap-0.5">
                             <Button
                               type="button"
                               variant="ghost"
                               size="sm"
-                              aria-label={`Remove option ${oi + 1}`}
-                              onClick={() => removeOption(i, oi)}
+                              aria-label={`Move question ${i + 1} up`}
+                              disabled={i === 0}
+                              onClick={() => helpers.swap(i, i - 1)}
+                            >
+                              <ChevronUp className="h-4 w-4" aria-hidden />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              aria-label={`Move question ${i + 1} down`}
+                              disabled={i === questions.length - 1}
+                              onClick={() => helpers.swap(i, i + 1)}
+                            >
+                              <ChevronDown className="h-4 w-4" aria-hidden />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              aria-label={`Remove question ${i + 1}`}
+                              onClick={() => helpers.remove(i)}
                             >
                               <X className="h-4 w-4" aria-hidden />
                             </Button>
-                          </li>
-                        ))}
-                      </ul>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="mt-2"
-                        onClick={() => addOption(i)}
-                      >
-                        <Plus className="h-4 w-4" aria-hidden />
-                        Add Option
-                      </Button>
-                    </div>
-                  )}
+                          </div>
+                        </div>
 
-                  {errors[i] && (
-                    <p className="mt-2 text-xs font-medium text-danger-foreground">{errors[i]}</p>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <Input
+                            aria-label={`Question ${i + 1} text`}
+                            value={q.text}
+                            onChange={(e) => mutateQuestion(i, { text: e.target.value })}
+                            placeholder="e.g. Are you an ed-tech institute?"
+                          />
+                          <SelectField
+                            label="Answer type"
+                            options={TYPE_OPTIONS}
+                            value={q.type}
+                            onChange={(v) => setQuestionType(i, v as CategoryQuestionType)}
+                          />
+                        </div>
 
-        {/* Live preview — what the institute sees on the public form */}
-        <div>
-          <h3 className="mb-2 text-sm font-semibold text-foreground">Preview</h3>
-          <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4">
-            <p className="mb-4 text-xs text-muted-foreground">
-              {name.trim() || 'Category'} — how the questions appear to an institute.
-            </p>
-            <QuestionsPreview questions={questions} />
+                        <Checkbox
+                          labelClassName="mt-3 text-xs text-muted-foreground"
+                          checked={q.required}
+                          onChange={(e) => mutateQuestion(i, { required: e.target.checked })}
+                          label="Required — institute must answer this"
+                        />
+
+                        {/* Answer options for choice types */}
+                        {questionTypeHasOptions(q.type) && (
+                          <div className="mt-3 pl-4">
+                            <p className="mb-2 text-xs font-medium text-muted-foreground">
+                              Answer options
+                            </p>
+                            <ul className="space-y-2">
+                              {q.options.map((opt, oi) => (
+                                // eslint-disable-next-line react/no-array-index-key -- option rows have no stable id
+                                <li key={oi} className="flex items-center gap-2">
+                                  <span className="w-5 shrink-0 text-xs text-muted-foreground">
+                                    {oi + 1}.
+                                  </span>
+                                  <Input
+                                    aria-label={`Question ${i + 1} option ${oi + 1}`}
+                                    value={opt}
+                                    onChange={(e) => setOption(i, oi, e.target.value)}
+                                    placeholder="e.g. Yes"
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    aria-label={`Remove option ${oi + 1}`}
+                                    onClick={() => removeOption(i, oi)}
+                                  >
+                                    <X className="h-4 w-4" aria-hidden />
+                                  </Button>
+                                </li>
+                              ))}
+                            </ul>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="mt-2"
+                              onClick={() => addOption(i)}
+                            >
+                              <Plus className="h-4 w-4" aria-hidden />
+                              Add Option
+                            </Button>
+                          </div>
+                        )}
+
+                        {questionErrorAt(i) && (
+                          <p className="mt-2 text-xs font-medium text-danger-foreground">
+                            {questionErrorAt(i)}
+                          </p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </FieldArray>
+
+          {/* Live preview — what the institute sees on the public form */}
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-foreground">Preview</h3>
+            <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4">
+              <p className="mb-4 text-xs text-muted-foreground">
+                {formik.values.name.trim() || 'Category'} — how the questions appear to an
+                institute.
+              </p>
+              <QuestionsPreview questions={questions} />
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="mt-6 flex justify-end gap-2">
-        <Button type="button" variant="ghost" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button type="button" variant="primary" disabled={!canSave} onClick={handleSave}>
-          {mode === 'edit' ? 'Save Changes' : 'Add Category'}
-        </Button>
-      </div>
-    </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="primary" disabled={!formik.isValid}>
+            {mode === 'edit' ? 'Save Changes' : 'Add Category'}
+          </Button>
+        </div>
+      </form>
+    </FormikProvider>
   );
 }
 

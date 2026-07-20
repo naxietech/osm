@@ -9,7 +9,7 @@ import {
   BreakdownBarChart,
   type DonutSegment,
   DonutStat,
-} from '@/design-system/organisms/charts';
+} from '@/design-system/molecules/charts';
 
 // TODO: replace mock data with React Query (this institute's students + results).
 const STUDENTS_BY_GRADE: BarDatum[] = [

@@ -3,11 +3,16 @@
  * class + subject specific, so both are chosen here (and locked while editing). The Code
  * must be unique within that class + subject; a Suggest button proposes the next code.
  *
- * Presentational and self-contained: owns the draft, validates it (required fields +
- * unique code), and calls `onSave` with the value. The parent page owns the service
- * calls and injects the `isCodeTaken` / `suggestCode` helpers.
+ * Presentational and self-contained: Formik + Yup own the draft and validation (see
+ * institute-form for the reference pattern), and `onSave` receives the trimmed value.
+ * The parent page owns the service calls and injects the `isCodeTaken` / `suggestCode`
+ * helpers — uniqueness is a Yup `.test()` so it reports through the same error channel
+ * as every other rule.
  */
-import React, { useState } from 'react';
+import React, { useMemo } from 'react';
+
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
 
 import { Button } from '@/design-system/atoms/button';
 import { FormField } from '@/design-system/molecules/form-field';
@@ -47,55 +52,81 @@ export function SloForm({
   onSave,
   onCancel,
 }: SloFormProps): React.ReactElement {
-  const [value, setValue] = useState<SloFormValue>(initialValue ?? EMPTY);
   const locked = mode === 'edit';
 
-  const set = (key: keyof SloFormValue, v: string): void =>
-    setValue((prev) => ({ ...prev, [key]: v }));
+  const validationSchema = useMemo(
+    () =>
+      Yup.object({
+        classId: Yup.string().required('Class is required'),
+        subjectId: Yup.string().required('Subject is required'),
+        code: Yup.string()
+          .trim()
+          .required('Code is required')
+          .test(
+            'unique-code',
+            'This code already exists for this class + subject.',
+            (value, ctx) => {
+              const { classId, subjectId } = ctx.parent as Pick<
+                SloFormValue,
+                'classId' | 'subjectId'
+              >;
+              if (!value || classId === '' || subjectId === '') return true;
+              return !isCodeTaken(classId, subjectId, value.trim());
+            },
+          ),
+        name: Yup.string().trim().required('Name is required'),
+        description: Yup.string(),
+      }),
+    [isCodeTaken],
+  );
 
-  const code = value.code.trim();
-  const codeError =
-    code.length > 0 && isCodeTaken(value.classId, value.subjectId, code)
-      ? 'This code already exists for this class + subject.'
-      : '';
+  const formik = useFormik<SloFormValue>({
+    initialValues: initialValue ?? EMPTY,
+    validationSchema,
+    // The save button reflects validity from the first render, before any field is touched.
+    validateOnMount: true,
+    onSubmit: (values) =>
+      onSave({
+        classId: values.classId,
+        subjectId: values.subjectId,
+        code: values.code.trim(),
+        name: values.name.trim(),
+        description: values.description.trim(),
+      }),
+  });
 
-  const canSave =
-    value.classId !== '' &&
-    value.subjectId !== '' &&
-    code.length > 0 &&
-    value.name.trim().length > 0 &&
-    !codeError;
+  /**
+   * Show a field's error once the user has either left it or typed into it — a duplicate
+   * code must surface as it is typed, not only after blur.
+   */
+  const errorFor = (key: keyof SloFormValue): string | undefined =>
+    formik.touched[key] || formik.values[key].length > 0 ? formik.errors[key] : undefined;
 
   const suggest = (): void => {
-    if (value.classId === '' || value.subjectId === '') return;
-    set('code', suggestCode(value.classId, value.subjectId));
+    if (formik.values.classId === '' || formik.values.subjectId === '') return;
+    void formik.setFieldValue(
+      'code',
+      suggestCode(formik.values.classId, formik.values.subjectId),
+      true,
+    );
   };
 
-  const save = (): void =>
-    onSave({
-      classId: value.classId,
-      subjectId: value.subjectId,
-      code,
-      name: value.name.trim(),
-      description: value.description.trim(),
-    });
-
   return (
-    <div>
+    <form onSubmit={formik.handleSubmit} noValidate>
       <div className="grid gap-4 sm:grid-cols-2">
         <SelectField
           label="Class"
           options={classOptions}
-          value={value.classId}
-          onChange={(v) => set('classId', v)}
+          value={formik.values.classId}
+          onChange={(v) => void formik.setFieldValue('classId', v, true)}
           disabled={locked}
           required
         />
         <SelectField
           label="Subject"
           options={subjectOptions}
-          value={value.subjectId}
-          onChange={(v) => set('subjectId', v)}
+          value={formik.values.subjectId}
+          onChange={(v) => void formik.setFieldValue('subjectId', v, true)}
           disabled={locked}
           required
         />
@@ -105,9 +136,10 @@ export function SloForm({
             id="slo-code"
             name="code"
             label="Code"
-            value={value.code}
-            onChange={(e) => set('code', e.target.value)}
-            error={codeError}
+            value={formik.values.code}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={errorFor('code')}
             required
           />
           <Button
@@ -115,7 +147,7 @@ export function SloForm({
             variant="ghost"
             size="sm"
             className="-mt-1"
-            disabled={value.classId === '' || value.subjectId === ''}
+            disabled={formik.values.classId === '' || formik.values.subjectId === ''}
             onClick={suggest}
           >
             Suggest code
@@ -126,16 +158,19 @@ export function SloForm({
           id="slo-name"
           name="name"
           label="Name / short title"
-          value={value.name}
-          onChange={(e) => set('name', e.target.value)}
+          value={formik.values.name}
+          onChange={formik.handleChange}
+          onBlur={formik.handleBlur}
+          error={formik.touched.name ? formik.errors.name : undefined}
           required
         />
         <FormField
           id="slo-description"
           name="description"
           label="Description (outcome statement)"
-          value={value.description}
-          onChange={(e) => set('description', e.target.value)}
+          value={formik.values.description}
+          onChange={formik.handleChange}
+          onBlur={formik.handleBlur}
           required={false}
           containerClassName="sm:col-span-2"
         />
@@ -145,11 +180,11 @@ export function SloForm({
         <Button type="button" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="button" variant="primary" disabled={!canSave} onClick={save}>
+        <Button type="submit" variant="primary" disabled={!formik.isValid}>
           {mode === 'edit' ? 'Save Changes' : 'Add SLO'}
         </Button>
       </div>
-    </div>
+    </form>
   );
 }
 

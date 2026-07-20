@@ -18,6 +18,7 @@ import { PageHeader } from '@/components/widgets';
 import { Button } from '@/design-system/atoms/button';
 import { Input } from '@/design-system/atoms/input';
 import { FormField } from '@/design-system/molecules/form-field';
+import { ActiveBadge } from '@/design-system/molecules/status-badge';
 import { type ColumnDef, DataTable } from '@/design-system/organisms/data-table';
 
 export interface RefField {
@@ -55,18 +56,6 @@ export interface ReferenceCrudProps {
   searchable?: boolean;
   /** Adds a usage column and guards deactivation of a row that's in use. */
   usage?: RefUsage;
-}
-
-function ActiveBadge({ active }: { active: boolean }): React.ReactElement {
-  return active ? (
-    <span className="rounded-full bg-success-subtle px-2.5 py-0.5 text-xs font-medium text-success-foreground">
-      Active
-    </span>
-  ) : (
-    <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-      Inactive
-    </span>
-  );
 }
 
 function emptyValues(fields: RefField[]): Record<string, string> {

@@ -15,6 +15,7 @@ import { type PermissionAction, type PermissionGrant, type PermissionScope } fro
 
 import { PageHeader } from '@/components/widgets';
 import { Button } from '@/design-system/atoms/button';
+import { Checkbox } from '@/design-system/atoms/checkbox';
 import { FormField } from '@/design-system/molecules/form-field';
 import { SelectField } from '@/design-system/molecules/select-field';
 import { PERMISSION_CATALOG, createRole, getRole, updateRole } from '@/services/roles.service';
@@ -162,21 +163,20 @@ export function RoleDetailPage(): React.ReactElement {
                           key={meta.action}
                           className="flex flex-wrap items-center justify-between gap-3"
                         >
-                          <label className="flex cursor-pointer items-center gap-3 text-sm text-foreground">
-                            <input
-                              type="checkbox"
-                              className="h-4 w-4 rounded border-input accent-[var(--brand)]"
-                              checked={state.granted}
-                              disabled={readOnly}
-                              onChange={() => toggle(meta.action)}
-                            />
-                            <span>
-                              {meta.label}
-                              <span className="ml-2 font-mono text-xs text-muted-foreground">
-                                {meta.action}
+                          <Checkbox
+                            labelClassName="gap-3"
+                            checked={state.granted}
+                            disabled={readOnly}
+                            onChange={() => toggle(meta.action)}
+                            label={
+                              <span>
+                                {meta.label}
+                                <span className="ml-2 font-mono text-xs text-muted-foreground">
+                                  {meta.action}
+                                </span>
                               </span>
-                            </span>
-                          </label>
+                            }
+                          />
 
                           {meta.scopeable && state.granted && (
                             <div className="w-56">

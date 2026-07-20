@@ -42,6 +42,7 @@ export {
   Pencil,
   Phone,
   Plus,
+  ShieldCheck,
   Sun,
   Trash2,
   TrendingDown,

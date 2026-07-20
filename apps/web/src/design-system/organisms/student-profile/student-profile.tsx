@@ -22,7 +22,7 @@ import {
   Phone,
   User,
 } from '@/design-system/atoms/icon';
-import { TrendAreaChart, type TrendPoint } from '@/design-system/organisms/charts';
+import { TrendAreaChart, type TrendPoint } from '@/design-system/molecules/charts';
 
 /** A past exam result row. (Presentational contract — moves to @oses/types with the results module.) */
 export interface StudentResult {
@@ -43,9 +43,18 @@ export interface StudentProfileProps {
   schoolName?: string;
   /** Past exam results, most recent first. */
   results?: StudentResult[];
+  /**
+   * Whether the viewer holds `students.viewPII`. When false the identity documents and
+   * date of birth are withheld rather than merely hidden by route guards — the profile
+   * itself must not be the thing that leaks them. Defaults to false (deny by default).
+   */
+  canViewPII?: boolean;
   /** When provided, renders an Edit button in the summary card. */
   onEdit?: () => void;
 }
+
+/** Placeholder shown in place of a withheld PII value. */
+const REDACTED = '••••••';
 
 const capitalize = (value?: string): string =>
   value ? value.charAt(0).toUpperCase() + value.slice(1) : '';
@@ -144,6 +153,7 @@ export function StudentProfile({
   student,
   schoolName,
   results = [],
+  canViewPII = false,
   onEdit,
 }: StudentProfileProps): React.ReactElement {
   const detailGrid = 'grid grid-cols-2 gap-x-6 gap-y-5 xl:grid-cols-4';
@@ -295,9 +305,18 @@ export function StudentProfile({
           <CardHeading icon={User}>Details</CardHeading>
           <dl className={detailGrid}>
             <Field label="Gender" value={capitalize(student.gender)} />
-            <Field label="Date of Birth" value={formatDate(student.dateOfBirth)} />
-            <Field label="Student CNIC / B-Form" value={student.cnicOrBform} />
-            <Field label="Father / Guardian CNIC" value={student.fatherOrGuardianCnic} />
+            <Field
+              label="Date of Birth"
+              value={canViewPII ? formatDate(student.dateOfBirth) : REDACTED}
+            />
+            <Field
+              label="Student CNIC / B-Form"
+              value={canViewPII ? student.cnicOrBform : REDACTED}
+            />
+            <Field
+              label="Father / Guardian CNIC"
+              value={canViewPII ? student.fatherOrGuardianCnic : REDACTED}
+            />
           </dl>
         </div>
 
