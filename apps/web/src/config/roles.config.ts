@@ -152,7 +152,7 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
         label: 'Menu',
         items: [
           { label: 'Home', to: ROUTES.evaluator.home, icon: LayoutDashboard },
-          { label: 'Assign Work', to: ROUTES.evaluator.assignWork, icon: ClipboardCheck },
+          { label: 'My Work', to: ROUTES.evaluator.myWork, icon: ClipboardCheck },
           { label: 'History', to: ROUTES.evaluator.history, icon: History },
           { label: 'Profile', to: ROUTES.evaluator.profile, icon: User },
         ],

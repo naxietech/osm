@@ -6,6 +6,7 @@ export * from './client.types';
 export * from './exam.types';
 export * from './exam-registration.types';
 export * from './institute.types';
+export * from './marking.types';
 export * from './permission.types';
 export * from './roles.types';
 export * from './slo.types';

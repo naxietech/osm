@@ -233,6 +233,20 @@ export function groupName(id: string): string {
   return groups.find((g) => g.id === id)?.name ?? '—';
 }
 
+/**
+ * Resolve a list of subject ids to names. An unknown id falls back to the id itself
+ * rather than being dropped, so a stale reference stays visible instead of silently
+ * shortening the list.
+ */
+export function subjectNames(ids: string[]): string[] {
+  return ids.map((id) => subjects.find((s) => s.id === id)?.name ?? id);
+}
+
+/** Resolve a list of class/level ids to names. Same fallback rule as subjectNames. */
+export function levelNames(ids: string[]): string[] {
+  return ids.map((id) => findLevel(id)?.name ?? id);
+}
+
 // ---- class hierarchy (Class → Group → Subgroup) reads ----
 /** A class's inline groups (the TRD hierarchy; source of truth for a class's groups). */
 export function classGroupsFor(classId: string): ClassGroup[] {

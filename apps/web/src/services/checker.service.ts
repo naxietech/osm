@@ -48,8 +48,8 @@ export const checkers: Checker[] = [
     currentEmployer: 'Government High School Gulberg',
     yearsTeachingExperience: 12,
     yearsMarkingExperience: 6,
-    subjectIds: ['sub_chem'],
-    levelIds: ['lvl_9', 'lvl_10'],
+    subjectIds: ['sub_chem', 'sub_phy', 'sub_bio'],
+    levelIds: ['lvl_9', 'lvl_10', 'lvl_12'],
     dailyCapacity: 40,
     documents: [
       { kind: 'qualification', fileName: 'msc-chemistry.pdf' },
@@ -60,7 +60,9 @@ export const checkers: Checker[] = [
     status: 'approved',
     addedBy: 'institute',
     addedByInstituteId: 'sch_001',
-    userId: 'usr_checker_seed',
+    // The demo Evaluator login (auth.service MOCK_USERS) — this is the record that
+    // signing in as evaluator@oses.pk resolves to, via findCheckerByUserId.
+    userId: 'usr_evaluator',
     approvedAt: SEED_AT,
     createdAt: SEED_AT,
     updatedAt: SEED_AT,
@@ -159,6 +161,15 @@ export function listCheckers(instituteId?: string): CheckerListItem[] {
 
 export function getChecker(id: string): Checker | undefined {
   return checkers.find((c) => c.id === id);
+}
+
+/**
+ * The checker record behind a signed-in Evaluator. Approval is what mints the login and
+ * stores its `userId`, so this is the only link from an authenticated user back to their
+ * own registration — it is how the checker's dashboard knows whose workload to load.
+ */
+export function findCheckerByUserId(userId: string): Checker | undefined {
+  return checkers.find((c) => c.userId === userId);
 }
 
 /** Registrations awaiting the super admin's decision. */
