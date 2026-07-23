@@ -23,6 +23,7 @@ import { useAuth } from '@/hooks';
 
 import { checkerApprovalRoutes, checkerRoutes } from './modules/checkers.routes';
 import { eSheetRoutes } from './modules/e-sheet.routes';
+import { evaluatorRoutes } from './modules/evaluator.routes';
 import { examRoutes } from './modules/exams.routes';
 import { instituteExamRoutes } from './modules/institute-exams.routes';
 import { instituteRoutes } from './modules/institutes.routes';
@@ -137,18 +138,7 @@ export function RouterConfig(): React.ReactElement {
         <Route element={<RoleRoute allowedRoles={[UserRole.EVALUATOR]} />}>
           <Route path={evaluator.home} element={<RoleLayout />}>
             <Route index element={<EvaluatorHome />} />
-            <Route
-              path={rel(evaluator.home, evaluator.assignWork)}
-              element={<ModulePlaceholder title="Assign Work" />}
-            />
-            <Route
-              path={rel(evaluator.home, evaluator.history)}
-              element={<ModulePlaceholder title="History" />}
-            />
-            <Route
-              path={rel(evaluator.home, evaluator.profile)}
-              element={<ModulePlaceholder title="Profile" />}
-            />
+            {evaluatorRoutes(evaluator.home, evaluator)}
             <Route path="*" element={<NotFoundPanel />} />
           </Route>
         </Route>

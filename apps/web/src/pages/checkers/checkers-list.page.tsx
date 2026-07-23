@@ -16,7 +16,7 @@ import { Button } from '@/design-system/atoms/button';
 import { UserPlus } from '@/design-system/atoms/icon';
 import { type ColumnDef, DataTable } from '@/design-system/organisms/data-table';
 import { useAuth } from '@/hooks';
-import { subjects } from '@/services/academic.service';
+import { subjectNames } from '@/services/academic.service';
 import { CHECKER_STATUS_LABEL, listCheckers } from '@/services/checker.service';
 import { instituteName } from '@/services/users.service';
 
@@ -26,8 +26,8 @@ const STATUS_VARIANT: Record<CheckerListItem['status'], BadgeProps['variant']> =
   rejected: 'error',
 };
 
-function subjectNames(subjectIds: string[]): string {
-  const names = subjectIds.map((id) => subjects.find((s) => s.id === id)?.name ?? id);
+function subjectList(subjectIds: string[]): string {
+  const names = subjectNames(subjectIds);
   return names.length > 0 ? names.join(', ') : '—';
 }
 
@@ -71,9 +71,7 @@ export function CheckersListPage(): React.ReactElement {
     {
       key: 'subjects',
       header: 'Subjects',
-      render: (row) => (
-        <span className="text-muted-foreground">{subjectNames(row.subjectIds)}</span>
-      ),
+      render: (row) => <span className="text-muted-foreground">{subjectList(row.subjectIds)}</span>,
     },
     {
       key: 'experience',

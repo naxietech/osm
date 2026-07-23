@@ -4,6 +4,7 @@
  */
 export * from './checkers.routes';
 export * from './e-sheet.routes';
+export * from './evaluator.routes';
 export * from './exams.routes';
 export * from './institute-exams.routes';
 export * from './institutes.routes';

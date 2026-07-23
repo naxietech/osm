@@ -17,15 +17,11 @@ import { Input } from '@/design-system/atoms/input';
 import { Alert } from '@/design-system/molecules/alert';
 import { CheckerProfile } from '@/design-system/organisms/checker-profile';
 import { usePermissions } from '@/hooks';
-import { levels, subjects } from '@/services/academic.service';
+import { levelNames, subjectNames } from '@/services/academic.service';
 import { approveChecker, getChecker, rejectChecker } from '@/services/checker.service';
 import { instituteName } from '@/services/users.service';
 
 type PendingAction = 'approve' | 'reject';
-
-function labelsFor(ids: string[], lookup: Array<{ id: string; name: string }>): string[] {
-  return ids.map((id) => lookup.find((x) => x.id === id)?.name ?? id);
-}
 
 export function CheckerDetailPage(): React.ReactElement {
   const navigate = useNavigate();
@@ -158,8 +154,8 @@ export function CheckerDetailPage(): React.ReactElement {
       <CheckerProfile
         checker={checker}
         {...(checker.instituteId ? { instituteLabel: instituteName(checker.instituteId) } : {})}
-        subjectLabels={labelsFor(checker.subjectIds, subjects)}
-        levelLabels={labelsFor(checker.levelIds, levels)}
+        subjectLabels={subjectNames(checker.subjectIds)}
+        levelLabels={levelNames(checker.levelIds)}
         canViewPII={canViewPII}
       />
     </>

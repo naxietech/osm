@@ -8,6 +8,7 @@ export * from './institute-category-form';
 export * from './institute-form';
 export * from './institute-registration-form';
 export * from './login-background';
+export * from './marking-workspace';
 export * from './papers-editor';
 export * from './sidebar';
 export * from './slo-form';

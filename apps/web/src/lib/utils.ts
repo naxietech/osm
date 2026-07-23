@@ -6,8 +6,10 @@ export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
 }
 
-// Format ISO date string to human-readable (e.g. "15 Jan 2026")
-export function formatDate(dateString: string): string {
+// Format ISO date string to human-readable (e.g. "15 Jan 2026"). Empty input reads as an
+// em-dash, so callers can hand it a missing date without guarding first.
+export function formatDate(dateString?: string): string {
+  if (!dateString) return '—';
   return new Date(dateString).toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'short',

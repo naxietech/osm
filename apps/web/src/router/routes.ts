@@ -63,7 +63,12 @@ export const ROUTES = {
 
   evaluator: {
     home: '/evaluator',
-    assignWork: '/evaluator/assign-work',
+    // A checker does not assign work — the examiner does. This is their own queue,
+    // drilled down exam → subject → answer.
+    myWork: '/evaluator/my-work',
+    workExam: '/evaluator/my-work/:examId',
+    workSubject: '/evaluator/my-work/:examId/:subjectId',
+    markAnswer: '/evaluator/my-work/:examId/:subjectId/:scriptId',
     history: '/evaluator/history',
     profile: '/evaluator/profile',
   },

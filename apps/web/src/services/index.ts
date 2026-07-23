@@ -13,6 +13,7 @@ export * from './exam-registration.service';
 export * from './exam.service';
 export * from './institute-category.service';
 export * from './institute.service';
+export * from './marking.service';
 export * from './mock-store';
 export * from './roles.service';
 export * from './slo.service';
