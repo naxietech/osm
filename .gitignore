@@ -33,3 +33,7 @@ out/
 
 # Local session/handoff notes (confidential — never commit)
 SESSION-HANDOFF.md
+
+# Claude Code — personal, machine-local settings (the rest of .claude/ is shared)
+.claude/settings.local.json
+.claude/worktrees/
