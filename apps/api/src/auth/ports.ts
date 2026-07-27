@@ -22,10 +22,22 @@ export interface AuthUserRecord {
   createdAt: Date;
 }
 
+export interface CreateUserInput {
+  email: string;
+  passwordHash: string;
+  roleId: string;
+  fullName: string;
+  instituteId?: string | null;
+  createdBy?: string | null;
+}
+
 export const USER_REPOSITORY = 'USER_REPOSITORY';
 export interface UserRepository {
   findByEmail(email: string): Promise<AuthUserRecord | null>;
   findById(userId: string): Promise<AuthUserRecord | null>;
+  create(input: CreateUserInput): Promise<AuthUserRecord>;
+  updatePassword(userId: string, passwordHash: string): Promise<void>;
+  updateStatus(userId: string, status: UserStatus): Promise<void>;
   /** Increment the failed-login counter and return the new value. */
   incrementFailedLogin(userId: string): Promise<number>;
   applyLockout(userId: string, until: Date): Promise<void>;
@@ -61,6 +73,8 @@ export interface SessionRepository {
   /** Revoke every still-active session in a family — the token-theft response. */
   revokeFamily(familyId: string, reason: string): Promise<void>;
   revokeById(id: string, reason: string): Promise<void>;
+  /** Revoke all of a user's active sessions (password change, reset, suspend). */
+  revokeAllForUser(userId: string, reason: string): Promise<void>;
 }
 
 export type AuthEvent =
@@ -72,7 +86,11 @@ export type AuthEvent =
   | 'refresh.reuse'
   | 'refresh.invalid'
   | 'refresh.expired'
-  | 'logout';
+  | 'logout'
+  | 'password.change'
+  | 'password.reset'
+  | 'user.created'
+  | 'account.status';
 
 export interface AuditEntry {
   event: AuthEvent;

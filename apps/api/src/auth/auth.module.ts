@@ -1,16 +1,24 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 import { getAuthKeys } from '../config/auth-keys';
 import { AUTH_CONFIG, loadAuthConfig } from '../config/auth.config';
 import { AUTH_REPOSITORY_PROVIDERS } from '../persistence/kysely/repositories';
 import { AuthController } from './auth.controller';
 import { PermissionsGuard, RolesGuard } from './guards';
-import { AuthService, PermissionResolver, SessionService, TokenService } from './services';
+import {
+  AuthService,
+  PermissionResolver,
+  SessionService,
+  TokenService,
+  UsersService,
+} from './services';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { UsersController } from './users.controller';
 
 @Module({
   imports: [
@@ -32,15 +40,18 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       },
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, UsersController],
   providers: [
     AuthService,
     SessionService,
     TokenService,
+    UsersService,
     PermissionResolver,
     JwtStrategy,
     RolesGuard,
     PermissionsGuard,
+    // Baseline per-IP rate limit on every route (per-route @Throttle tightens it).
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: AUTH_CONFIG, inject: [ConfigService], useFactory: loadAuthConfig },
     ...AUTH_REPOSITORY_PROVIDERS,
   ],

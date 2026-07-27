@@ -12,7 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBody, ApiCookieAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 
 import type { PermissionGrant, SafeUser } from '@oses/types';
@@ -21,7 +21,7 @@ import { AUTH_CONFIG, type AuthConfig } from '../config/auth.config';
 import { CurrentUser } from '../shared/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import { clearAuthCookies, setAuthCookies } from './cookies';
-import { type LoginDto, LoginDtoSchema } from './dto/login.dto';
+import { type ChangePasswordDto, ChangePasswordSchema, type LoginDto, LoginDtoSchema } from './dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import type { AuthPrincipal } from './principal';
 import { AuthService, type LoginContext, PermissionResolver, SessionService } from './services';
@@ -38,8 +38,7 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(ThrottlerGuard)
-  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @Throttle({ default: { limit: 40, ttl: 60_000 } })
   @ApiOperation({ summary: 'Authenticate with email + password; sets HttpOnly auth cookies' })
   @ApiBody({
     schema: {
@@ -70,7 +69,6 @@ export class AuthController {
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(ThrottlerGuard)
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @ApiOperation({ summary: 'Rotate the refresh token and reissue auth cookies' })
   @ApiResponse({ status: 200, description: 'Rotated — new cookies set' })
@@ -117,6 +115,25 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   getPermissions(@CurrentUser() principal: AuthPrincipal): Promise<PermissionGrant[]> {
     return this.permissions.grantsFor(principal.roleId);
+  }
+
+  @Post('password/change')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({ summary: 'Change your own password; revokes all sessions' })
+  @ApiResponse({ status: 200, description: 'Changed — you must log in again' })
+  @ApiResponse({ status: 400, description: 'Current password incorrect / weak new password' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async changePassword(
+    @CurrentUser() principal: AuthPrincipal,
+    @Body(new ZodValidationPipe(ChangePasswordSchema)) dto: ChangePasswordDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ message: string }> {
+    await this.authService.changePassword(principal.sub, dto, contextFrom(req));
+    clearAuthCookies(res, this.authConfig);
+    return { message: 'Password changed. Please log in again.' };
   }
 
   private readRefreshCookie(req: Request): string | undefined {

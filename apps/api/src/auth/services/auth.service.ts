@@ -1,12 +1,12 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 
 import type { SafeUser } from '@oses/types';
 
 import { AUTH_CONFIG, type AuthConfig } from '../../config/auth.config';
 import { legacyRoleFor } from '../../rbac/legacy-role';
-import { verifyPassword } from '../../shared/crypto';
-import type { LoginDto } from '../dto/login.dto';
+import { hashPassword, verifyPassword } from '../../shared/crypto';
+import type { ChangePasswordDto, LoginDto } from '../dto';
 import {
   AUTH_AUDIT_REPOSITORY,
   type AuthAuditRepository,
@@ -131,5 +131,35 @@ export class AuthService {
     const user = await this.users.findById(userId);
     if (!user) throw new UnauthorizedException('Session no longer valid');
     return toSafeUser(user);
+  }
+
+  /**
+   * Change the caller's own password. Requires the current password, then revokes every
+   * session — the user (and any other device) must log in again with the new password.
+   */
+  async changePassword(userId: string, dto: ChangePasswordDto, ctx: LoginContext): Promise<void> {
+    const user = await this.users.findById(userId);
+    if (!user?.passwordHash) throw new UnauthorizedException('Session no longer valid');
+
+    if (!(await verifyPassword(user.passwordHash, dto.currentPassword))) {
+      await this.audit.record({
+        event: 'password.change',
+        userId,
+        ip: ctx.ip,
+        userAgent: ctx.userAgent,
+        metadata: { result: 'wrong_current_password' },
+      });
+      throw new BadRequestException('Current password is incorrect');
+    }
+
+    await this.users.updatePassword(userId, await hashPassword(dto.newPassword));
+    await this.sessions.revokeAllForUser(userId, 'password_change');
+    await this.audit.record({
+      event: 'password.change',
+      actorId: userId,
+      userId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent,
+    });
   }
 }

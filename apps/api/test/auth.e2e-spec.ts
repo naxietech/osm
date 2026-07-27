@@ -1,16 +1,14 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import cookieParser from 'cookie-parser';
 import { sql } from 'kysely';
 import request from 'supertest';
 
+import { configureApp } from '../src/app-setup';
 import { AppModule } from '../src/app.module';
 import { type AppDatabase, createDatabase } from '../src/persistence/kysely/database';
 import { migrateToLatest } from '../src/persistence/kysely/migrator';
 import { seedDatabase } from '../src/persistence/kysely/seed/seed';
 import { hashPassword } from '../src/shared/crypto';
-import { HttpExceptionFilter } from '../src/shared/filters/http-exception.filter';
-import { TransformInterceptor } from '../src/shared/interceptors/transform.interceptor';
 
 const TEST_URL = process.env['DATABASE_URL_TEST'] ?? process.env['DATABASE_URL'];
 process.env['JWT_SECRET'] ??= 'test-only-secret-minimum-32-characters-long';
@@ -60,16 +58,21 @@ describeDb('Auth sessions (e2e)', () => {
 
     const moduleFixture = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api/v1');
-    app.use(cookieParser());
-    app.useGlobalFilters(new HttpExceptionFilter());
-    app.useGlobalInterceptors(new TransformInterceptor());
+    configureApp(app);
     await app.init();
   });
 
   afterAll(async () => {
     await app.close();
     await db.destroy();
+  });
+
+  // ---- hardening: security headers (helmet) ----
+  it('sets security headers and hides the framework banner', async () => {
+    const res = await login(SUPER);
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+    expect(res.headers['strict-transport-security']).toBeDefined();
+    expect(res.headers['x-powered-by']).toBeUndefined();
   });
 
   // ---- login ----
@@ -178,5 +181,100 @@ describeDb('Auth sessions (e2e)', () => {
       .post('/api/v1/auth/refresh')
       .set('Cookie', `oses_refresh=${refresh}`)
       .expect(401);
+  });
+
+  // ---- Step 5: user management (RBAC) + password change ----
+  describe('user management + password change', () => {
+    const STAFF = { email: 'staff@oses.pk', password: 'temp-pass-1234' };
+    const NEW_PW = 'new-strong-pass-1';
+    let staffId: string;
+
+    const accessFor = async (creds: { email: string; password: string }): Promise<string> =>
+      cookieValue(await login(creds).expect(200), 'oses_access');
+
+    it('Super Admin (has users.manage) creates a user', async () => {
+      const access = await accessFor(SUPER);
+      const res = await request(server())
+        .post('/api/v1/users')
+        .set('Cookie', `oses_access=${access}`)
+        .send({
+          email: STAFF.email,
+          fullName: 'Staff Member',
+          roleId: 'role_admin',
+          password: STAFF.password,
+        })
+        .expect(201);
+      expect(res.body.data.email).toBe(STAFF.email);
+      expect(res.body.data.roleId).toBe('role_admin');
+      staffId = res.body.data.id as string;
+    });
+
+    it('an Evaluator (no users.manage) is forbidden — 403', async () => {
+      const access = await accessFor(CHECKER);
+      await request(server())
+        .post('/api/v1/users')
+        .set('Cookie', `oses_access=${access}`)
+        .send({
+          email: 'nope@oses.pk',
+          fullName: 'Nope',
+          roleId: 'role_admin',
+          password: 'temp-pass-1234',
+        })
+        .expect(403);
+    });
+
+    it('rejects a duplicate email — 409', async () => {
+      const access = await accessFor(SUPER);
+      await request(server())
+        .post('/api/v1/users')
+        .set('Cookie', `oses_access=${access}`)
+        .send({
+          email: STAFF.email,
+          fullName: 'Dupe',
+          roleId: 'role_admin',
+          password: 'temp-pass-1234',
+        })
+        .expect(409);
+    });
+
+    it('the new user logs in with the temp password and changes it', async () => {
+      const access = cookieValue(await login(STAFF).expect(200), 'oses_access');
+      // wrong current → 400
+      await request(server())
+        .post('/api/v1/auth/password/change')
+        .set('Cookie', `oses_access=${access}`)
+        .send({ currentPassword: 'wrong', newPassword: NEW_PW })
+        .expect(400);
+      // correct → 200
+      await request(server())
+        .post('/api/v1/auth/password/change')
+        .set('Cookie', `oses_access=${access}`)
+        .send({ currentPassword: STAFF.password, newPassword: NEW_PW })
+        .expect(200);
+      // old temp no longer works; the new password does
+      await login(STAFF).expect(401);
+      await login({ email: STAFF.email, password: NEW_PW }).expect(200);
+    });
+
+    it('admin reset gives the user a fresh temp password', async () => {
+      const access = await accessFor(SUPER);
+      await request(server())
+        .post(`/api/v1/users/${staffId}/reset-password`)
+        .set('Cookie', `oses_access=${access}`)
+        .send({ password: 'reset-pass-9999' })
+        .expect(200);
+      await login({ email: STAFF.email, password: NEW_PW }).expect(401);
+      await login({ email: STAFF.email, password: 'reset-pass-9999' }).expect(200);
+    });
+
+    it('suspending the user blocks their login', async () => {
+      const access = await accessFor(SUPER);
+      await request(server())
+        .patch(`/api/v1/users/${staffId}/status`)
+        .set('Cookie', `oses_access=${access}`)
+        .send({ status: 'suspended' })
+        .expect(200);
+      await login({ email: STAFF.email, password: 'reset-pass-9999' }).expect(401);
+    });
   });
 });

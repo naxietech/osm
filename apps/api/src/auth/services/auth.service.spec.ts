@@ -1,7 +1,7 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 
 import type { AuthConfig } from '../../config/auth.config';
-import { verifyPassword } from '../../shared/crypto';
+import { hashPassword, verifyPassword } from '../../shared/crypto';
 import type {
   AuthAuditRepository,
   AuthUserRecord,
@@ -11,8 +11,12 @@ import type {
 import { AuthService } from './auth.service';
 import type { TokenService } from './token.service';
 
-jest.mock('../../shared/crypto', () => ({ verifyPassword: jest.fn() }));
+jest.mock('../../shared/crypto', () => ({
+  verifyPassword: jest.fn(),
+  hashPassword: jest.fn().mockResolvedValue('$argon2id$new'),
+}));
 const mockVerify = verifyPassword as jest.MockedFunction<typeof verifyPassword>;
+const mockHash = hashPassword as jest.MockedFunction<typeof hashPassword>;
 
 const config: AuthConfig = {
   accessTtl: '15m',
@@ -45,11 +49,13 @@ describe('AuthService.login', () => {
   const ctx = { ip: '203.0.113.5', userAgent: 'jest' };
   let users: {
     findByEmail: jest.Mock;
+    findById: jest.Mock;
+    updatePassword: jest.Mock;
     incrementFailedLogin: jest.Mock;
     applyLockout: jest.Mock;
     markLoginSuccess: jest.Mock;
   };
-  let sessions: { create: jest.Mock };
+  let sessions: { create: jest.Mock; revokeAllForUser: jest.Mock };
   let audit: { record: jest.Mock };
   let tokens: { generateRefreshToken: jest.Mock; signAccessToken: jest.Mock };
   let service: AuthService;
@@ -57,11 +63,13 @@ describe('AuthService.login', () => {
   beforeEach(() => {
     users = {
       findByEmail: jest.fn(),
+      findById: jest.fn(),
+      updatePassword: jest.fn(),
       incrementFailedLogin: jest.fn(),
       applyLockout: jest.fn(),
       markLoginSuccess: jest.fn(),
     };
-    sessions = { create: jest.fn().mockResolvedValue('sess1') };
+    sessions = { create: jest.fn().mockResolvedValue('sess1'), revokeAllForUser: jest.fn() };
     audit = { record: jest.fn().mockResolvedValue(undefined) };
     tokens = {
       generateRefreshToken: jest
@@ -140,5 +148,32 @@ describe('AuthService.login', () => {
     expect(result.user.email).toBe('admin@oses.pk');
     expect(result.user.roleId).toBe('role_super_admin');
     expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ event: 'login.success' }));
+  });
+
+  describe('changePassword', () => {
+    it('rejects a wrong current password', async () => {
+      users.findById.mockResolvedValue(makeUser());
+      mockVerify.mockResolvedValue(false);
+      await expect(
+        service.changePassword('u1', { currentPassword: 'nope', newPassword: 'new-pass-123' }, ctx),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(users.updatePassword).not.toHaveBeenCalled();
+    });
+
+    it('on success: updates the hash and revokes every session', async () => {
+      users.findById.mockResolvedValue(makeUser());
+      mockVerify.mockResolvedValue(true);
+      await service.changePassword(
+        'u1',
+        { currentPassword: 'right', newPassword: 'new-pass-123' },
+        ctx,
+      );
+      expect(mockHash).toHaveBeenCalledWith('new-pass-123');
+      expect(users.updatePassword).toHaveBeenCalledWith('u1', '$argon2id$new');
+      expect(sessions.revokeAllForUser).toHaveBeenCalledWith('u1', 'password_change');
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({ event: 'password.change' }),
+      );
+    });
   });
 });

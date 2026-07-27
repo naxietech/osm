@@ -9,6 +9,7 @@ import {
   type AuthAuditRepository,
   type AuthUserRecord,
   type CreateSessionInput,
+  type CreateUserInput,
   GRANTS_REPOSITORY,
   type GrantsRepository,
   type RoleGrant,
@@ -84,6 +85,39 @@ export class KyselyUserRepository implements UserRepository {
       .where('id', '=', userId)
       .executeTakeFirst();
     return row ? toAuthUser(row) : null;
+  }
+
+  async create(input: CreateUserInput): Promise<AuthUserRecord> {
+    const row = await this.db
+      .insertInto('users')
+      .values({
+        email: input.email,
+        password_hash: input.passwordHash,
+        role_id: input.roleId,
+        full_name: input.fullName,
+        institute_id: input.instituteId ?? null,
+        status: 'active',
+        created_by: input.createdBy ?? null,
+      })
+      .returning(USER_COLUMNS)
+      .executeTakeFirstOrThrow();
+    return toAuthUser(row);
+  }
+
+  async updatePassword(userId: string, passwordHash: string): Promise<void> {
+    await this.db
+      .updateTable('users')
+      .set({ password_hash: passwordHash, password_changed_at: new Date(), updated_at: new Date() })
+      .where('id', '=', userId)
+      .execute();
+  }
+
+  async updateStatus(userId: string, status: AuthUserRecord['status']): Promise<void> {
+    await this.db
+      .updateTable('users')
+      .set({ status, updated_at: new Date() })
+      .where('id', '=', userId)
+      .execute();
   }
 
   async incrementFailedLogin(userId: string): Promise<number> {
@@ -177,6 +211,15 @@ export class KyselySessionRepository implements SessionRepository {
       .updateTable('sessions')
       .set({ revoked_at: new Date(), revoked_reason: reason })
       .where('id', '=', id)
+      .execute();
+  }
+
+  async revokeAllForUser(userId: string, reason: string): Promise<void> {
+    await this.db
+      .updateTable('sessions')
+      .set({ revoked_at: new Date(), revoked_reason: reason })
+      .where('user_id', '=', userId)
+      .where('revoked_at', 'is', null)
       .execute();
   }
 }

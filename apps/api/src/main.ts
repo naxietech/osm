@@ -1,24 +1,16 @@
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import cookieParser from 'cookie-parser';
 import 'reflect-metadata';
 
+import { configureApp } from './app-setup';
 import { AppModule } from './app.module';
-import { HttpExceptionFilter } from './shared/filters/http-exception.filter';
-import { TransformInterceptor } from './shared/interceptors/transform.interceptor';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
 
-  app.setGlobalPrefix('api/v1');
-  app.use(cookieParser());
-
-  // Request validation is per-route via ZodValidationPipe (see api-conventions.md).
-  // No global class-validator ValidationPipe — the project validates with Zod, not
-  // class-validator/class-transformer.
-
-  app.useGlobalFilters(new HttpExceptionFilter());
-  app.useGlobalInterceptors(new TransformInterceptor());
+  // Shared config: helmet, cookie-parser, global prefix, Zod-validated (no global pipe),
+  // response envelope + error filter. See app-setup.ts.
+  configureApp(app);
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('OSES API')
