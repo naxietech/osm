@@ -3,6 +3,8 @@ export * from './api.types';
 export * from './auth.types';
 export * from './checker.types';
 export * from './client.types';
+export * from './e-sheet-layout.types';
+export * from './e-sheet-template.types';
 export * from './exam.types';
 export * from './exam-registration.types';
 export * from './institute.types';

@@ -31,6 +31,7 @@ export type PermissionAction =
   | 'checkers.approve'
   | 'exams.manage'
   | 'exams.assignRolls'
+  | 'templates.manage'
   | 'registrations.manage'
   | 'marking.mark'
   | 'marking.supervise'

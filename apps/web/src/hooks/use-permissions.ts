@@ -33,6 +33,8 @@ interface UsePermissionsReturn {
   canViewOwnSchoolResults: boolean;
   /** Create/edit exams and assign roll numbers. */
   canManageExams: boolean;
+  /** Create/edit/delete e-sheet templates (super admin, admin, controller examiner). */
+  canManageTemplates: boolean;
   /** Register students as exam candidates. */
   canRegisterCandidates: boolean;
 }
@@ -57,6 +59,7 @@ export function usePermissions(): UsePermissionsReturn {
     canViewAllResults: can('results.viewAll'),
     canViewOwnSchoolResults: can('results.viewOwn'),
     canManageExams: can('exams.manage'),
+    canManageTemplates: can('templates.manage'),
     canRegisterCandidates: can('registrations.manage'),
   };
 }

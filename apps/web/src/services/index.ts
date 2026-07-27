@@ -9,6 +9,7 @@ export * from './api-client';
 export * from './auth.service';
 export * from './checker.service';
 export * from './client.service';
+export * from './e-sheet-template.service';
 export * from './exam-registration.service';
 export * from './exam.service';
 export * from './institute-category.service';

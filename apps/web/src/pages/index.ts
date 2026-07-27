@@ -1,6 +1,7 @@
 export * from './auth';
 export * from './checkers';
 export * from './dashboards';
+export * from './e-sheet';
 export * from './evaluator';
 export * from './exams';
 export * from './institutes';

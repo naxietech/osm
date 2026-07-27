@@ -53,6 +53,13 @@ describe('Button', () => {
     expect(screen.getByText('Delete')).toHaveClass('bg-danger');
   });
 
+  it('matches the form-field height when size="field"', () => {
+    // The whole point of this size: a button placed beside an Input must line up with it.
+    // If the Input atom's height ever changes, this pins the pair together.
+    render(<Button size="field">Apply</Button>);
+    expect(screen.getByText('Apply')).toHaveClass('h-[60px]');
+  });
+
   it('forwards arbitrary native attributes (name, data-*) to the button', () => {
     render(
       <Button name="save" data-testid="save-btn">

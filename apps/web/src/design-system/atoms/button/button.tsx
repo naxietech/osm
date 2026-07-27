@@ -6,7 +6,8 @@ import { Spinner } from '../spinner';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
-  size?: 'sm' | 'md' | 'lg';
+  /** `field` matches the Input/FormField height, for buttons placed inline with one. */
+  size?: 'sm' | 'md' | 'lg' | 'field';
   isLoading?: boolean;
 }
 
@@ -21,6 +22,9 @@ const sizeClasses: Record<NonNullable<ButtonProps['size']>, string> = {
   sm: 'h-9 px-3 text-xs',
   md: 'h-11 px-4 text-sm',
   lg: 'h-12 px-6 text-base',
+  // Matches the Input atom's height exactly, so a button sitting beside a form field
+  // lines up with it instead of floating 16px short.
+  field: 'h-[60px] px-4 text-sm',
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
