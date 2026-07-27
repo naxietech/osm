@@ -81,6 +81,12 @@ export const PERMISSION_CATALOG: PermissionMeta[] = [
   { action: 'exams.manage', module: 'Exams', label: 'Create / edit exams', scopeable: false },
   { action: 'exams.assignRolls', module: 'Exams', label: 'Assign roll numbers', scopeable: false },
   {
+    action: 'templates.manage',
+    module: 'E-Sheet',
+    label: 'Create / edit e-sheet templates',
+    scopeable: false,
+  },
+  {
     action: 'registrations.manage',
     module: 'Registration',
     label: 'Register candidates',
@@ -113,6 +119,7 @@ const ADMIN_ACTIONS: PermissionAction[] = [
   'students.viewPII',
   'exams.manage',
   'exams.assignRolls',
+  'templates.manage',
   'registrations.manage',
   'results.viewAll',
   'dashboard.view',
@@ -122,6 +129,7 @@ const ADMIN_ACTIONS: PermissionAction[] = [
 const CONTROLLER_EXAMINER_ACTIONS: PermissionAction[] = [
   'exams.manage',
   'exams.assignRolls',
+  'templates.manage',
   'students.viewPII',
   'marking.supervise',
   'results.viewAll',

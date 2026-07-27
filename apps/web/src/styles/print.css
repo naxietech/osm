@@ -1,0 +1,58 @@
+/*
+ * Print rules for the e-sheet preview.
+ *
+ * The preview is meant to be print-accurate: what the examiner sees on screen is what comes
+ * out of the printer. That needs three things CSS utilities can't express on their own — an
+ * A4 page box with no browser margins (the sheet carries its own), one printed page per
+ * rendered page, and everything else on the screen kept off the paper.
+ *
+ * The visibility trick (hide everything, then re-show the preview subtree) is used rather than
+ * `display: none` because it keeps the preview's layout intact — the pages are absolutely
+ * positioned inside a sized container, and collapsing their ancestors would break the
+ * proportions the whole sheet depends on.
+ *
+ * Hooks: `.esheet-print-root` wraps the pages, `.esheet-page` is one printed side.
+ * Both are set by the ESheetPreview organism.
+ */
+@media print {
+  @page {
+    size: A4 portrait;
+    /* The sheet draws its own margins, so the page box must not add more. */
+    margin: 0;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .esheet-print-root,
+  .esheet-print-root * {
+    visibility: visible;
+  }
+
+  .esheet-print-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Undo the on-screen vertical rhythm — on paper, page breaks do the spacing. */
+  .esheet-print-root > * + * {
+    margin-top: 0;
+  }
+
+  .esheet-page {
+    width: 100%;
+    max-width: none;
+    break-inside: avoid;
+    break-after: page;
+  }
+
+  /* No trailing blank sheet after the last page. */
+  .esheet-page:last-child {
+    break-after: auto;
+  }
+}
