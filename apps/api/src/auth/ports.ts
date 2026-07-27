@@ -1,0 +1,100 @@
+import type { PermissionAction, PermissionScope } from '@oses/types';
+
+import type { UserStatus } from '../persistence/kysely/database.types';
+
+/**
+ * Repository ports for the auth module. The auth logic depends on these interfaces
+ * only; the Kysely adapters that implement them live in `persistence/kysely/`, so the
+ * data layer stays swappable.
+ */
+
+export interface AuthUserRecord {
+  id: string;
+  email: string;
+  passwordHash: string | null;
+  roleId: string;
+  instituteId: string | null;
+  fullName: string;
+  status: UserStatus;
+  mfaEnabled: boolean;
+  failedLoginCount: number;
+  lockedUntil: Date | null;
+  createdAt: Date;
+}
+
+export const USER_REPOSITORY = 'USER_REPOSITORY';
+export interface UserRepository {
+  findByEmail(email: string): Promise<AuthUserRecord | null>;
+  findById(userId: string): Promise<AuthUserRecord | null>;
+  /** Increment the failed-login counter and return the new value. */
+  incrementFailedLogin(userId: string): Promise<number>;
+  applyLockout(userId: string, until: Date): Promise<void>;
+  /** Reset the failed counter + lockout and stamp last_login_at. */
+  markLoginSuccess(userId: string): Promise<void>;
+}
+
+export interface CreateSessionInput {
+  userId: string;
+  refreshHash: string;
+  familyId: string;
+  expiresAt: Date;
+  ip: string | null;
+  userAgent: string | null;
+}
+
+/** The fields needed to validate + rotate a refresh session. */
+export interface SessionRecord {
+  id: string;
+  userId: string;
+  familyId: string;
+  expiresAt: Date;
+  rotatedAt: Date | null;
+  revokedAt: Date | null;
+}
+
+export const SESSION_REPOSITORY = 'SESSION_REPOSITORY';
+export interface SessionRepository {
+  create(input: CreateSessionInput): Promise<string>;
+  findByRefreshHash(refreshHash: string): Promise<SessionRecord | null>;
+  /** Mark a session as rotated (consumed) and point it at its replacement. */
+  markRotated(oldId: string, newId: string): Promise<void>;
+  /** Revoke every still-active session in a family — the token-theft response. */
+  revokeFamily(familyId: string, reason: string): Promise<void>;
+  revokeById(id: string, reason: string): Promise<void>;
+}
+
+export type AuthEvent =
+  | 'login.success'
+  | 'login.failure'
+  | 'login.locked'
+  | 'login.inactive'
+  | 'refresh.success'
+  | 'refresh.reuse'
+  | 'refresh.invalid'
+  | 'refresh.expired'
+  | 'logout';
+
+export interface AuditEntry {
+  event: AuthEvent;
+  actorId?: string | null;
+  userId?: string | null;
+  ip?: string | null;
+  userAgent?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export const AUTH_AUDIT_REPOSITORY = 'AUTH_AUDIT_REPOSITORY';
+export interface AuthAuditRepository {
+  record(entry: AuditEntry): Promise<void>;
+}
+
+/** A role's granted action paired with its reach. */
+export interface RoleGrant {
+  action: PermissionAction;
+  scope: PermissionScope;
+}
+
+export const GRANTS_REPOSITORY = 'GRANTS_REPOSITORY';
+export interface GrantsRepository {
+  listByRoleId(roleId: string): Promise<RoleGrant[]>;
+}
