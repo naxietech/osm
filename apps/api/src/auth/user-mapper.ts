@@ -1,5 +1,6 @@
 import type { SafeUser } from '@oses/types';
 
+import type { UserStatus } from '../persistence/kysely/database.types';
 import { legacyRoleFor } from '../rbac/legacy-role';
 import type { AuthUserRecord } from './ports';
 
@@ -13,5 +14,22 @@ export function toSafeUser(user: AuthUserRecord): SafeUser {
     instituteId: user.instituteId ?? undefined,
     fullName: user.fullName,
     createdAt: user.createdAt.toISOString(),
+  };
+}
+
+/**
+ * The richer shape for the admin user directory: SafeUser plus account-management
+ * fields (status, last login). Still never carries password_hash or other secrets.
+ */
+export interface AdminUser extends SafeUser {
+  status: UserStatus;
+  lastLoginAt: string | null;
+}
+
+export function toAdminUser(user: AuthUserRecord): AdminUser {
+  return {
+    ...toSafeUser(user),
+    status: user.status,
+    lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
   };
 }

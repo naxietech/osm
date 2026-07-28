@@ -81,6 +81,23 @@
       "description": "Require an authenticated session with the users.manage grant (Super Admin). Others get 403.",
       "item": [
         {
+          "name": "List users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users?limit=50&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"],
+              "query": [
+                { "key": "limit", "value": "50" },
+                { "key": "offset", "value": "0" }
+              ]
+            },
+            "description": "Paginated list of users, newest first. Returns { items, total }, where each item is a SafeUser plus the admin fields 'status' (active/suspended) and 'lastLoginAt'. Query params limit (default 50, max 200) and offset (default 0)."
+          }
+        },
+        {
           "name": "Create user",
           "request": {
             "method": "POST",
@@ -117,6 +134,21 @@
               "raw": "{\n  \"status\": \"suspended\"\n}"
             },
             "description": "Activate or suspend an account. status is 'active' or 'suspended'. Suspending revokes the user's sessions immediately."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Roles (Super Admin only)",
+      "description": "Read-only role catalogue. Requires the users.manage grant (Super Admin); others get 403.",
+      "item": [
+        {
+          "name": "List roles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/roles",
+            "description": "The 5 system roles with their permission grants (action + scope) — used to populate the role picker on the create-user screen."
           }
         }
       ]

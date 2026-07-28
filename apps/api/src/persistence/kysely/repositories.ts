@@ -1,7 +1,7 @@
 import { Inject, Injectable, type Provider } from '@nestjs/common';
 import { sql } from 'kysely';
 
-import type { PermissionAction } from '@oses/types';
+import type { PermissionAction, PermissionGrant } from '@oses/types';
 
 import {
   AUTH_AUDIT_REPOSITORY,
@@ -12,7 +12,11 @@ import {
   type CreateUserInput,
   GRANTS_REPOSITORY,
   type GrantsRepository,
+  type ListUsersOptions,
+  ROLE_REPOSITORY,
   type RoleGrant,
+  type RoleRepository,
+  type RoleWithGrants,
   SESSION_REPOSITORY,
   type SessionRecord,
   type SessionRepository,
@@ -32,6 +36,7 @@ const USER_COLUMNS = [
   'mfa_enabled',
   'failed_login_count',
   'locked_until',
+  'last_login_at',
   'created_at',
 ] as const;
 
@@ -46,6 +51,7 @@ type UserRow = {
   mfa_enabled: boolean;
   failed_login_count: number;
   locked_until: Date | null;
+  last_login_at: Date | null;
   created_at: Date;
 };
 
@@ -61,6 +67,7 @@ function toAuthUser(row: UserRow): AuthUserRecord {
     mfaEnabled: row.mfa_enabled,
     failedLoginCount: row.failed_login_count,
     lockedUntil: row.locked_until,
+    lastLoginAt: row.last_login_at,
     createdAt: row.created_at,
   };
 }
@@ -85,6 +92,25 @@ export class KyselyUserRepository implements UserRepository {
       .where('id', '=', userId)
       .executeTakeFirst();
     return row ? toAuthUser(row) : null;
+  }
+
+  async list(opts: ListUsersOptions): Promise<AuthUserRecord[]> {
+    const rows = await this.db
+      .selectFrom('users')
+      .select(USER_COLUMNS)
+      .orderBy('created_at', 'desc')
+      .limit(opts.limit)
+      .offset(opts.offset)
+      .execute();
+    return rows.map(toAuthUser);
+  }
+
+  async count(): Promise<number> {
+    const row = await this.db
+      .selectFrom('users')
+      .select((eb) => eb.fn.countAll<string>().as('count'))
+      .executeTakeFirstOrThrow();
+    return Number(row.count);
   }
 
   async create(input: CreateUserInput): Promise<AuthUserRecord> {
@@ -260,10 +286,44 @@ export class KyselyGrantsRepository implements GrantsRepository {
   }
 }
 
+@Injectable()
+export class KyselyRoleRepository implements RoleRepository {
+  constructor(@Inject(KYSELY_DB) private readonly db: AppDatabase) {}
+
+  async listWithGrants(): Promise<RoleWithGrants[]> {
+    const roles = await this.db
+      .selectFrom('roles')
+      .select(['id', 'name', 'is_system', 'institute_id', 'created_at'])
+      .orderBy('id')
+      .execute();
+    const grants = await this.db
+      .selectFrom('role_grants')
+      .select(['role_id', 'action', 'scope'])
+      .execute();
+
+    const byRole = new Map<string, PermissionGrant[]>();
+    for (const g of grants) {
+      const list = byRole.get(g.role_id) ?? [];
+      list.push({ action: g.action as PermissionAction, scope: g.scope });
+      byRole.set(g.role_id, list);
+    }
+
+    return roles.map((r) => ({
+      id: r.id,
+      name: r.name,
+      isSystem: r.is_system,
+      instituteId: r.institute_id,
+      createdAt: r.created_at,
+      grants: byRole.get(r.id) ?? [],
+    }));
+  }
+}
+
 /** Binds the auth repository ports to their Kysely implementations. */
 export const AUTH_REPOSITORY_PROVIDERS: Provider[] = [
   { provide: USER_REPOSITORY, useClass: KyselyUserRepository },
   { provide: SESSION_REPOSITORY, useClass: KyselySessionRepository },
   { provide: AUTH_AUDIT_REPOSITORY, useClass: KyselyAuthAuditRepository },
   { provide: GRANTS_REPOSITORY, useClass: KyselyGrantsRepository },
+  { provide: ROLE_REPOSITORY, useClass: KyselyRoleRepository },
 ];

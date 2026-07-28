@@ -26,6 +26,7 @@ function makeUser(over: Partial<AuthUserRecord> = {}): AuthUserRecord {
     mfaEnabled: false,
     failedLoginCount: 0,
     lockedUntil: null,
+    lastLoginAt: null,
     createdAt: new Date('2026-01-01T00:00:00Z'),
     ...over,
   };
@@ -35,6 +36,8 @@ describe('UsersService', () => {
   let users: {
     findByEmail: jest.Mock;
     findById: jest.Mock;
+    list: jest.Mock;
+    count: jest.Mock;
     create: jest.Mock;
     updatePassword: jest.Mock;
     updateStatus: jest.Mock;
@@ -47,6 +50,8 @@ describe('UsersService', () => {
     users = {
       findByEmail: jest.fn(),
       findById: jest.fn(),
+      list: jest.fn(),
+      count: jest.fn(),
       create: jest.fn().mockResolvedValue(makeUser()),
       updatePassword: jest.fn(),
       updateStatus: jest.fn(),
@@ -67,6 +72,21 @@ describe('UsersService', () => {
     roleId: 'role_admin',
     password: 'temp-pass-123',
   };
+
+  describe('listUsers', () => {
+    it('returns mapped SafeUsers + total, never leaking password_hash', async () => {
+      users.list.mockResolvedValue([makeUser(), makeUser({ id: 'u2', email: 'b@oses.pk' })]);
+      users.count.mockResolvedValue(2);
+      const res = await service.listUsers({ limit: 50, offset: 0 });
+      expect(res.total).toBe(2);
+      expect(res.items).toHaveLength(2);
+      const [first] = res.items;
+      expect(first?.email).toBe('staff@oses.pk');
+      expect(first?.status).toBe('active');
+      expect(first).toHaveProperty('lastLoginAt');
+      expect(first).not.toHaveProperty('passwordHash');
+    });
+  });
 
   describe('createUser', () => {
     it('rejects an unknown role', async () => {

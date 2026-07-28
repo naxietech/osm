@@ -276,5 +276,49 @@ describeDb('Auth sessions (e2e)', () => {
         .expect(200);
       await login({ email: STAFF.email, password: 'reset-pass-9999' }).expect(401);
     });
+
+    it('GET /users lists users for a Super Admin; forbids an Evaluator', async () => {
+      const superAccess = await accessFor(SUPER);
+      const res = await request(server())
+        .get('/api/v1/users')
+        .set('Cookie', `oses_access=${superAccess}`)
+        .expect(200);
+      expect(Array.isArray(res.body.data.items)).toBe(true);
+      expect(res.body.data.total).toBeGreaterThanOrEqual(2);
+      const superRow = (res.body.data.items as { email: string; status: string }[]).find(
+        (u) => u.email === SUPER.email,
+      );
+      expect(superRow).toBeDefined();
+      expect(superRow?.status).toBe('active');
+      expect(superRow).toHaveProperty('lastLoginAt');
+      expect(superRow).not.toHaveProperty('password_hash');
+
+      const checkerAccess = await accessFor(CHECKER);
+      await request(server())
+        .get('/api/v1/users')
+        .set('Cookie', `oses_access=${checkerAccess}`)
+        .expect(403);
+    });
+
+    it('GET /roles returns the role catalogue for a Super Admin; forbids an Evaluator', async () => {
+      const superAccess = await accessFor(SUPER);
+      const res = await request(server())
+        .get('/api/v1/roles')
+        .set('Cookie', `oses_access=${superAccess}`)
+        .expect(200);
+      const roles = res.body.data as { id: string; grants: { action: string }[] }[];
+      expect(roles).toHaveLength(5);
+      const evaluator = roles.find((r) => r.id === 'role_checker');
+      expect(evaluator?.grants.map((g) => g.action).sort()).toEqual([
+        'dashboard.view',
+        'marking.mark',
+      ]);
+
+      const checkerAccess = await accessFor(CHECKER);
+      await request(server())
+        .get('/api/v1/roles')
+        .set('Cookie', `oses_access=${checkerAccess}`)
+        .expect(403);
+    });
   });
 });

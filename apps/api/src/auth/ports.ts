@@ -1,6 +1,11 @@
-import type { PermissionAction, PermissionScope } from '@oses/types';
+import type { PermissionAction, PermissionGrant, PermissionScope } from '@oses/types';
 
 import type { UserStatus } from '../persistence/kysely/database.types';
+
+export interface ListUsersOptions {
+  limit: number;
+  offset: number;
+}
 
 /**
  * Repository ports for the auth module. The auth logic depends on these interfaces
@@ -19,6 +24,7 @@ export interface AuthUserRecord {
   mfaEnabled: boolean;
   failedLoginCount: number;
   lockedUntil: Date | null;
+  lastLoginAt: Date | null;
   createdAt: Date;
 }
 
@@ -35,6 +41,10 @@ export const USER_REPOSITORY = 'USER_REPOSITORY';
 export interface UserRepository {
   findByEmail(email: string): Promise<AuthUserRecord | null>;
   findById(userId: string): Promise<AuthUserRecord | null>;
+  /** One page of users, newest first. */
+  list(opts: ListUsersOptions): Promise<AuthUserRecord[]>;
+  /** Total user count, for pagination. */
+  count(): Promise<number>;
   create(input: CreateUserInput): Promise<AuthUserRecord>;
   updatePassword(userId: string, passwordHash: string): Promise<void>;
   updateStatus(userId: string, status: UserStatus): Promise<void>;
@@ -115,4 +125,19 @@ export interface RoleGrant {
 export const GRANTS_REPOSITORY = 'GRANTS_REPOSITORY';
 export interface GrantsRepository {
   listByRoleId(roleId: string): Promise<RoleGrant[]>;
+}
+
+/** A role plus its grants, for the roles directory. */
+export interface RoleWithGrants {
+  id: string;
+  name: string;
+  isSystem: boolean;
+  instituteId: string | null;
+  createdAt: Date;
+  grants: PermissionGrant[];
+}
+
+export const ROLE_REPOSITORY = 'ROLE_REPOSITORY';
+export interface RoleRepository {
+  listWithGrants(): Promise<RoleWithGrants[]>;
 }

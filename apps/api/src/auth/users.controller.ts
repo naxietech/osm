@@ -1,14 +1,16 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiCookieAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiCookieAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import type { SafeUser } from '@oses/types';
 
@@ -18,6 +20,8 @@ import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import {
   type CreateUserDto,
   CreateUserSchema,
+  type ListUsersQuery,
+  ListUsersSchema,
   type ResetPasswordDto,
   ResetPasswordSchema,
   type UpdateStatusDto,
@@ -26,7 +30,7 @@ import {
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PermissionsGuard } from './guards/permissions.guard';
 import type { AuthPrincipal } from './principal';
-import { UsersService } from './services';
+import { type PaginatedUsers, UsersService } from './services';
 
 /**
  * Admin user provisioning. Every route requires authentication (JwtAuthGuard) plus the
@@ -38,6 +42,19 @@ import { UsersService } from './services';
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class UsersController {
   constructor(private readonly users: UsersService) {}
+
+  @Get()
+  @RequirePermissions('users.manage')
+  @ApiOperation({ summary: 'List users (paginated, newest first)' })
+  @ApiQuery({ name: 'limit', required: false, example: 50 })
+  @ApiQuery({ name: 'offset', required: false, example: 0 })
+  @ApiResponse({ status: 200, description: '{ items: SafeUser[], total }' })
+  @ApiResponse({ status: 403, description: 'Missing users.manage grant' })
+  list(
+    @Query(new ZodValidationPipe(ListUsersSchema)) query: ListUsersQuery,
+  ): Promise<PaginatedUsers> {
+    return this.users.listUsers(query);
+  }
 
   @Post()
   @RequirePermissions('users.manage')

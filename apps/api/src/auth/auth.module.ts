@@ -10,9 +10,11 @@ import { AUTH_CONFIG, loadAuthConfig } from '../config/auth.config';
 import { AUTH_REPOSITORY_PROVIDERS } from '../persistence/kysely/repositories';
 import { AuthController } from './auth.controller';
 import { PermissionsGuard, RolesGuard } from './guards';
+import { RolesController } from './roles.controller';
 import {
   AuthService,
   PermissionResolver,
+  RolesService,
   SessionService,
   TokenService,
   UsersService,
@@ -40,12 +42,13 @@ import { UsersController } from './users.controller';
       },
     }),
   ],
-  controllers: [AuthController, UsersController],
+  controllers: [AuthController, UsersController, RolesController],
   providers: [
     AuthService,
     SessionService,
     TokenService,
     UsersService,
+    RolesService,
     PermissionResolver,
     JwtStrategy,
     RolesGuard,

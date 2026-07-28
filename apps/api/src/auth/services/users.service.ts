@@ -10,7 +10,7 @@ import type { SafeUser } from '@oses/types';
 
 import { SYSTEM_ROLE_IDS } from '../../rbac/system-roles';
 import { hashPassword } from '../../shared/crypto';
-import type { CreateUserDto, ResetPasswordDto, UpdateStatusDto } from '../dto';
+import type { CreateUserDto, ListUsersQuery, ResetPasswordDto, UpdateStatusDto } from '../dto';
 import {
   AUTH_AUDIT_REPOSITORY,
   type AuthAuditRepository,
@@ -19,7 +19,12 @@ import {
   USER_REPOSITORY,
   type UserRepository,
 } from '../ports';
-import { toSafeUser } from '../user-mapper';
+import { type AdminUser, toAdminUser, toSafeUser } from '../user-mapper';
+
+export interface PaginatedUsers {
+  items: AdminUser[];
+  total: number;
+}
 
 const VALID_ROLE_IDS = new Set<string>(Object.values(SYSTEM_ROLE_IDS));
 
@@ -35,6 +40,15 @@ export class UsersService {
     @Inject(SESSION_REPOSITORY) private readonly sessions: SessionRepository,
     @Inject(AUTH_AUDIT_REPOSITORY) private readonly audit: AuthAuditRepository,
   ) {}
+
+  /** A page of users (newest first) plus the total count, for the admin directory. */
+  async listUsers(query: ListUsersQuery): Promise<PaginatedUsers> {
+    const [rows, total] = await Promise.all([
+      this.users.list({ limit: query.limit, offset: query.offset }),
+      this.users.count(),
+    ]);
+    return { items: rows.map(toAdminUser), total };
+  }
 
   async createUser(dto: CreateUserDto, actorId: string): Promise<SafeUser> {
     if (!VALID_ROLE_IDS.has(dto.roleId)) throw new BadRequestException('Unknown role');
