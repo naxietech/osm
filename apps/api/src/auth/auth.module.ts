@@ -1,9 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 import { getAuthKeys } from '../config/auth-keys';
 import { AUTH_CONFIG, loadAuthConfig } from '../config/auth.config';
@@ -25,7 +23,6 @@ import { UsersController } from './users.controller';
 @Module({
   imports: [
     PassportModule,
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
@@ -53,8 +50,6 @@ import { UsersController } from './users.controller';
     JwtStrategy,
     RolesGuard,
     PermissionsGuard,
-    // Baseline per-IP rate limit on every route (per-route @Throttle tightens it).
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: AUTH_CONFIG, inject: [ConfigService], useFactory: loadAuthConfig },
     ...AUTH_REPOSITORY_PROVIDERS,
   ],

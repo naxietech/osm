@@ -8,4 +8,6 @@ export const CreateUserSchema = z.object({
   instituteId: z.string().optional(),
 });
 
-export type CreateUserDto = z.infer<typeof CreateUserSchema>;
+// Named to avoid colliding with @oses/types' own `CreateUserDto` (which has an optional
+// password); this API DTO requires a temporary password.
+export type CreateUserRequestDto = z.infer<typeof CreateUserSchema>;

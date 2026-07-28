@@ -1,4 +1,4 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 
 import type { SafeUser } from '@oses/types';
 
@@ -24,6 +24,8 @@ export interface RefreshResult {
 
 @Injectable()
 export class SessionService {
+  private readonly logger = new Logger(SessionService.name);
+
   constructor(
     @Inject(USER_REPOSITORY) private readonly users: UserRepository,
     @Inject(SESSION_REPOSITORY) private readonly sessions: SessionRepository,
@@ -50,6 +52,10 @@ export class SessionService {
 
     if (session.revokedAt || session.rotatedAt) {
       await this.sessions.revokeFamily(session.familyId, 'reuse_detected');
+      // Token theft: an independent warn so it's visible even if the audit write below fails.
+      this.logger.warn(
+        `Refresh-token reuse detected for user ${session.userId}; revoked family ${session.familyId} (ip=${ctx.ip ?? 'unknown'}).`,
+      );
       await this.audit.record({
         event: 'refresh.reuse',
         userId: session.userId,
@@ -111,15 +117,30 @@ export class SessionService {
     const session = await this.sessions.findByRefreshHash(
       this.tokens.hashRefreshToken(refreshToken),
     );
-    if (session && !session.revokedAt) {
-      await this.sessions.revokeById(session.id, 'logout');
+    if (!session) return;
+
+    if (session.revokedAt) {
+      // Replaying an already-revoked token at logout — benign double-logout or a theft
+      // signal. Don't re-revoke, but leave an audit trail (the /refresh path treats the
+      // same replay as reuse and revokes the family).
       await this.audit.record({
         event: 'logout',
         actorId: session.userId,
         userId: session.userId,
         ip: ctx.ip,
         userAgent: ctx.userAgent,
+        metadata: { result: 'already_revoked' },
       });
+      return;
     }
+
+    await this.sessions.revokeById(session.id, 'logout');
+    await this.audit.record({
+      event: 'logout',
+      actorId: session.userId,
+      userId: session.userId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent,
+    });
   }
 }

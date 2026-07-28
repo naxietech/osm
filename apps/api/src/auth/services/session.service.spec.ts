@@ -146,4 +146,13 @@ describe('SessionService', () => {
     expect(sessions.findByRefreshHash).not.toHaveBeenCalled();
     expect(sessions.revokeById).not.toHaveBeenCalled();
   });
+
+  it('logout replaying an already-revoked token audits it without re-revoking', async () => {
+    sessions.findByRefreshHash.mockResolvedValue(makeSession({ revokedAt: new Date() }));
+    await service.logout('tok', ctx);
+    expect(sessions.revokeById).not.toHaveBeenCalled();
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'logout', metadata: { result: 'already_revoked' } }),
+    );
+  });
 });

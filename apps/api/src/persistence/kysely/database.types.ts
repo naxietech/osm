@@ -2,6 +2,8 @@ import type { ColumnType, Generated } from 'kysely';
 
 import type { PermissionScope } from '@oses/types';
 
+import type { UserStatus } from '../../auth/ports';
+
 /**
  * Kysely schema for the auth persistence layer. Column types mirror the migrations
  * in `migrations/`. `Generated<T>` marks columns with a DB default (optional on insert);
@@ -11,8 +13,6 @@ import type { PermissionScope } from '@oses/types';
  */
 type Timestamp = ColumnType<Date, Date | string | undefined, Date | string>;
 type Json = ColumnType<Record<string, unknown>, string | undefined, string>;
-
-export type UserStatus = 'pending' | 'active' | 'suspended' | 'locked';
 
 export interface RolesTable {
   id: string; // stable slug, e.g. 'role_super_admin' — matches @oses/types Role.id

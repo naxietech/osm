@@ -1,8 +1,7 @@
 import type { SafeUser } from '@oses/types';
 
-import type { UserStatus } from '../persistence/kysely/database.types';
 import { legacyRoleFor } from '../rbac/legacy-role';
-import type { AuthUserRecord } from './ports';
+import type { AuthUserRecord, UserStatus } from './ports';
 
 /** Map an internal user record to the PII-safe shape returned to clients. */
 export function toSafeUser(user: AuthUserRecord): SafeUser {

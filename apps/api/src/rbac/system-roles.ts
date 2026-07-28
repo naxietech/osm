@@ -20,7 +20,10 @@ export const SYSTEM_ROLE_IDS = {
   institute: 'role_institute',
 } as const;
 
-/** Fully-privileged role holds every action except personally marking. */
+/**
+ * Fully-privileged role holds every action except the two that are role-specific by design:
+ * `marking.mark` (personally marking scripts) and `results.viewOwn` (own-institute-only result view).
+ */
 const ALL_ADMIN_ACTIONS: PermissionAction[] = ALL_PERMISSION_ACTIONS.filter(
   (a) => a !== 'marking.mark' && a !== 'results.viewOwn',
 );

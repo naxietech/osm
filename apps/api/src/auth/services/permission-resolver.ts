@@ -1,8 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 
-import type { PermissionAction } from '@oses/types';
+import type { PermissionAction, PermissionGrant } from '@oses/types';
 
-import { GRANTS_REPOSITORY, type GrantsRepository, type RoleGrant } from '../ports';
+import { GRANTS_REPOSITORY, type GrantsRepository } from '../ports';
 
 /**
  * Resolves a role's permission grants, cached per role id. Roles are seeded and static
@@ -11,11 +11,11 @@ import { GRANTS_REPOSITORY, type GrantsRepository, type RoleGrant } from '../por
  */
 @Injectable()
 export class PermissionResolver {
-  private readonly cache = new Map<string, RoleGrant[]>();
+  private readonly cache = new Map<string, PermissionGrant[]>();
 
   constructor(@Inject(GRANTS_REPOSITORY) private readonly grantsRepo: GrantsRepository) {}
 
-  async grantsFor(roleId: string): Promise<RoleGrant[]> {
+  async grantsFor(roleId: string): Promise<PermissionGrant[]> {
     const cached = this.cache.get(roleId);
     if (cached) return cached;
     const grants = await this.grantsRepo.listByRoleId(roleId);

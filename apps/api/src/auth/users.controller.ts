@@ -18,7 +18,7 @@ import { CurrentUser } from '../shared/decorators/current-user.decorator';
 import { RequirePermissions } from '../shared/decorators/require-permissions.decorator';
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import {
-  type CreateUserDto,
+  type CreateUserRequestDto,
   CreateUserSchema,
   type ListUsersQuery,
   ListUsersSchema,
@@ -64,7 +64,7 @@ export class UsersController {
   @ApiResponse({ status: 409, description: 'Email already in use' })
   create(
     @CurrentUser() actor: AuthPrincipal,
-    @Body(new ZodValidationPipe(CreateUserSchema)) dto: CreateUserDto,
+    @Body(new ZodValidationPipe(CreateUserSchema)) dto: CreateUserRequestDto,
   ): Promise<SafeUser> {
     return this.users.createUser(dto, actor.sub);
   }

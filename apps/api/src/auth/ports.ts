@@ -1,6 +1,10 @@
-import type { PermissionAction, PermissionGrant, PermissionScope } from '@oses/types';
+import type { PermissionGrant } from '@oses/types';
 
-import type { UserStatus } from '../persistence/kysely/database.types';
+/**
+ * Account lifecycle status. Canonical definition lives here in the domain port; the Kysely
+ * schema (`database.types.ts`) imports it, keeping the dependency pointing adapter → port.
+ */
+export type UserStatus = 'pending' | 'active' | 'suspended' | 'locked';
 
 export interface ListUsersOptions {
   limit: number;
@@ -46,6 +50,7 @@ export interface UserRepository {
   /** Total user count, for pagination. */
   count(): Promise<number>;
   create(input: CreateUserInput): Promise<AuthUserRecord>;
+  /** Set a new password hash; also clears the failed-login counter + lockout (recovery path). */
   updatePassword(userId: string, passwordHash: string): Promise<void>;
   updateStatus(userId: string, status: UserStatus): Promise<void>;
   /** Increment the failed-login counter and return the new value. */
@@ -116,15 +121,9 @@ export interface AuthAuditRepository {
   record(entry: AuditEntry): Promise<void>;
 }
 
-/** A role's granted action paired with its reach. */
-export interface RoleGrant {
-  action: PermissionAction;
-  scope: PermissionScope;
-}
-
 export const GRANTS_REPOSITORY = 'GRANTS_REPOSITORY';
 export interface GrantsRepository {
-  listByRoleId(roleId: string): Promise<RoleGrant[]>;
+  listByRoleId(roleId: string): Promise<PermissionGrant[]>;
 }
 
 /** A role plus its grants, for the roles directory. */

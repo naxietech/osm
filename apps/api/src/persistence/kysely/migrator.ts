@@ -12,6 +12,9 @@ export interface MigrateResult {
  * because migrations are schema-level and DB-type-agnostic — this keeps everything on the
  * plain `sql` API and avoids Kysely's subpath-only Migrator export, which our CommonJS
  * `node` module resolution can't load at both type- and run-time.
+ *
+ * Takes no advisory lock: run a single migrator at a time (serialize deploys). Two concurrent
+ * `db:migrate` runs could both see the same pending migration and race to apply it.
  */
 export async function migrateToLatest<DB>(database: Kysely<DB>): Promise<MigrateResult> {
   // migrations operate on the schema, not typed tables — treat the handle generically.

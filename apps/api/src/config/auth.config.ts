@@ -7,7 +7,10 @@ export type SameSite = 'lax' | 'strict' | 'none';
 export interface AuthConfig {
   /** Access-token lifetime as a JWT `expiresIn` string (e.g. '15m'). */
   accessTtl: string;
-  /** Access cookie max-age in ms — kept in step with accessTtl. */
+  /**
+   * Access cookie max-age in ms. Independent literal (below) — not derived from `accessTtl`,
+   * so keep the two aligned by hand if you change the token lifetime.
+   */
   accessCookieMaxAgeMs: number;
   /** Refresh-token / refresh cookie lifetime in ms (idle window). */
   refreshTtlMs: number;

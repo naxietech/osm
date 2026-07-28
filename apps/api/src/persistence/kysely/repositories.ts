@@ -1,4 +1,4 @@
-import { Inject, Injectable, type Provider } from '@nestjs/common';
+import { Inject, Injectable, Logger, type Provider } from '@nestjs/common';
 import { sql } from 'kysely';
 
 import type { PermissionAction, PermissionGrant } from '@oses/types';
@@ -14,7 +14,6 @@ import {
   type GrantsRepository,
   type ListUsersOptions,
   ROLE_REPOSITORY,
-  type RoleGrant,
   type RoleRepository,
   type RoleWithGrants,
   SESSION_REPOSITORY,
@@ -131,9 +130,17 @@ export class KyselyUserRepository implements UserRepository {
   }
 
   async updatePassword(userId: string, passwordHash: string): Promise<void> {
+    // Setting a new password also clears any lockout — an admin reset (or the user's own
+    // change) is a recovery path, so a locked-out account must come back usable.
     await this.db
       .updateTable('users')
-      .set({ password_hash: passwordHash, password_changed_at: new Date(), updated_at: new Date() })
+      .set({
+        password_hash: passwordHash,
+        password_changed_at: new Date(),
+        failed_login_count: 0,
+        locked_until: null,
+        updated_at: new Date(),
+      })
       .where('id', '=', userId)
       .execute();
   }
@@ -252,20 +259,31 @@ export class KyselySessionRepository implements SessionRepository {
 
 @Injectable()
 export class KyselyAuthAuditRepository implements AuthAuditRepository {
+  private readonly logger = new Logger(KyselyAuthAuditRepository.name);
+
   constructor(@Inject(KYSELY_DB) private readonly db: AppDatabase) {}
 
   async record(entry: AuditEntry): Promise<void> {
-    await this.db
-      .insertInto('auth_audit_log')
-      .values({
-        event: entry.event,
-        actor_id: entry.actorId ?? null,
-        user_id: entry.userId ?? null,
-        ip: entry.ip ?? null,
-        user_agent: entry.userAgent ?? null,
-        metadata: JSON.stringify(entry.metadata ?? {}),
-      })
-      .execute();
+    try {
+      await this.db
+        .insertInto('auth_audit_log')
+        .values({
+          event: entry.event,
+          actor_id: entry.actorId ?? null,
+          user_id: entry.userId ?? null,
+          ip: entry.ip ?? null,
+          user_agent: entry.userAgent ?? null,
+          metadata: JSON.stringify(entry.metadata ?? {}),
+        })
+        .execute();
+    } catch (err) {
+      // Audit is best-effort: a failed write must never break the auth flow (e.g. turn a 401
+      // into a 500) — but it must never be lost silently either. The log is the backup record.
+      this.logger.error(
+        `Failed to persist audit event "${entry.event}" (user ${entry.userId ?? 'n/a'})`,
+        err instanceof Error ? err.stack : String(err),
+      );
+    }
   }
 }
 
@@ -273,13 +291,15 @@ export class KyselyAuthAuditRepository implements AuthAuditRepository {
 export class KyselyGrantsRepository implements GrantsRepository {
   constructor(@Inject(KYSELY_DB) private readonly db: AppDatabase) {}
 
-  async listByRoleId(roleId: string): Promise<RoleGrant[]> {
+  async listByRoleId(roleId: string): Promise<PermissionGrant[]> {
     const rows = await this.db
       .selectFrom('role_grants')
       .select(['action', 'scope'])
       .where('role_id', '=', roleId)
       .execute();
     return rows.map((r) => ({
+      // `action` is stored as text but FK-constrained to the permissions catalogue, so every
+      // value is a valid PermissionAction — the cast narrows the DB string, it never widens.
       action: r.action as PermissionAction,
       scope: r.scope,
     }));

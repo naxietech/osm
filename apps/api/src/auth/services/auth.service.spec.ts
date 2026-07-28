@@ -94,7 +94,9 @@ describe('AuthService.login', () => {
       service.login({ email: 'x@y.com', password: 'whatever' }, ctx),
     ).rejects.toBeInstanceOf(UnauthorizedException);
     expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ event: 'login.failure' }));
-    expect(mockVerify).not.toHaveBeenCalled();
+    // Timing-equalization: the unknown-email path still runs a verify (against a dummy hash)
+    // so its latency matches the wrong-password path and can't be used to enumerate accounts.
+    expect(mockVerify).toHaveBeenCalled();
   });
 
   it('rejects a temporarily locked account without checking the password', async () => {
@@ -149,6 +151,24 @@ describe('AuthService.login', () => {
     expect(result.user.email).toBe('admin@oses.pk');
     expect(result.user.roleId).toBe('role_super_admin');
     expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ event: 'login.success' }));
+  });
+
+  describe('getCurrentUser', () => {
+    it('returns the user when active', async () => {
+      users.findById.mockResolvedValue(makeUser());
+      const me = await service.getCurrentUser('u1');
+      expect(me.id).toBe('u1');
+    });
+
+    it('rejects a suspended account even with a valid token', async () => {
+      users.findById.mockResolvedValue(makeUser({ status: 'suspended' }));
+      await expect(service.getCurrentUser('u1')).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
+    it('rejects when the user no longer exists', async () => {
+      users.findById.mockResolvedValue(null);
+      await expect(service.getCurrentUser('u1')).rejects.toBeInstanceOf(UnauthorizedException);
+    });
   });
 
   describe('changePassword', () => {

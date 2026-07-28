@@ -14,7 +14,9 @@ let cached: AuthKeys | undefined;
  *
  * Production: set `JWT_PRIVATE_KEY_BASE64` / `JWT_PUBLIC_KEY_BASE64` (base64-encoded PEM)
  * so keys are stable across restarts and instances. Dev fallback: an ephemeral pair is
- * generated at boot — fine locally (tokens just don't survive a restart).
+ * generated at boot — fine locally (tokens just don't survive a restart). In production
+ * the ephemeral fallback is refused: it would log the whole fleet out on every restart
+ * and mint mutually-invalid tokens across instances.
  */
 export function getAuthKeys(config: ConfigService): AuthKeys {
   if (cached) return cached;
@@ -27,6 +29,13 @@ export function getAuthKeys(config: ConfigService): AuthKeys {
       publicKey: Buffer.from(pub, 'base64').toString('utf8'),
     };
     return cached;
+  }
+
+  if (config.get<string>('NODE_ENV') === 'production') {
+    throw new Error(
+      'JWT_PRIVATE_KEY_BASE64 and JWT_PUBLIC_KEY_BASE64 must be set in production — ' +
+        'refusing to start with an ephemeral key pair.',
+    );
   }
 
   const { privateKey, publicKey } = generateKeyPairSync('rsa', {

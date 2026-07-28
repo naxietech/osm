@@ -10,7 +10,12 @@ import type { SafeUser } from '@oses/types';
 
 import { SYSTEM_ROLE_IDS } from '../../rbac/system-roles';
 import { hashPassword } from '../../shared/crypto';
-import type { CreateUserDto, ListUsersQuery, ResetPasswordDto, UpdateStatusDto } from '../dto';
+import type {
+  CreateUserRequestDto,
+  ListUsersQuery,
+  ResetPasswordDto,
+  UpdateStatusDto,
+} from '../dto';
 import {
   AUTH_AUDIT_REPOSITORY,
   type AuthAuditRepository,
@@ -50,7 +55,7 @@ export class UsersService {
     return { items: rows.map(toAdminUser), total };
   }
 
-  async createUser(dto: CreateUserDto, actorId: string): Promise<SafeUser> {
+  async createUser(dto: CreateUserRequestDto, actorId: string): Promise<SafeUser> {
     if (!VALID_ROLE_IDS.has(dto.roleId)) throw new BadRequestException('Unknown role');
     if (await this.users.findByEmail(dto.email)) {
       throw new ConflictException('A user with that email already exists');

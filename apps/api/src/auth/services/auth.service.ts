@@ -1,4 +1,10 @@
-import { BadRequestException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 
 import type { SafeUser } from '@oses/types';
@@ -29,8 +35,18 @@ export interface LoginResult {
   refreshToken: string;
 }
 
+/**
+ * A precomputed argon2id hash (app params) of a throwaway string. Verified against on the
+ * unknown-email path so that path pays the same hashing cost as a wrong-password attempt —
+ * removing the timing side-channel that would otherwise let a caller enumerate accounts.
+ */
+const DUMMY_PASSWORD_HASH =
+  '$argon2id$v=19$m=19456,t=2,p=1$LJzkt/dgiA3w7NvkJhN93A$VV9kvzNzl4sLu0STHJWJwUfiT6uzjJ5LDolcUppC6lw';
+
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @Inject(USER_REPOSITORY) private readonly users: UserRepository,
     @Inject(SESSION_REPOSITORY) private readonly sessions: SessionRepository,
@@ -48,6 +64,9 @@ export class AuthService {
     const user = await this.users.findByEmail(dto.email);
 
     if (!user) {
+      // Equalize timing with the wrong-password path so response latency can't reveal
+      // whether the account exists.
+      await verifyPassword(DUMMY_PASSWORD_HASH, dto.password);
       await this.audit.record({
         event: 'login.failure',
         ip: ctx.ip,
@@ -83,6 +102,10 @@ export class AuthService {
       const attempts = await this.users.incrementFailedLogin(user.id);
       if (attempts >= this.config.lockout.maxAttempts) {
         await this.users.applyLockout(user.id, new Date(Date.now() + this.config.lockout.lockMs));
+        // Independent security record — survives even if the audit-log DB write below fails.
+        this.logger.warn(
+          `Account ${user.id} locked after ${attempts} failed login attempts (ip=${ctx.ip ?? 'unknown'}).`,
+        );
       }
       await this.audit.record({
         event: 'login.failure',
@@ -129,7 +152,10 @@ export class AuthService {
   /** Resolve the current user for `/me`, fresh from the store (authoritative status/role). */
   async getCurrentUser(userId: string): Promise<SafeUser> {
     const user = await this.users.findById(userId);
-    if (!user) throw new UnauthorizedException('Session no longer valid');
+    // Reject suspended/inactive accounts even while their short-lived access token is valid.
+    if (!user || user.status !== 'active') {
+      throw new UnauthorizedException('Session no longer valid');
+    }
     return toSafeUser(user);
   }
 
