@@ -10,12 +10,14 @@ describe('durationToMs', () => {
     ['900s', 900_000],
     ['500ms', 500],
     ['3600', 3_600_000], // a bare number is seconds
+    ['1.5h', 5_400_000], // decimals are accepted (matches jsonwebtoken's ms() parser)
   ])('parses %s → %d ms', (input, expected) => {
     expect(durationToMs(input)).toBe(expected);
   });
 
-  it('falls back to the default on an unparseable value', () => {
-    expect(durationToMs('nonsense')).toBe(900_000);
+  it('throws on an unparseable value instead of silently drifting', () => {
+    expect(() => durationToMs('nonsense')).toThrow(/Invalid JWT_EXPIRES_IN/);
+    expect(() => durationToMs('2 hours')).toThrow(/Invalid JWT_EXPIRES_IN/);
   });
 });
 

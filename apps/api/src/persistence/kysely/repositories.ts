@@ -222,19 +222,36 @@ export class KyselySessionRepository implements SessionRepository {
     };
   }
 
-  async markRotatedIfCurrent(id: string): Promise<boolean> {
-    // Conditional UPDATE: only the first concurrent caller matches `rotated_at IS NULL`
-    // and gets a row back. Postgres re-checks the predicate after the row lock, so exactly
-    // one racer wins — the single-use guarantee for rotation.
-    const row = await this.db
-      .updateTable('sessions')
-      .set({ rotated_at: new Date() })
-      .where('id', '=', id)
-      .where('rotated_at', 'is', null)
-      .where('revoked_at', 'is', null)
-      .returning('id')
-      .executeTakeFirst();
-    return row !== undefined;
+  async rotateSession(currentId: string, replacement: CreateSessionInput): Promise<boolean> {
+    // One transaction: claim the old session (conditional UPDATE — only the first concurrent
+    // caller matches `rotated_at IS NULL` and gets a row back; Postgres re-checks the predicate
+    // after the row lock, so exactly one racer wins) and, only if the claim wins, insert the
+    // replacement. If the claim loses, nothing is minted. If the insert throws, the whole
+    // transaction rolls back — the old token is un-rotated again and stays usable.
+    return this.db.transaction().execute(async (trx) => {
+      const claimed = await trx
+        .updateTable('sessions')
+        .set({ rotated_at: new Date() })
+        .where('id', '=', currentId)
+        .where('rotated_at', 'is', null)
+        .where('revoked_at', 'is', null)
+        .returning('id')
+        .executeTakeFirst();
+      if (!claimed) return false;
+
+      await trx
+        .insertInto('sessions')
+        .values({
+          user_id: replacement.userId,
+          refresh_hash: replacement.refreshHash,
+          family_id: replacement.familyId,
+          expires_at: replacement.expiresAt,
+          ip: replacement.ip,
+          user_agent: replacement.userAgent,
+        })
+        .execute();
+      return true;
+    });
   }
 
   async revokeFamily(familyId: string, reason: string): Promise<void> {

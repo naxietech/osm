@@ -24,27 +24,34 @@ const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
 /**
- * Parse a JWT `expiresIn` value (e.g. '15m', '1h', '7d', '900s', or a bare number of
- * seconds) into milliseconds, so the access cookie's max-age can be derived from the same
- * value the token is signed with — no second source of truth to drift.
+ * Parse a JWT `expiresIn` value (e.g. '15m', '1h', '7d', '900s', '1.5h', or a bare number of
+ * seconds) into milliseconds, so the access cookie's max-age is derived from the same value
+ * the token is signed with — no second source of truth to drift. Decimals are allowed to
+ * match the `ms()` grammar `jsonwebtoken` actually uses. An unparseable value THROWS (fails
+ * fast at boot) rather than silently falling back — a silent fallback is the exact drift this
+ * function exists to prevent.
  */
-export function durationToMs(ttl: string, fallbackMs = 15 * MINUTE): number {
-  const match = /^\s*(\d+)\s*(ms|s|m|h|d)?\s*$/.exec(ttl);
-  if (!match) return fallbackMs;
+export function durationToMs(ttl: string): number {
+  const match = /^\s*(\d+(?:\.\d+)?)\s*(ms|s|m|h|d)?\s*$/.exec(ttl);
+  if (!match) {
+    throw new Error(
+      `Invalid JWT_EXPIRES_IN "${ttl}" — expected a number of seconds or a timespan like 15m, 1h, 7d, 1.5h.`,
+    );
+  }
   const n = Number(match[1]);
   switch (match[2]) {
     case 'ms':
-      return n;
+      return Math.round(n);
     case 's':
-      return n * SECOND;
+      return Math.round(n * SECOND);
     case 'm':
-      return n * MINUTE;
+      return Math.round(n * MINUTE);
     case 'h':
-      return n * HOUR;
+      return Math.round(n * HOUR);
     case 'd':
-      return n * DAY;
+      return Math.round(n * DAY);
     default:
-      return n * SECOND; // a bare number is seconds, per the JWT convention
+      return Math.round(n * SECOND); // a bare number is seconds, per the JWT convention
   }
 }
 

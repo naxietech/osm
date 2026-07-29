@@ -84,12 +84,14 @@ export interface SessionRepository {
   create(input: CreateSessionInput): Promise<string>;
   findByRefreshHash(refreshHash: string): Promise<SessionRecord | null>;
   /**
-   * Atomically retire a session **iff it is still live** (not already rotated or revoked),
-   * in a single conditional UPDATE. Returns `true` only for the one caller that wins the
-   * claim — this is the single-use guarantee for refresh rotation. Concurrent callers
-   * presenting the same token all lose (`false`) except one.
+   * Atomically, in ONE transaction: retire `currentId` **iff it is still live** (not already
+   * rotated or revoked) and create its `replacement` in the same family. Returns `true` only
+   * for the one caller that wins the claim (single-use guarantee for rotation); concurrent
+   * callers presenting the same token all get `false` except one, and mint nothing. Because
+   * both steps share a transaction, a failure rolls the retirement back — the old token stays
+   * usable and a retry is a normal refresh, not a mis-detected "theft".
    */
-  markRotatedIfCurrent(id: string): Promise<boolean>;
+  rotateSession(currentId: string, replacement: CreateSessionInput): Promise<boolean>;
   /** Revoke every still-active session in a family — the token-theft response. */
   revokeFamily(familyId: string, reason: string): Promise<void>;
   revokeById(id: string, reason: string): Promise<void>;

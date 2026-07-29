@@ -52,8 +52,7 @@ describe('SessionService', () => {
   let users: { findById: jest.Mock };
   let sessions: {
     findByRefreshHash: jest.Mock;
-    create: jest.Mock;
-    markRotatedIfCurrent: jest.Mock;
+    rotateSession: jest.Mock;
     revokeFamily: jest.Mock;
     revokeById: jest.Mock;
   };
@@ -69,8 +68,7 @@ describe('SessionService', () => {
     users = { findById: jest.fn() };
     sessions = {
       findByRefreshHash: jest.fn(),
-      create: jest.fn().mockResolvedValue('new-session'),
-      markRotatedIfCurrent: jest.fn().mockResolvedValue(true),
+      rotateSession: jest.fn().mockResolvedValue(true),
       revokeFamily: jest.fn(),
       revokeById: jest.fn(),
     };
@@ -102,7 +100,7 @@ describe('SessionService', () => {
     await expect(service.refresh('tok', ctx)).rejects.toBeInstanceOf(UnauthorizedException);
     expect(sessions.revokeFamily).toHaveBeenCalledWith('fam1', 'reuse_detected');
     expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ event: 'refresh.reuse' }));
-    expect(sessions.create).not.toHaveBeenCalled();
+    expect(sessions.rotateSession).not.toHaveBeenCalled();
   });
 
   it('rejects an expired session', async () => {
@@ -122,8 +120,8 @@ describe('SessionService', () => {
 
     const result = await service.refresh('tok', ctx);
 
-    expect(sessions.markRotatedIfCurrent).toHaveBeenCalledWith('s1');
-    expect(sessions.create).toHaveBeenCalledWith(
+    expect(sessions.rotateSession).toHaveBeenCalledWith(
+      's1',
       expect.objectContaining({ familyId: 'fam1', refreshHash: 'new-hash' }),
     );
     expect(result.accessToken).toBe('new-access');
@@ -135,14 +133,25 @@ describe('SessionService', () => {
   });
 
   it('rejects a lost rotation race (concurrent refresh) without minting a session', async () => {
-    // The atomic claim lost the race — another request already rotated this token.
+    // The atomic rotate lost the race — another request already rotated this token, so it
+    // minted nothing and returned false.
     sessions.findByRefreshHash.mockResolvedValue(makeSession());
     users.findById.mockResolvedValue(makeUser());
-    sessions.markRotatedIfCurrent.mockResolvedValue(false);
+    sessions.rotateSession.mockResolvedValue(false);
 
     await expect(service.refresh('tok', ctx)).rejects.toBeInstanceOf(UnauthorizedException);
-    expect(sessions.create).not.toHaveBeenCalled();
     expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ event: 'refresh.reuse' }));
+  });
+
+  it('propagates a rotation DB failure without a false-theft family revoke (#2)', async () => {
+    // If the atomic rotate throws (transient DB error), the request fails but must NOT revoke
+    // the family — the transaction rollback keeps the old token usable for a clean retry.
+    sessions.findByRefreshHash.mockResolvedValue(makeSession());
+    users.findById.mockResolvedValue(makeUser());
+    sessions.rotateSession.mockRejectedValue(new Error('db down'));
+
+    await expect(service.refresh('tok', ctx)).rejects.toThrow('db down');
+    expect(sessions.revokeFamily).not.toHaveBeenCalled();
   });
 
   it('logout revokes the whole family behind the token', async () => {
@@ -152,12 +161,35 @@ describe('SessionService', () => {
     expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ event: 'logout' }));
   });
 
-  it('logout with an already-rotated token still revokes the live family (#3)', async () => {
-    // If a background refresh rotated the token first, logging out with the OLD token must
-    // still kill the live successor — so revoke by family, not by the single (dead) row.
+  it('logout with a just-rotated token (within grace) still revokes the live family (#3)', async () => {
+    // Background refresh rotated the token moments before logout — still honour it so the
+    // live successor is killed. revoke by family, not by the single (dead) row.
     sessions.findByRefreshHash.mockResolvedValue(makeSession({ rotatedAt: new Date() }));
     await service.logout('tok', ctx);
     expect(sessions.revokeFamily).toHaveBeenCalledWith('fam1', 'logout');
+  });
+
+  it('logout with a stale (long-rotated) token is a no-op — closes the DoS (#1)', async () => {
+    // A captured, long-dead token must not be replayable to force-revoke a live session.
+    sessions.findByRefreshHash.mockResolvedValue(
+      makeSession({ rotatedAt: new Date(Date.now() - 120_000) }),
+    );
+    await service.logout('tok', ctx);
+    expect(sessions.revokeFamily).not.toHaveBeenCalled();
+  });
+
+  it('logout with an already-revoked token is a no-op', async () => {
+    sessions.findByRefreshHash.mockResolvedValue(makeSession({ revokedAt: new Date() }));
+    await service.logout('tok', ctx);
+    expect(sessions.revokeFamily).not.toHaveBeenCalled();
+  });
+
+  it('logout with an expired token is a no-op', async () => {
+    sessions.findByRefreshHash.mockResolvedValue(
+      makeSession({ expiresAt: new Date(Date.now() - 1000) }),
+    );
+    await service.logout('tok', ctx);
+    expect(sessions.revokeFamily).not.toHaveBeenCalled();
   });
 
   it('logout with no token is a no-op', async () => {
