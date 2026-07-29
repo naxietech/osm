@@ -1,6 +1,7 @@
 import type { Kysely } from 'kysely';
 
 import * as initialAuthSchema from './001-initial-auth-schema';
+import * as removeUnusedAuth from './002-remove-unused-auth';
 
 export interface AppMigration {
   up(db: Kysely<unknown>): Promise<void>;
@@ -14,4 +15,5 @@ export interface AppMigration {
  */
 export const migrations: Record<string, AppMigration> = {
   '001-initial-auth-schema': initialAuthSchema,
+  '002-remove-unused-auth': removeUnusedAuth,
 };
