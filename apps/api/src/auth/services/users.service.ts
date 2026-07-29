@@ -19,6 +19,8 @@ import type {
 import {
   AUTH_AUDIT_REPOSITORY,
   type AuthAuditRepository,
+  type AuthUserRecord,
+  EmailAlreadyExistsError,
   SESSION_REPOSITORY,
   type SessionRepository,
   USER_REPOSITORY,
@@ -61,14 +63,25 @@ export class UsersService {
       throw new ConflictException('A user with that email already exists');
     }
 
-    const user = await this.users.create({
-      email: dto.email,
-      passwordHash: await hashPassword(dto.password),
-      roleId: dto.roleId,
-      fullName: dto.fullName,
-      instituteId: dto.instituteId ?? null,
-      createdBy: actorId,
-    });
+    const passwordHash = await hashPassword(dto.password);
+    let user: AuthUserRecord;
+    try {
+      user = await this.users.create({
+        email: dto.email,
+        passwordHash,
+        roleId: dto.roleId,
+        fullName: dto.fullName,
+        instituteId: dto.instituteId ?? null,
+        createdBy: actorId,
+      });
+    } catch (err) {
+      // Two concurrent creates can both pass the pre-check above; the DB unique constraint
+      // catches the loser — answer with a 409, not a 500.
+      if (err instanceof EmailAlreadyExistsError) {
+        throw new ConflictException('A user with that email already exists');
+      }
+      throw err;
+    }
 
     await this.audit.record({
       event: 'user.created',
@@ -101,9 +114,28 @@ export class UsersService {
     const user = await this.users.findById(userId);
     if (!user) throw new NotFoundException('User not found');
 
+    if (dto.status === 'suspended') {
+      // You can't lock yourself out, and the platform can't be left with zero active Super
+      // Admins (only they can undo a suspension).
+      if (userId === actorId) {
+        throw new BadRequestException('You cannot suspend your own account.');
+      }
+      if (
+        user.roleId === SYSTEM_ROLE_IDS.superAdmin &&
+        user.status === 'active' &&
+        (await this.users.countActiveByRole(SYSTEM_ROLE_IDS.superAdmin)) <= 1
+      ) {
+        throw new BadRequestException('Cannot suspend the last active Super Admin.');
+      }
+    }
+
     await this.users.updateStatus(userId, dto.status);
     if (dto.status === 'suspended') {
       await this.sessions.revokeAllForUser(userId, 'suspended');
+    } else {
+      // Reactivation clears any lingering lockout — otherwise the account would still be
+      // locked for up to ~15 min after being turned back on.
+      await this.users.clearLockout(userId);
     }
     await this.audit.record({
       event: 'account.status',

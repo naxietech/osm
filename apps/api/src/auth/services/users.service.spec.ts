@@ -1,11 +1,12 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 
 import { hashPassword } from '../../shared/crypto';
-import type {
-  AuthAuditRepository,
-  AuthUserRecord,
-  SessionRepository,
-  UserRepository,
+import {
+  type AuthAuditRepository,
+  type AuthUserRecord,
+  EmailAlreadyExistsError,
+  type SessionRepository,
+  type UserRepository,
 } from '../ports';
 import { UsersService } from './users.service';
 
@@ -38,9 +39,11 @@ describe('UsersService', () => {
     findById: jest.Mock;
     list: jest.Mock;
     count: jest.Mock;
+    countActiveByRole: jest.Mock;
     create: jest.Mock;
     updatePassword: jest.Mock;
     updateStatus: jest.Mock;
+    clearLockout: jest.Mock;
   };
   let sessions: { revokeAllForUser: jest.Mock };
   let audit: { record: jest.Mock };
@@ -52,9 +55,11 @@ describe('UsersService', () => {
       findById: jest.fn(),
       list: jest.fn(),
       count: jest.fn(),
+      countActiveByRole: jest.fn().mockResolvedValue(2),
       create: jest.fn().mockResolvedValue(makeUser()),
       updatePassword: jest.fn(),
       updateStatus: jest.fn(),
+      clearLockout: jest.fn(),
     };
     sessions = { revokeAllForUser: jest.fn() };
     audit = { record: jest.fn().mockResolvedValue(undefined) };
@@ -116,6 +121,12 @@ describe('UsersService', () => {
       expect(result.email).toBe('staff@oses.pk');
       expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ event: 'user.created' }));
     });
+
+    it('translates a create-time duplicate (concurrent race) into a 409, not a 500 (#1)', async () => {
+      users.findByEmail.mockResolvedValue(null); // passes the pre-check
+      users.create.mockRejectedValue(new EmailAlreadyExistsError());
+      await expect(service.createUser(dto, 'admin')).rejects.toBeInstanceOf(ConflictException);
+    });
   });
 
   describe('resetPassword', () => {
@@ -145,11 +156,40 @@ describe('UsersService', () => {
       expect(sessions.revokeAllForUser).toHaveBeenCalledWith('u-new', 'suspended');
     });
 
-    it('reactivate does not revoke sessions', async () => {
+    it('reactivate does not revoke sessions but clears any lockout (#9)', async () => {
       users.findById.mockResolvedValue(makeUser({ status: 'suspended' }));
       await service.setStatus('u-new', { status: 'active' }, 'admin');
       expect(users.updateStatus).toHaveBeenCalledWith('u-new', 'active');
       expect(sessions.revokeAllForUser).not.toHaveBeenCalled();
+      expect(users.clearLockout).toHaveBeenCalledWith('u-new');
+    });
+
+    it('blocks suspending your own account (#6)', async () => {
+      users.findById.mockResolvedValue(makeUser({ id: 'me' }));
+      await expect(service.setStatus('me', { status: 'suspended' }, 'me')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(users.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('blocks suspending the last active Super Admin (#6)', async () => {
+      users.findById.mockResolvedValue(
+        makeUser({ id: 'sa', roleId: 'role_super_admin', status: 'active' }),
+      );
+      users.countActiveByRole.mockResolvedValue(1);
+      await expect(
+        service.setStatus('sa', { status: 'suspended' }, 'admin'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(users.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('allows suspending a Super Admin when others remain active (#6)', async () => {
+      users.findById.mockResolvedValue(
+        makeUser({ id: 'sa', roleId: 'role_super_admin', status: 'active' }),
+      );
+      users.countActiveByRole.mockResolvedValue(2);
+      await service.setStatus('sa', { status: 'suspended' }, 'admin');
+      expect(users.updateStatus).toHaveBeenCalledWith('sa', 'suspended');
     });
   });
 });

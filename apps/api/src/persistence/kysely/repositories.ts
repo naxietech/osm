@@ -10,6 +10,7 @@ import {
   type AuthUserRecord,
   type CreateSessionInput,
   type CreateUserInput,
+  EmailAlreadyExistsError,
   GRANTS_REPOSITORY,
   type GrantsRepository,
   type ListUsersOptions,
@@ -71,6 +72,16 @@ function toAuthUser(row: UserRow): AuthUserRecord {
   };
 }
 
+/** Postgres unique-violation SQLSTATE — raised when the email unique index rejects a row. */
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'code' in err &&
+    (err as { code: unknown }).code === '23505'
+  );
+}
+
 @Injectable()
 export class KyselyUserRepository implements UserRepository {
   constructor(@Inject(KYSELY_DB) private readonly db: AppDatabase) {}
@@ -112,21 +123,38 @@ export class KyselyUserRepository implements UserRepository {
     return Number(row.count);
   }
 
-  async create(input: CreateUserInput): Promise<AuthUserRecord> {
+  async countActiveByRole(roleId: string): Promise<number> {
     const row = await this.db
-      .insertInto('users')
-      .values({
-        email: input.email,
-        password_hash: input.passwordHash,
-        role_id: input.roleId,
-        full_name: input.fullName,
-        institute_id: input.instituteId ?? null,
-        status: 'active',
-        created_by: input.createdBy ?? null,
-      })
-      .returning(USER_COLUMNS)
+      .selectFrom('users')
+      .select((eb) => eb.fn.countAll<string>().as('count'))
+      .where('role_id', '=', roleId)
+      .where('status', '=', 'active')
       .executeTakeFirstOrThrow();
-    return toAuthUser(row);
+    return Number(row.count);
+  }
+
+  async create(input: CreateUserInput): Promise<AuthUserRecord> {
+    try {
+      const row = await this.db
+        .insertInto('users')
+        .values({
+          email: input.email,
+          password_hash: input.passwordHash,
+          role_id: input.roleId,
+          full_name: input.fullName,
+          institute_id: input.instituteId ?? null,
+          status: 'active',
+          created_by: input.createdBy ?? null,
+        })
+        .returning(USER_COLUMNS)
+        .executeTakeFirstOrThrow();
+      return toAuthUser(row);
+    } catch (err) {
+      // The email unique constraint fires here even when two concurrent creates both pass the
+      // service's pre-check — translate it so the caller gets a 409, never a 500.
+      if (isUniqueViolation(err)) throw new EmailAlreadyExistsError();
+      throw err;
+    }
   }
 
   async updatePassword(userId: string, passwordHash: string): Promise<void> {
@@ -167,6 +195,14 @@ export class KyselyUserRepository implements UserRepository {
     await this.db
       .updateTable('users')
       .set({ locked_until: until, updated_at: new Date() })
+      .where('id', '=', userId)
+      .execute();
+  }
+
+  async clearLockout(userId: string): Promise<void> {
+    await this.db
+      .updateTable('users')
+      .set({ failed_login_count: 0, locked_until: null, updated_at: new Date() })
       .where('id', '=', userId)
       .execute();
   }

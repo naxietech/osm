@@ -4,6 +4,7 @@ import { ApiCookieAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagg
 import type { Role } from '@oses/types';
 
 import { RequirePermissions } from '../shared/decorators/require-permissions.decorator';
+import { ActiveUserGuard } from './guards/active-user.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PermissionsGuard } from './guards/permissions.guard';
 import { RolesService } from './services';
@@ -15,7 +16,7 @@ import { RolesService } from './services';
 @ApiTags('roles')
 @ApiCookieAuth()
 @Controller('roles')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, ActiveUserGuard, PermissionsGuard)
 export class RolesController {
   constructor(private readonly roles: RolesService) {}
 

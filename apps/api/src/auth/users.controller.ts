@@ -27,6 +27,7 @@ import {
   type UpdateStatusDto,
   UpdateStatusSchema,
 } from './dto';
+import { ActiveUserGuard } from './guards/active-user.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PermissionsGuard } from './guards/permissions.guard';
 import type { AuthPrincipal } from './principal';
@@ -39,7 +40,7 @@ import { type PaginatedUsers, UsersService } from './services';
 @ApiTags('users')
 @ApiCookieAuth()
 @Controller('users')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, ActiveUserGuard, PermissionsGuard)
 export class UsersController {
   constructor(private readonly users: UsersService) {}
 

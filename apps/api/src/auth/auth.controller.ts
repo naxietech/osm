@@ -119,6 +119,7 @@ export class AuthController {
 
   @Post('password/change')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @UseGuards(JwtAuthGuard)
   @ApiCookieAuth()
   @ApiOperation({ summary: 'Change your own password; revokes all sessions' })

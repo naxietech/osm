@@ -7,7 +7,7 @@ import { getAuthKeys } from '../config/auth-keys';
 import { AUTH_CONFIG, loadAuthConfig } from '../config/auth.config';
 import { AUTH_REPOSITORY_PROVIDERS } from '../persistence/kysely/repositories';
 import { AuthController } from './auth.controller';
-import { PermissionsGuard, RolesGuard } from './guards';
+import { ActiveUserGuard, PermissionsGuard, RolesGuard } from './guards';
 import { RolesController } from './roles.controller';
 import {
   AuthService,
@@ -50,6 +50,7 @@ import { UsersController } from './users.controller';
     JwtStrategy,
     RolesGuard,
     PermissionsGuard,
+    ActiveUserGuard,
     { provide: AUTH_CONFIG, inject: [ConfigService], useFactory: loadAuthConfig },
     ...AUTH_REPOSITORY_PROVIDERS,
   ],

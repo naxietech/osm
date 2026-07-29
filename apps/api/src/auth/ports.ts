@@ -41,6 +41,18 @@ export interface CreateUserInput {
   createdBy?: string | null;
 }
 
+/**
+ * Thrown by `UserRepository.create` when the email already exists (the DB unique constraint
+ * fired) — including the race where two concurrent creates pass the pre-check. The service
+ * translates this into a 409, so a duplicate never surfaces as a 500.
+ */
+export class EmailAlreadyExistsError extends Error {
+  constructor() {
+    super('Email already exists');
+    this.name = 'EmailAlreadyExistsError';
+  }
+}
+
 export const USER_REPOSITORY = 'USER_REPOSITORY';
 export interface UserRepository {
   findByEmail(email: string): Promise<AuthUserRecord | null>;
@@ -49,6 +61,9 @@ export interface UserRepository {
   list(opts: ListUsersOptions): Promise<AuthUserRecord[]>;
   /** Total user count, for pagination. */
   count(): Promise<number>;
+  /** Count active users holding a given role — used to protect the last active Super Admin. */
+  countActiveByRole(roleId: string): Promise<number>;
+  /** Insert a user. Throws {@link EmailAlreadyExistsError} on a duplicate email (incl. races). */
   create(input: CreateUserInput): Promise<AuthUserRecord>;
   /** Set a new password hash; also clears the failed-login counter + lockout (recovery path). */
   updatePassword(userId: string, passwordHash: string): Promise<void>;
@@ -56,6 +71,8 @@ export interface UserRepository {
   /** Increment the failed-login counter and return the new value. */
   incrementFailedLogin(userId: string): Promise<number>;
   applyLockout(userId: string, until: Date): Promise<void>;
+  /** Clear the failed counter + lockout (without stamping last_login) — e.g. on reactivation. */
+  clearLockout(userId: string): Promise<void>;
   /** Reset the failed counter + lockout and stamp last_login_at. */
   markLoginSuccess(userId: string): Promise<void>;
 }

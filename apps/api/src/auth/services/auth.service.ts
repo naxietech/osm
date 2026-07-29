@@ -169,7 +169,10 @@ export class AuthService {
    */
   async changePassword(userId: string, dto: ChangePasswordDto, ctx: LoginContext): Promise<void> {
     const user = await this.users.findById(userId);
-    if (!user?.passwordHash) throw new UnauthorizedException('Session no longer valid');
+    // Re-check status live — a suspended user's access token may still be within its 15-min life.
+    if (!user || user.status !== 'active' || !user.passwordHash) {
+      throw new UnauthorizedException('Session no longer valid');
+    }
 
     if (!(await verifyPassword(user.passwordHash, dto.currentPassword))) {
       await this.audit.record({
