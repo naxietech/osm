@@ -33,6 +33,7 @@ const ADMIN_ACTIONS: PermissionAction[] = [
   'institutes.manage',
   'students.manage',
   'students.viewPII',
+  'checkers.approve', // checker approval is a Super Admin AND Admin action (domain-rules.md)
   'exams.manage',
   'exams.assignRolls',
   'registrations.manage',

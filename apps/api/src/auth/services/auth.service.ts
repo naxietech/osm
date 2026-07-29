@@ -77,6 +77,9 @@ export class AuthService {
     }
 
     if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
+      // Equalize latency with the wrong-password path so a locked account can't be
+      // distinguished (and thus enumerated) by response timing.
+      await verifyPassword(DUMMY_PASSWORD_HASH, dto.password);
       await this.audit.record({
         event: 'login.locked',
         userId: user.id,
@@ -87,6 +90,7 @@ export class AuthService {
     }
 
     if (user.status !== 'active' || !user.passwordHash) {
+      await verifyPassword(user.passwordHash ?? DUMMY_PASSWORD_HASH, dto.password);
       await this.audit.record({
         event: 'login.inactive',
         userId: user.id,

@@ -83,8 +83,13 @@ export const SESSION_REPOSITORY = 'SESSION_REPOSITORY';
 export interface SessionRepository {
   create(input: CreateSessionInput): Promise<string>;
   findByRefreshHash(refreshHash: string): Promise<SessionRecord | null>;
-  /** Mark a session as rotated (consumed) and point it at its replacement. */
-  markRotated(oldId: string, newId: string): Promise<void>;
+  /**
+   * Atomically retire a session **iff it is still live** (not already rotated or revoked),
+   * in a single conditional UPDATE. Returns `true` only for the one caller that wins the
+   * claim — this is the single-use guarantee for refresh rotation. Concurrent callers
+   * presenting the same token all lose (`false`) except one.
+   */
+  markRotatedIfCurrent(id: string): Promise<boolean>;
   /** Revoke every still-active session in a family — the token-theft response. */
   revokeFamily(familyId: string, reason: string): Promise<void>;
   revokeById(id: string, reason: string): Promise<void>;

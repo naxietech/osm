@@ -82,8 +82,24 @@ export class SessionService {
       throw invalid;
     }
 
+    // Atomically claim this token for rotation BEFORE minting anything. Only one concurrent
+    // caller wins; the rest lost the race and are rejected — this closes the double-spend
+    // where two requests with the same token both mint a session. A later reuse of the
+    // now-rotated token is still caught as theft by the rotated/revoked check above.
+    const won = await this.sessions.markRotatedIfCurrent(session.id);
+    if (!won) {
+      await this.audit.record({
+        event: 'refresh.reuse',
+        userId: session.userId,
+        ip: ctx.ip,
+        userAgent: ctx.userAgent,
+        metadata: { reason: 'concurrent_rotation' },
+      });
+      throw invalid;
+    }
+
     const { token: newRefresh, hash } = this.tokens.generateRefreshToken();
-    const newId = await this.sessions.create({
+    await this.sessions.create({
       userId: user.id,
       refreshHash: hash,
       familyId: session.familyId, // stay in the same rotation chain
@@ -91,7 +107,6 @@ export class SessionService {
       ip: ctx.ip,
       userAgent: ctx.userAgent,
     });
-    await this.sessions.markRotated(session.id, newId);
 
     const accessToken = this.tokens.signAccessToken({
       sub: user.id,
@@ -119,22 +134,11 @@ export class SessionService {
     );
     if (!session) return;
 
-    if (session.revokedAt) {
-      // Replaying an already-revoked token at logout — benign double-logout or a theft
-      // signal. Don't re-revoke, but leave an audit trail (the /refresh path treats the
-      // same replay as reuse and revokes the family).
-      await this.audit.record({
-        event: 'logout',
-        actorId: session.userId,
-        userId: session.userId,
-        ip: ctx.ip,
-        userAgent: ctx.userAgent,
-        metadata: { result: 'already_revoked' },
-      });
-      return;
-    }
-
-    await this.sessions.revokeById(session.id, 'logout');
+    // Revoke the whole family, not just the row behind the presented token. If the token
+    // was already rotated (e.g. a background refresh ran first), revoking only this row
+    // would leave the live successor session refreshable — an "apparently logged out" but
+    // still-active session. revokeFamily is idempotent, so a double-logout is harmless.
+    await this.sessions.revokeFamily(session.familyId, 'logout');
     await this.audit.record({
       event: 'logout',
       actorId: session.userId,

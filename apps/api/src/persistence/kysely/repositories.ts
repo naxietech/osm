@@ -222,12 +222,19 @@ export class KyselySessionRepository implements SessionRepository {
     };
   }
 
-  async markRotated(oldId: string, newId: string): Promise<void> {
-    await this.db
+  async markRotatedIfCurrent(id: string): Promise<boolean> {
+    // Conditional UPDATE: only the first concurrent caller matches `rotated_at IS NULL`
+    // and gets a row back. Postgres re-checks the predicate after the row lock, so exactly
+    // one racer wins — the single-use guarantee for rotation.
+    const row = await this.db
       .updateTable('sessions')
-      .set({ rotated_at: new Date(), replaced_by: newId })
-      .where('id', '=', oldId)
-      .execute();
+      .set({ rotated_at: new Date() })
+      .where('id', '=', id)
+      .where('rotated_at', 'is', null)
+      .where('revoked_at', 'is', null)
+      .returning('id')
+      .executeTakeFirst();
+    return row !== undefined;
   }
 
   async revokeFamily(familyId: string, reason: string): Promise<void> {
@@ -278,10 +285,12 @@ export class KyselyAuthAuditRepository implements AuthAuditRepository {
         .execute();
     } catch (err) {
       // Audit is best-effort: a failed write must never break the auth flow (e.g. turn a 401
-      // into a 500) — but it must never be lost silently either. The log is the backup record.
+      // into a 500) — but it must never be lost silently either. Log the FULL entry (ip,
+      // userAgent, reason/metadata) so this line is a usable backup record for an
+      // investigator, not just "some event failed for some user".
       this.logger.error(
-        `Failed to persist audit event "${entry.event}" (user ${entry.userId ?? 'n/a'})`,
-        err instanceof Error ? err.stack : String(err),
+        `Failed to persist audit event "${entry.event}" — backup record follows`,
+        JSON.stringify({ ...entry, error: err instanceof Error ? err.message : String(err) }),
       );
     }
   }

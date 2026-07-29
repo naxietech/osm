@@ -99,13 +99,15 @@ describe('AuthService.login', () => {
     expect(mockVerify).toHaveBeenCalled();
   });
 
-  it('rejects a temporarily locked account without checking the password', async () => {
+  it('rejects a temporarily locked account, but still runs a verify to keep timing uniform', async () => {
     users.findByEmail.mockResolvedValue(makeUser({ lockedUntil: new Date(Date.now() + 60_000) }));
     await expect(
       service.login({ email: 'admin@oses.pk', password: 'x' }, ctx),
     ).rejects.toBeInstanceOf(UnauthorizedException);
     expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ event: 'login.locked' }));
-    expect(mockVerify).not.toHaveBeenCalled();
+    // The lockout decision does NOT depend on the password, but we still run a dummy verify
+    // so a locked account can't be told apart from a wrong password by response timing.
+    expect(mockVerify).toHaveBeenCalled();
   });
 
   it('rejects a non-active account', async () => {

@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 
-import type { PermissionAction, PermissionGrant } from '@oses/types';
+import type { PermissionAction, PermissionGrant, PermissionScope } from '@oses/types';
 
 import { GRANTS_REPOSITORY, type GrantsRepository } from '../ports';
 
@@ -27,6 +27,11 @@ export class PermissionResolver {
   async hasAll(roleId: string, actions: PermissionAction[]): Promise<boolean> {
     const granted = new Set((await this.grantsFor(roleId)).map((g) => g.action));
     return actions.every((action) => granted.has(action));
+  }
+
+  /** The scope ('all' | 'own-institute') the role holds an action at, or undefined if ungranted. */
+  async scopeFor(roleId: string, action: PermissionAction): Promise<PermissionScope | undefined> {
+    return (await this.grantsFor(roleId)).find((g) => g.action === action)?.scope;
   }
 
   clear(): void {

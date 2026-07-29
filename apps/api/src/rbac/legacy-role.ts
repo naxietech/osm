@@ -23,10 +23,11 @@ const ROLE_ID_TO_ENUM: Record<string, UserRole> = {
 export function legacyRoleFor(roleId: string): UserRole {
   const mapped = ROLE_ID_TO_ENUM[roleId];
   if (!mapped) {
-    // Unreachable with the seeded system roles, but a custom/dynamic roleId would land here.
-    // Fall back to the least-privileged label and make the gap visible rather than silent.
-    logger.error(`Unmapped roleId "${roleId}" — falling back to UserRole.INSTITUTE.`);
-    return UserRole.INSTITUTE;
+    // Unreachable with the seeded system roles. Rather than SILENTLY stamping a guessed role
+    // onto a security-relevant token claim (which the web routes off), fail loud: the login
+    // /refresh throws and surfaces as a 500, so an unmapped role is fixed, not shipped.
+    logger.error(`Unmapped roleId "${roleId}" — refusing to issue a token with a guessed role.`);
+    throw new Error(`Unmapped roleId: ${roleId}`);
   }
   return mapped;
 }
