@@ -1,8 +1,12 @@
 /* eslint-disable no-console */
-import 'dotenv/config';
+import { config as loadDotenv } from 'dotenv';
 
 import { createDatabase } from '../database';
 import { seedDatabase } from './seed';
+
+// apps/api/.env is the source of truth locally — override any stale shell value (e.g. a
+// leftover `SUPERADMIN_PASSWORD` export) so the seeded credential always matches .env.
+loadDotenv({ override: true });
 
 /** CLI entry point: `pnpm db:seed`. Seeds RBAC + bootstraps the Super Admin from env. */
 async function main(): Promise<void> {
@@ -25,7 +29,9 @@ async function main(): Promise<void> {
     console.log(
       summary.superAdminCreated
         ? `Super Admin created: ${email}`
-        : `Super Admin already exists (${email}) — left unchanged.`,
+        : summary.superAdminPasswordReset
+          ? `Super Admin password reset from .env and account unlocked: ${email}`
+          : `Super Admin already matches .env (${email}) — unlocked, password unchanged.`,
     );
   } finally {
     await db.destroy();

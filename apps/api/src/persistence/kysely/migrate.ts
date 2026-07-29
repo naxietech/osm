@@ -1,8 +1,11 @@
 /* eslint-disable no-console */
-import 'dotenv/config';
+import { config as loadDotenv } from 'dotenv';
 
 import { createDatabase } from './database';
 import { migrateToLatest } from './migrator';
+
+// apps/api/.env is the source of truth locally — override any stale shell value.
+loadDotenv({ override: true });
 
 /** CLI entry point: `pnpm db:migrate`. Applies all pending migrations. */
 async function main(): Promise<void> {

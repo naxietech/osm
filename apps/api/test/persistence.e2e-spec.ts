@@ -83,4 +83,35 @@ describeDb('auth persistence + seed (integration)', () => {
     expect(again.superAdminCreated).toBe(false);
     expect(await countOf('users')).toBe(1);
   });
+
+  it('reconciles a drifted password back to .env and clears any lockout (no more drift)', async () => {
+    // Simulate the exact failure the fix targets: the stored hash drifted (a valid argon2id
+    // hash of some OTHER string) and the account got locked.
+    const driftedHash =
+      '$argon2id$v=19$m=19456,t=2,p=1$LJzkt/dgiA3w7NvkJhN93A$VV9kvzNzl4sLu0STHJWJwUfiT6uzjJ5LDolcUppC6lw';
+    await db
+      .updateTable('users')
+      .set({
+        password_hash: driftedHash,
+        failed_login_count: 5,
+        locked_until: new Date(Date.now() + 900_000),
+      })
+      .where('email', '=', SUPER.email)
+      .execute();
+
+    const summary = await seedDatabase(db, { superAdmin: SUPER });
+    expect(summary.superAdminPasswordReset).toBe(true);
+
+    const user = await db
+      .selectFrom('users')
+      .selectAll()
+      .where('email', '=', SUPER.email)
+      .executeTakeFirstOrThrow();
+
+    // Password now matches .env again, and the account is unlocked + active.
+    await expect(verifyPassword(user.password_hash as string, SUPER.password)).resolves.toBe(true);
+    expect(user.failed_login_count).toBe(0);
+    expect(user.locked_until).toBeNull();
+    expect(user.status).toBe('active');
+  });
 });
