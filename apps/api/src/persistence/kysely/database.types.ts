@@ -41,8 +41,6 @@ export interface UsersTable {
   institute_id: string | null; // tenant binding for Institute users
   full_name: string;
   status: Generated<UserStatus>;
-  mfa_enabled: Generated<boolean>;
-  mfa_secret_enc: string | null; // encrypted TOTP secret, set at enrolment
   failed_login_count: Generated<number>;
   locked_until: Timestamp | null;
   last_login_at: Timestamp | null;
@@ -78,35 +76,6 @@ export interface AuthAuditLogTable {
   created_at: Timestamp;
 }
 
-export interface UserInvitationsTable {
-  id: Generated<string>;
-  email: string;
-  role_id: string;
-  institute_id: string | null;
-  token_hash: string;
-  invited_by: string | null;
-  expires_at: Timestamp;
-  accepted_at: Timestamp | null;
-  created_at: Timestamp;
-}
-
-export interface PasswordResetTokensTable {
-  id: Generated<string>;
-  user_id: string;
-  token_hash: string;
-  expires_at: Timestamp;
-  used_at: Timestamp | null;
-  created_at: Timestamp;
-}
-
-export interface MfaRecoveryCodesTable {
-  id: Generated<string>;
-  user_id: string;
-  code_hash: string;
-  used_at: Timestamp | null;
-  created_at: Timestamp;
-}
-
 export interface Database {
   users: UsersTable;
   roles: RolesTable;
@@ -114,7 +83,4 @@ export interface Database {
   role_grants: RoleGrantsTable;
   sessions: SessionsTable;
   auth_audit_log: AuthAuditLogTable;
-  user_invitations: UserInvitationsTable;
-  password_reset_tokens: PasswordResetTokensTable;
-  mfa_recovery_codes: MfaRecoveryCodesTable;
 }

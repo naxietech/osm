@@ -25,6 +25,7 @@ const ACTION_PRESENCE: Record<PermissionAction, true> = {
   'checkers.approve': true,
   'exams.manage': true,
   'exams.assignRolls': true,
+  'templates.manage': true,
   'registrations.manage': true,
   'marking.mark': true,
   'marking.supervise': true,

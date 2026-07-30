@@ -37,7 +37,6 @@ function makeUser(over: Partial<AuthUserRecord> = {}): AuthUserRecord {
     instituteId: null,
     fullName: 'System Administrator',
     status: 'active',
-    mfaEnabled: false,
     failedLoginCount: 0,
     lockedUntil: null,
     lastLoginAt: null,

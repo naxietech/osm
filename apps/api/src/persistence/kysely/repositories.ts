@@ -33,7 +33,6 @@ const USER_COLUMNS = [
   'institute_id',
   'full_name',
   'status',
-  'mfa_enabled',
   'failed_login_count',
   'locked_until',
   'last_login_at',
@@ -48,7 +47,6 @@ type UserRow = {
   institute_id: string | null;
   full_name: string;
   status: AuthUserRecord['status'];
-  mfa_enabled: boolean;
   failed_login_count: number;
   locked_until: Date | null;
   last_login_at: Date | null;
@@ -64,7 +62,6 @@ function toAuthUser(row: UserRow): AuthUserRecord {
     instituteId: row.institute_id,
     fullName: row.full_name,
     status: row.status,
-    mfaEnabled: row.mfa_enabled,
     failedLoginCount: row.failed_login_count,
     lockedUntil: row.locked_until,
     lastLoginAt: row.last_login_at,

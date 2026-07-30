@@ -25,7 +25,7 @@ describeDb('auth persistence + seed (integration)', () => {
     db = createDatabase(TEST_URL as string);
     await migrateToLatest(db);
     // deterministic start
-    await sql`truncate table users, sessions, auth_audit_log, user_invitations, password_reset_tokens, mfa_recovery_codes, role_grants, roles, permissions restart identity cascade`.execute(
+    await sql`truncate table users, sessions, auth_audit_log, role_grants, roles, permissions restart identity cascade`.execute(
       db,
     );
     await seedDatabase(db, { superAdmin: SUPER });
