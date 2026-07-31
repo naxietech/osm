@@ -1,13 +1,13 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { sql } from 'kysely';
 import request from 'supertest';
+import { DataSource } from 'typeorm';
 
 import { configureApp } from '../src/app-setup';
 import { AppModule } from '../src/app.module';
-import { type AppDatabase, createDatabase } from '../src/persistence/kysely/database';
-import { migrateToLatest } from '../src/persistence/kysely/migrator';
-import { seedDatabase } from '../src/persistence/kysely/seed/seed';
+import { createDataSource } from '../src/persistence/typeorm/data-source';
+import { UserEntity } from '../src/persistence/typeorm/entities';
+import { seedDatabase } from '../src/persistence/typeorm/seed/seed';
 import { hashPassword } from '../src/shared/crypto';
 
 const TEST_URL = process.env['DATABASE_URL_TEST'] ?? process.env['DATABASE_URL'];
@@ -33,28 +33,28 @@ function cookieValue(res: request.Response, name: string): string {
 
 describeDb('Auth sessions (e2e)', () => {
   let app: INestApplication;
-  let db: AppDatabase;
+  let dataSource: DataSource;
   const server = () => app.getHttpServer();
   const login = (body: { email: string; password: string }) =>
     request(server()).post('/api/v1/auth/login').send(body);
 
   beforeAll(async () => {
-    db = createDatabase(process.env['DATABASE_URL'] as string);
-    await migrateToLatest(db);
-    await sql`truncate table users, sessions, auth_audit_log, role_grants, roles, permissions restart identity cascade`.execute(
-      db,
+    dataSource = createDataSource(process.env['DATABASE_URL'] as string);
+    await dataSource.initialize();
+    await dataSource.runMigrations();
+    await dataSource.query(
+      'truncate table users, sessions, auth_audit_log, role_grants, roles, permissions restart identity cascade',
     );
-    await seedDatabase(db, { superAdmin: SUPER });
-    await db
-      .insertInto('users')
-      .values({
+    await seedDatabase(dataSource, { superAdmin: SUPER });
+    await dataSource.getRepository(UserEntity).save(
+      dataSource.getRepository(UserEntity).create({
         email: CHECKER.email,
-        password_hash: await hashPassword(CHECKER.password),
-        role_id: 'role_checker',
-        full_name: 'Evaluator One',
+        passwordHash: await hashPassword(CHECKER.password),
+        roleId: 'role_checker',
+        fullName: 'Evaluator One',
         status: 'active',
-      })
-      .execute();
+      }),
+    );
 
     const moduleFixture = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleFixture.createNestApplication();
@@ -64,7 +64,7 @@ describeDb('Auth sessions (e2e)', () => {
 
   afterAll(async () => {
     await app.close();
-    await db.destroy();
+    await dataSource.destroy();
   });
 
   // ---- hardening: security headers (helmet) ----

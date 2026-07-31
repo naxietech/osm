@@ -1,30 +1,22 @@
-import { Global, Inject, Module, type OnModuleDestroy } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
 
-import { type AppDatabase, KYSELY_DB } from './database.token';
-import { createDatabase } from './kysely/database';
+import { buildDataSourceOptions } from './typeorm/data-source';
 
 /**
- * Provides the shared Kysely instance (token `KYSELY_DB`) to the whole app. Global so
- * feature modules can inject it without re-importing. The pg pool is lazy, so app boot
- * doesn't open a connection; the pool is closed on shutdown.
+ * Wires the shared TypeORM connection from `DATABASE_URL`. `TypeOrmModule.forRoot*` registers
+ * the DataSource + EntityManager as global providers, so any module can `@InjectDataSource()`;
+ * feature modules add `TypeOrmModule.forFeature([...])` to inject their own repositories. The
+ * pg pool opens lazily and TypeORM closes it on shutdown, so no manual teardown is needed.
  */
-@Global()
 @Module({
-  providers: [
-    {
-      provide: KYSELY_DB,
+  imports: [
+    TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService): AppDatabase =>
-        createDatabase(config.getOrThrow<string>('DATABASE_URL')),
-    },
+      useFactory: (config: ConfigService) =>
+        buildDataSourceOptions(config.getOrThrow<string>('DATABASE_URL')),
+    }),
   ],
-  exports: [KYSELY_DB],
 })
-export class PersistenceModule implements OnModuleDestroy {
-  constructor(@Inject(KYSELY_DB) private readonly db: AppDatabase) {}
-
-  async onModuleDestroy(): Promise<void> {
-    await this.db.destroy();
-  }
-}
+export class PersistenceModule {}
