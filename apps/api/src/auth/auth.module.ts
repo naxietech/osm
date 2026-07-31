@@ -2,10 +2,12 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
+import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { getAuthKeys } from '../config/auth-keys';
 import { AUTH_CONFIG, loadAuthConfig } from '../config/auth.config';
-import { AUTH_REPOSITORY_PROVIDERS } from '../persistence/kysely/repositories';
+import { AUTH_ENTITIES } from '../persistence/typeorm/entities';
+import { AUTH_REPOSITORY_PROVIDERS } from '../persistence/typeorm/repositories';
 import { AuthController } from './auth.controller';
 import { ActiveUserGuard, PermissionsGuard, RolesGuard } from './guards';
 import { RolesController } from './roles.controller';
@@ -22,6 +24,7 @@ import { UsersController } from './users.controller';
 
 @Module({
   imports: [
+    TypeOrmModule.forFeature(AUTH_ENTITIES),
     PassportModule,
     JwtModule.registerAsync({
       inject: [ConfigService],

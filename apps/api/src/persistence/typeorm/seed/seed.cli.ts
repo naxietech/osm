@@ -1,7 +1,8 @@
 /* eslint-disable no-console */
 import { config as loadDotenv } from 'dotenv';
+import 'reflect-metadata';
 
-import { createDatabase } from '../database';
+import { createDataSource } from '../data-source';
 import { seedDatabase } from './seed';
 
 // apps/api/.env is the source of truth locally — override any stale shell value (e.g. a
@@ -20,9 +21,10 @@ async function main(): Promise<void> {
     throw new Error('SUPERADMIN_EMAIL and SUPERADMIN_PASSWORD must be set to bootstrap.');
   }
 
-  const db = createDatabase(url);
+  const dataSource = createDataSource(url);
+  await dataSource.initialize();
   try {
-    const summary = await seedDatabase(db, { superAdmin: { email, password, fullName } });
+    const summary = await seedDatabase(dataSource, { superAdmin: { email, password, fullName } });
     console.log(
       `Seeded ${summary.permissions} permissions, ${summary.roles} roles, ${summary.grants} grants.`,
     );
@@ -34,7 +36,7 @@ async function main(): Promise<void> {
           : `Super Admin already matches .env (${email}) — unlocked, password unchanged.`,
     );
   } finally {
-    await db.destroy();
+    await dataSource.destroy();
   }
 }
 
