@@ -26,7 +26,6 @@ export interface AuthUserRecord {
   instituteId: string | null;
   fullName: string;
   status: UserStatus;
-  mfaEnabled: boolean;
   failedLoginCount: number;
   lockedUntil: Date | null;
   lastLoginAt: Date | null;

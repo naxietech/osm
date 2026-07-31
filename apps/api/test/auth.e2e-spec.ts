@@ -41,7 +41,7 @@ describeDb('Auth sessions (e2e)', () => {
   beforeAll(async () => {
     db = createDatabase(process.env['DATABASE_URL'] as string);
     await migrateToLatest(db);
-    await sql`truncate table users, sessions, auth_audit_log, user_invitations, password_reset_tokens, mfa_recovery_codes, role_grants, roles, permissions restart identity cascade`.execute(
+    await sql`truncate table users, sessions, auth_audit_log, role_grants, roles, permissions restart identity cascade`.execute(
       db,
     );
     await seedDatabase(db, { superAdmin: SUPER });
