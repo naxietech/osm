@@ -1,14 +1,16 @@
 /**
- * Login page — Formik + Yup validation, submitted via a React Query mutation
- * against the mock authService. On success it stores the user + token (useAuth)
- * and routes to the role home.
+ * Login page — Formik + Yup validation against the real `POST /auth/login`. The API
+ * sets HttpOnly session cookies and returns the user; useAuth holds it and we route to
+ * the role home.
  */
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 
 import { useMutation } from '@tanstack/react-query';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
+
+import type { LoginRequest } from '@oses/types';
 
 import { Button } from '@/design-system/atoms/button';
 import { Checkbox } from '@/design-system/atoms/checkbox';
@@ -17,7 +19,7 @@ import { FormField } from '@/design-system/molecules/form-field';
 import { AuthLayout } from '@/design-system/templates/auth-layout';
 import { useAuth } from '@/hooks';
 import { ROUTES } from '@/router/routes';
-import { DEMO_PASSWORD, MOCK_USERS, authService } from '@/services/auth.service';
+import { apiErrorMessage } from '@/services/api-client';
 
 const validationSchema = Yup.object({
   email: Yup.string().email('Enter a valid email address').required('Email is required'),
@@ -28,18 +30,23 @@ const validationSchema = Yup.object({
 
 export function LoginPage(): React.ReactElement {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const location = useLocation();
+  const { login, isAuthenticated } = useAuth();
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  // Set by the change-password page, which has to send the user back here because the
+  // API revokes every session once the password changes.
+  const notice = (location.state as { notice?: string } | null)?.notice;
+
   const loginMutation = useMutation({
-    mutationFn: (vars: { email: string; password: string }) =>
-      authService.login(vars.email, vars.password),
-    onSuccess: ({ user, token }) => {
-      login(user, token);
+    mutationFn: (credentials: LoginRequest) => login(credentials),
+    onSuccess: () => {
       void navigate('/');
     },
+    // The API deliberately answers a bad email and a bad password identically, so this
+    // page must not add anything that would reveal which accounts exist.
     onError: (err: unknown) => {
-      setSubmitError(err instanceof Error ? err.message : 'Login failed. Please try again.');
+      setSubmitError(apiErrorMessage(err));
     },
   });
 
@@ -52,9 +59,22 @@ export function LoginPage(): React.ReactElement {
     },
   });
 
+  // Already signed in and came back here — browser back button, a bookmark, a stale tab.
+  // This reads the cached session only; the provider still skips `GET /auth/me` on public
+  // routes, so a genuinely signed-out visitor costs no request to land here.
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+
   return (
     <AuthLayout title="Welcome back" subtitle="Sign in to continue to your dashboard.">
       <form onSubmit={formik.handleSubmit} noValidate className="space-y-4">
+        {notice && !submitError && (
+          <div role="status" className="rounded-md bg-brand-subtle px-4 py-3 text-sm text-brand">
+            {notice}
+          </div>
+        )}
+
         <FormField
           id="email"
           name="email"
@@ -117,13 +137,6 @@ export function LoginPage(): React.ReactElement {
           </Link>
         </p>
       </form>
-
-      <p className="mt-6 text-center text-xs leading-relaxed text-muted-foreground">
-        Demo accounts — password{' '}
-        <span className="font-medium text-foreground">{DEMO_PASSWORD}</span>
-        <br />
-        {MOCK_USERS.map((u) => u.email).join(' · ')}
-      </p>
     </AuthLayout>
   );
 }

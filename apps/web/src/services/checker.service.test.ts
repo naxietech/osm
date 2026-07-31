@@ -6,12 +6,12 @@ import {
   approveChecker,
   countPendingCheckers,
   createChecker,
+  evaluatorLogins,
   getChecker,
   isCheckerCnicTaken,
   listCheckers,
   rejectChecker,
 } from './checker.service';
-import { listUsers } from './users.service';
 
 const BASE = {
   fullName: 'Test Checker',
@@ -81,7 +81,7 @@ describe('checker.service', () => {
     expect(approved?.status).toBe('approved');
     expect(approved?.userId).toBeDefined();
 
-    const user = listUsers().find((u) => u.id === approved?.userId);
+    const user = evaluatorLogins.find((u) => u.id === approved?.userId);
     expect(user?.email).toBe('approved.checker@example.pk');
     expect(user?.instituteId).toBe('sch_002');
   });
@@ -97,7 +97,7 @@ describe('checker.service', () => {
     const first = approveChecker(checker.id)?.userId;
     const second = approveChecker(checker.id)?.userId;
     expect(first).toBe(second);
-    expect(listUsers().filter((u) => u.email === 'twice@example.pk')).toHaveLength(1);
+    expect(evaluatorLogins.filter((u) => u.email === 'twice@example.pk')).toHaveLength(1);
   });
 
   it('records a rejection reason and drops it again on later approval', () => {

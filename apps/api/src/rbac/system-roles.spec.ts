@@ -46,6 +46,19 @@ describe('SYSTEM_ROLES seed', () => {
     expect(actions).toContain('institutes.manage');
   });
 
+  // The web e-sheet template screens gate on templates.manage. Once grants come from
+  // this seed rather than the web mock, dropping it here blanks those screens.
+  it('Super Admin, Admin and Controller can manage e-sheet templates', () => {
+    for (const id of [
+      SYSTEM_ROLE_IDS.superAdmin,
+      SYSTEM_ROLE_IDS.admin,
+      SYSTEM_ROLE_IDS.controller,
+    ]) {
+      expect(actionsOf(id)).toContain('templates.manage');
+    }
+    expect(actionsOf(SYSTEM_ROLE_IDS.checker)).not.toContain('templates.manage');
+  });
+
   it('every non-Institute system role is scoped "all"', () => {
     for (const id of [
       SYSTEM_ROLE_IDS.superAdmin,

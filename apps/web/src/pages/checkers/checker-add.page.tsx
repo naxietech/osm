@@ -18,7 +18,7 @@ import { CheckerForm } from '@/design-system/organisms/checker-form';
 import { useAuth } from '@/hooks';
 import { levelSelectOptions, subjects } from '@/services/academic.service';
 import { createChecker, isCheckerCnicTaken } from '@/services/checker.service';
-import { INSTITUTE_OPTIONS } from '@/services/users.service';
+import { INSTITUTE_OPTIONS } from '@/services/institute.service';
 
 export function CheckerAddPage(): React.ReactElement {
   const navigate = useNavigate();

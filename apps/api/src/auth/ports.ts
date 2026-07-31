@@ -1,10 +1,11 @@
-import type { PermissionGrant } from '@oses/types';
+import type { PermissionGrant, UserStatus } from '@oses/types';
 
 /**
- * Account lifecycle status. Canonical definition lives here in the domain port; the Kysely
- * schema (`database.types.ts`) imports it, keeping the dependency pointing adapter → port.
+ * Account lifecycle status. Now defined in @oses/types, because the web app renders it on
+ * the admin user directory; re-exported here so the Kysely schema (`database.types.ts`)
+ * and the repositories keep importing it from the domain port.
  */
-export type UserStatus = 'pending' | 'active' | 'suspended' | 'locked';
+export type { UserStatus };
 
 export interface ListUsersOptions {
   limit: number;

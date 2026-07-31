@@ -1,8 +1,21 @@
 # API Conventions (`apps/api`)
 
-NestJS 10 on the Express adapter. **There is no database yet** — no TypeORM/Prisma, no ORM
-entities, no migrations. The API today is auth + guards + a Zod validation pipe + a response
-interceptor, with one e2e test. Do not build a data layer unless the task explicitly says so.
+NestJS 10 on the Express adapter, **PostgreSQL via Kysely**. The schema covers **auth only**
+(`persistence/kysely/migrations/001-initial-auth-schema.ts`): users, roles, permissions,
+role_grants, sessions, auth_audit_log, invitations, password reset tokens, MFA recovery codes.
+There is no table for institutes, students, exams, checkers, or marking — don't add one unless
+the task explicitly says so.
+
+Repositories are hand-written adapters behind the port interfaces in `auth/ports.ts`, injected
+by token (`USER_REPOSITORY`, `SESSION_REPOSITORY`, …). Follow that pattern rather than reaching
+for the Kysely instance from a service.
+
+## Auth model
+
+Sessions are **HttpOnly cookies**, not bearer tokens: a short-lived RS256 access cookie plus a
+rotating opaque refresh cookie. Replaying a retired refresh token revokes the whole rotation
+family (theft detection), so anything that renews a session must send exactly one refresh at a
+time. `JwtStrategy` reads the access cookie first and falls back to a Bearer header for tooling.
 
 ## Module pattern (when a real module is added)
 

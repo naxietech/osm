@@ -23,14 +23,16 @@ createRoot(rootElement).render(
   <React.StrictMode>
     <ThemeProvider>
       <ErrorBoundary>
+        {/* BrowserRouter sits above AuthProvider so the provider can see which page
+            is open and skip the session check on public routes (see isPublicRoute). */}
         <QueryClientProvider client={queryClient}>
-          <AuthProvider>
-            <ClientProvider>
-              <BrowserRouter>
+          <BrowserRouter>
+            <AuthProvider>
+              <ClientProvider>
                 <App />
-              </BrowserRouter>
-            </ClientProvider>
-          </AuthProvider>
+              </ClientProvider>
+            </AuthProvider>
+          </BrowserRouter>
         </QueryClientProvider>
       </ErrorBoundary>
     </ThemeProvider>

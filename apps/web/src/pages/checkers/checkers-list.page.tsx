@@ -18,7 +18,7 @@ import { type ColumnDef, DataTable } from '@/design-system/organisms/data-table'
 import { useAuth } from '@/hooks';
 import { subjectNames } from '@/services/academic.service';
 import { CHECKER_STATUS_LABEL, listCheckers } from '@/services/checker.service';
-import { instituteName } from '@/services/users.service';
+import { instituteName } from '@/services/institute.service';
 
 const STATUS_VARIANT: Record<CheckerListItem['status'], BadgeProps['variant']> = {
   pending: 'warning',

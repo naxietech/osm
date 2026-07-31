@@ -16,13 +16,44 @@ import {
   type CheckerStatus,
   type CreateCheckerDto,
   Province,
+  type SafeUser,
   type UpdateCheckerDto,
+  UserRole,
 } from '@oses/types';
 
 import { SYSTEM_ROLE_IDS } from './roles.service';
-import { createUser } from './users.service';
 
 const SEED_AT = '2026-03-01T09:00:00.000Z';
+
+/**
+ * Evaluator logins minted by checker approval — a mock on purpose, and NOT the real
+ * `POST /users`.
+ *
+ * Checker records are themselves mocks that reset on reload, so a real account would
+ * outlive the record pointing at it and strand an orphan in the database. The endpoint
+ * also demands a temporary password this flow has nowhere to display, and the
+ * `users.manage` grant, which Admin — who is allowed to approve checkers — does not hold.
+ * All three problems disappear once the checker module has its own API; until then the
+ * login stays as fake as the checker it belongs to.
+ */
+export const evaluatorLogins: SafeUser[] = [];
+
+let evaluatorLoginCounter = 0;
+
+function createEvaluatorLogin(checker: Checker): SafeUser {
+  evaluatorLoginCounter += 1;
+  const login: SafeUser = {
+    id: `usr_chk_${evaluatorLoginCounter}`,
+    email: checker.email,
+    role: UserRole.EVALUATOR,
+    roleId: SYSTEM_ROLE_IDS.checker,
+    fullName: checker.fullName,
+    createdAt: new Date().toISOString(),
+    ...(checker.instituteId ? { instituteId: checker.instituteId } : {}),
+  };
+  evaluatorLogins.push(login);
+  return login;
+}
 
 /** Mutable checker store. */
 export const checkers: Checker[] = [
@@ -60,7 +91,7 @@ export const checkers: Checker[] = [
     status: 'approved',
     addedBy: 'institute',
     addedByInstituteId: 'sch_001',
-    // The demo Evaluator login (auth.service MOCK_USERS) — this is the record that
+    // The demo Evaluator login (users.service seed) — this is the record that
     // signing in as evaluator@oses.pk resolves to, via findCheckerByUserId.
     userId: 'usr_evaluator',
     approvedAt: SEED_AT,
@@ -264,13 +295,7 @@ export function approveChecker(id: string): Checker | undefined {
   if (!checker) return undefined;
 
   if (!checker.userId) {
-    const user = createUser({
-      email: checker.email,
-      fullName: checker.fullName,
-      roleId: SYSTEM_ROLE_IDS.checker,
-      ...(checker.instituteId ? { instituteId: checker.instituteId } : {}),
-    });
-    checker.userId = user.id;
+    checker.userId = createEvaluatorLogin(checker).id;
   }
 
   checker.status = 'approved';

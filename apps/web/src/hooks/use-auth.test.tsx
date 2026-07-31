@@ -1,64 +1,102 @@
 import { type ReactElement, type ReactNode } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 
-import { act, renderHook } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { renderHook, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { type SafeUser, UserRole } from '@oses/types';
+
+import { mockAuthApi } from '@/test-utils/api-mock';
 
 import { AuthProvider, useAuth } from './use-auth';
 
 const ADMIN: SafeUser = {
-  id: 'u1',
+  id: 'usr_admin',
   email: 'admin@oses.pk',
   role: UserRole.ADMIN,
+  roleId: 'role_admin',
   fullName: 'Board Admin',
   createdAt: '2026-01-01T00:00:00.000Z',
 };
 
-function Wrapper({ children }: { children: ReactNode }): ReactElement {
-  return <AuthProvider>{children}</AuthProvider>;
+/** Mirrors the app: the router sits above AuthProvider so it can see the route. */
+function makeWrapper(path = '/admin'): ({ children }: { children: ReactNode }) => ReactElement {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return function Wrapper({ children }: { children: ReactNode }): ReactElement {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={[path]}>
+          <AuthProvider>{children}</AuthProvider>
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+  };
 }
 
 afterEach(() => {
-  localStorage.clear();
+  vi.unstubAllGlobals();
 });
 
 describe('AuthProvider', () => {
-  it('starts logged out', () => {
-    const { result } = renderHook(() => useAuth(), { wrapper: Wrapper });
+  it('reports loading until the session is known', async () => {
+    mockAuthApi({ me: ADMIN });
+    const { result } = renderHook(() => useAuth(), { wrapper: makeWrapper() });
+
+    // The important case: while /auth/me is in flight we must not claim "signed out",
+    // or a page refresh would bounce a signed-in user to the login screen.
+    expect(result.current.isLoading).toBe(true);
+    expect(result.current.isAuthenticated).toBe(false);
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.isAuthenticated).toBe(true);
+  });
+
+  it('restores the session from the server on mount', async () => {
+    mockAuthApi({ me: ADMIN });
+    const { result } = renderHook(() => useAuth(), { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(result.current.isAuthenticated).toBe(true));
+    expect(result.current.user?.email).toBe('admin@oses.pk');
+    expect(result.current.user?.role).toBe(UserRole.ADMIN);
+  });
+
+  it('is signed out when the browser holds no session', async () => {
+    mockAuthApi({ me: null });
+    const { result } = renderHook(() => useAuth(), { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.isAuthenticated).toBe(false);
     expect(result.current.user).toBeNull();
   });
 
-  it('login sets the user and persists to localStorage', () => {
-    const { result } = renderHook(() => useAuth(), { wrapper: Wrapper });
-    act(() => result.current.login(ADMIN, 'tok-123'));
-    expect(result.current.isAuthenticated).toBe(true);
-    expect(result.current.user?.email).toBe('admin@oses.pk');
-    expect(localStorage.getItem('oses-auth')).toContain('tok-123');
-  });
+  it('keeps nothing in localStorage — the session lives in HttpOnly cookies', async () => {
+    mockAuthApi({ me: ADMIN });
+    const { result } = renderHook(() => useAuth(), { wrapper: makeWrapper() });
 
-  it('logout clears the user and storage', () => {
-    const { result } = renderHook(() => useAuth(), { wrapper: Wrapper });
-    act(() => result.current.login(ADMIN, 'tok-123'));
-    act(() => result.current.logout());
-    expect(result.current.isAuthenticated).toBe(false);
+    await waitFor(() => expect(result.current.isAuthenticated).toBe(true));
     expect(localStorage.getItem('oses-auth')).toBeNull();
   });
 
-  it('restores a valid persisted session on mount', () => {
-    localStorage.setItem('oses-auth', JSON.stringify({ user: ADMIN, token: 'tok-123' }));
-    const { result } = renderHook(() => useAuth(), { wrapper: Wrapper });
-    expect(result.current.isAuthenticated).toBe(true);
-    expect(result.current.user?.role).toBe(UserRole.ADMIN);
+  it('asks nothing at all on a public route', async () => {
+    // The login page has no session to look up. Asking would 401, and the api client
+    // answers a 401 by trying to renew — so one pointless request becomes two.
+    mockAuthApi({ me: null });
+    const { result } = renderHook(() => useAuth(), { wrapper: makeWrapper('/login') });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled();
+    expect(result.current.isAuthenticated).toBe(false);
   });
 
-  it('discards a persisted session whose role is unknown', () => {
-    localStorage.setItem(
-      'oses-auth',
-      JSON.stringify({ user: { ...ADMIN, role: 'SUPER_ADMIN' }, token: 'tok-123' }),
-    );
-    const { result } = renderHook(() => useAuth(), { wrapper: Wrapper });
-    expect(result.current.isAuthenticated).toBe(false);
+  it('signs out and drops the user', async () => {
+    mockAuthApi({ me: ADMIN });
+    const { result } = renderHook(() => useAuth(), { wrapper: makeWrapper() });
+    await waitFor(() => expect(result.current.isAuthenticated).toBe(true));
+
+    result.current.logout();
+
+    await waitFor(() => expect(result.current.isAuthenticated).toBe(false));
+    expect(result.current.user).toBeNull();
   });
 });

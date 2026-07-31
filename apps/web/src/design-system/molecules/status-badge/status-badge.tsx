@@ -5,6 +5,7 @@ import {
   type MarkingBatchStatus,
   type MarkingScriptStatus,
   OnboardingStatus,
+  type UserStatus,
 } from '@oses/types';
 
 import { Badge, type BadgeProps } from '@/design-system/atoms/badge';
@@ -22,6 +23,27 @@ const statusConfig: Record<OnboardingStatus, { label: string; variant: BadgeProp
 
 export function StatusBadge({ status }: StatusBadgeProps): React.ReactElement {
   const config = statusConfig[status];
+  return <Badge variant={config.variant}>{config.label}</Badge>;
+}
+
+export interface UserStatusBadgeProps {
+  status: UserStatus;
+}
+
+/**
+ * Account state on the admin user directory. `locked` is the server's own brute-force
+ * lockout, which clears itself after a short window — distinct from `suspended`, which an
+ * admin set deliberately and only an admin can undo, so the two must not look alike.
+ */
+const userStatusConfig: Record<UserStatus, { label: string; variant: BadgeProps['variant'] }> = {
+  pending: { label: 'Pending', variant: 'warning' },
+  active: { label: 'Active', variant: 'success' },
+  suspended: { label: 'Suspended', variant: 'error' },
+  locked: { label: 'Locked', variant: 'warning' },
+};
+
+export function UserStatusBadge({ status }: UserStatusBadgeProps): React.ReactElement {
+  const config = userStatusConfig[status];
   return <Badge variant={config.variant}>{config.label}</Badge>;
 }
 

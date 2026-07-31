@@ -13,6 +13,8 @@ export interface TopbarProps {
   onOpenMenu: () => void;
   /** Log the user out. */
   onLogout: () => void;
+  /** Open the change-password page. Omit to hide the action. */
+  onChangePassword?: () => void;
   /** Ref to the hamburger button — focus is restored here when the drawer closes. */
   menuButtonRef?: RefObject<HTMLButtonElement>;
 }
@@ -23,6 +25,7 @@ export function Topbar({
   drawerOpen,
   onOpenMenu,
   onLogout,
+  onChangePassword,
   menuButtonRef,
 }: TopbarProps): ReactElement {
   return (
@@ -45,7 +48,12 @@ export function Topbar({
 
       <div className="ml-auto flex items-center gap-2 sm:gap-3">
         <ThemeToggle />
-        <UserMenu name={user?.fullName} email={user?.email} onLogout={onLogout} />
+        <UserMenu
+          name={user?.fullName}
+          email={user?.email}
+          onLogout={onLogout}
+          onChangePassword={onChangePassword}
+        />
       </div>
     </header>
   );

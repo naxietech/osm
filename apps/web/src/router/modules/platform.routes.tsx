@@ -15,7 +15,6 @@ const UserDetailPage = lazy(() => import('@/pages/users/user-detail.page'));
 /** The platform paths a hosting role must declare in ROUTES. */
 export interface PlatformRoutePaths {
   roles: string;
-  rolesNew: string;
   roleDetail: string;
   users: string;
   usersNew: string;
@@ -24,8 +23,9 @@ export interface PlatformRoutePaths {
 
 export function platformRoutes(home: string, paths: PlatformRoutePaths): React.ReactElement[] {
   return [
+    // No roles/new route: the API has no role-write endpoints, so there is nothing to
+    // create against. Add it back alongside POST /roles.
     <Route key="roles" path={rel(home, paths.roles)} element={<RolesListPage />} />,
-    <Route key="roles-new" path={rel(home, paths.rolesNew)} element={<RoleDetailPage />} />,
     <Route key="role-detail" path={rel(home, paths.roleDetail)} element={<RoleDetailPage />} />,
     <Route key="users" path={rel(home, paths.users)} element={<UsersListPage />} />,
     <Route key="users-new" path={rel(home, paths.usersNew)} element={<UserDetailPage />} />,

@@ -6,6 +6,7 @@ export const ROUTES = {
   login: '/login',
   unauthorized: '/unauthorized',
   registerInstitute: '/register/institute', // public self-registration (no auth)
+  changePassword: '/account/password', // own-account page, shared by every role
 
   admin: {
     home: '/admin',
@@ -26,7 +27,6 @@ export const ROUTES = {
     instituteApprovals: '/admin/institutes/approvals',
     instituteDetail: '/admin/institutes/:id',
     roles: '/admin/roles',
-    rolesNew: '/admin/roles/new',
     roleDetail: '/admin/roles/:id',
     users: '/admin/users',
     usersNew: '/admin/users/new',
@@ -90,3 +90,18 @@ export const ROUTES = {
     profile: '/institute/profile',
   },
 } as const;
+
+/**
+ * Routes a signed-out visitor is meant to reach. `AuthProvider` skips the
+ * `GET /auth/me` session check on these, so opening the login page costs no auth
+ * requests at all — and no failed check, which is what would otherwise trigger a
+ * pointless token renewal behind it.
+ *
+ * Add any new public route here. Forgetting only costs one wasted request, never
+ * access: the route guards read the session, not this list.
+ */
+const PUBLIC_ROUTES: string[] = [ROUTES.login, ROUTES.unauthorized, ROUTES.registerInstitute];
+
+export function isPublicRoute(pathname: string): boolean {
+  return PUBLIC_ROUTES.includes(pathname);
+}

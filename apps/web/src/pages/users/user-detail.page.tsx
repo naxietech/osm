@@ -1,64 +1,102 @@
 /**
- * Add User (super admin) — the only place logins are created. Pick a role (system or
- * custom); if the role is institute-scoped (any own-institute grant, or an institute-
- * owned custom role) an institute must be chosen. Many users can share one institute.
+ * Add User (super admin) — the only place logins are created.
  *
- * TODO: replace direct store calls with a usersApi + React Query mutation + real email
- * uniqueness / password handling (created server-side).
+ * Pick a role from the server's catalogue; if it is institute-scoped (any own-institute
+ * grant, or a role owned by one institute) an institute must be chosen too.
+ *
+ * The password field is a real requirement, not a placeholder: there is no invite email
+ * yet, so whoever creates the account sets a temporary password and passes it on. The new
+ * user changes it themselves from the account menu.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
+
+import type { Role } from '@oses/types';
 
 import { PageHeader } from '@/components/widgets';
 import { Button } from '@/design-system/atoms/button';
 import { FormField } from '@/design-system/molecules/form-field';
 import { SelectField } from '@/design-system/molecules/select-field';
-import { getRole, listRoles } from '@/services/roles.service';
-import { INSTITUTE_OPTIONS, createUser } from '@/services/users.service';
+import { ROUTES } from '@/router/routes';
+import { apiErrorMessage } from '@/services/api-client';
+import { INSTITUTE_OPTIONS } from '@/services/institute.service';
+import { rolesService } from '@/services/roles.service';
+import { usersService } from '@/services/users.service';
+
+/** A role is institute-scoped if it belongs to one institute or holds an own-institute grant. */
+function isInstituteScoped(role: Role | undefined): boolean {
+  return Boolean(role?.instituteId || role?.grants.some((g) => g.scope === 'own-institute'));
+}
+
+/**
+ * Mirrors the API's own rules so the form fails before the round trip. Built from the
+ * fetched roles because whether an institute is required depends on the role picked — a
+ * static schema couldn't know that.
+ */
+function buildValidationSchema(roles: Role[]): Yup.ObjectSchema<Record<string, unknown>> {
+  return Yup.object({
+    fullName: Yup.string().trim().required('Full name is required').max(100),
+    email: Yup.string().email('Enter a valid email address').required('Email is required'),
+    roleId: Yup.string().required('A role is required'),
+    password: Yup.string()
+      .min(8, 'Temporary password must be at least 8 characters')
+      .required('A temporary password is required'),
+    instituteId: Yup.string().test(
+      'institute-required-for-scoped-role',
+      'This role is limited to one institute, so pick one',
+      function instituteRequired(value) {
+        const role = roles.find((r) => r.id === (this.parent as { roleId?: string }).roleId);
+        return !isInstituteScoped(role) || Boolean(value);
+      },
+    ),
+  });
+}
 
 export function UserDetailPage(): React.ReactElement {
   const navigate = useNavigate();
+  const backToList = (): void => void navigate(ROUTES.admin.users);
 
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [roleId, setRoleId] = useState('');
-  const [instituteId, setInstituteId] = useState('');
+  const rolesQuery = useQuery({ queryKey: ['roles'], queryFn: () => rolesService.listRoles() });
+  const roles = useMemo(() => rolesQuery.data ?? [], [rolesQuery.data]);
+  const roleOptions = roles.map((r) => ({ value: r.id, label: r.name }));
+  const validationSchema = useMemo(() => buildValidationSchema(roles), [roles]);
 
-  const roleOptions = useMemo(() => listRoles().map((r) => ({ value: r.id, label: r.name })), []);
+  const createMutation = useMutation({
+    mutationFn: usersService.createUser,
+    onSuccess: backToList,
+  });
 
-  const selectedRole = roleId ? getRole(roleId) : undefined;
-  const needsInstitute = Boolean(
-    selectedRole?.instituteId || selectedRole?.grants.some((g) => g.scope === 'own-institute'),
-  );
+  const formik = useFormik({
+    initialValues: { fullName: '', email: '', roleId: '', password: '', instituteId: '' },
+    validationSchema,
+    onSubmit: (values) => {
+      createMutation.mutate({
+        fullName: values.fullName.trim(),
+        email: values.email.trim(),
+        roleId: values.roleId,
+        password: values.password,
+        ...(values.instituteId ? { instituteId: values.instituteId } : {}),
+      });
+    },
+  });
 
-  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-  const canSave =
-    fullName.trim().length > 0 &&
-    emailValid &&
-    roleId.length > 0 &&
-    (!needsInstitute || instituteId.length > 0);
-
-  const handleSave = (): void => {
-    createUser({
-      fullName: fullName.trim(),
-      email: email.trim(),
-      roleId,
-      ...(needsInstitute && instituteId ? { instituteId } : {}),
-    });
-    void navigate('/admin/users');
-  };
+  const needsInstitute = isInstituteScoped(roles.find((r) => r.id === formik.values.roleId));
 
   return (
-    <>
+    <form onSubmit={formik.handleSubmit} noValidate>
       <PageHeader
         title="Add User"
         subtitle="Create a login and assign a role"
         actions={
           <div className="flex gap-2">
-            <Button variant="ghost" onClick={() => void navigate('/admin/users')}>
+            <Button type="button" variant="ghost" onClick={backToList}>
               Cancel
             </Button>
-            <Button variant="primary" disabled={!canSave} onClick={handleSave}>
+            <Button type="submit" variant="primary" isLoading={createMutation.isPending}>
               Create User
             </Button>
           </div>
@@ -70,42 +108,74 @@ export function UserDetailPage(): React.ReactElement {
           id="fullName"
           name="fullName"
           label="Full Name"
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
+          value={formik.values.fullName}
+          onChange={formik.handleChange}
+          onBlur={formik.handleBlur}
+          error={formik.touched.fullName ? formik.errors.fullName : undefined}
           required
         />
+
         <FormField
           id="email"
           name="email"
           type="email"
           autoComplete="off"
           label="Email Address"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={formik.values.email}
+          onChange={formik.handleChange}
+          onBlur={formik.handleBlur}
+          error={formik.touched.email ? formik.errors.email : undefined}
           required
         />
+
         <SelectField
           label="Role"
-          value={roleId}
-          onChange={(v) => setRoleId(v)}
+          value={formik.values.roleId}
+          onChange={(v) => void formik.setFieldValue('roleId', v)}
           options={roleOptions}
+          error={formik.touched.roleId ? formik.errors.roleId : undefined}
           required
         />
+
         {needsInstitute && (
           <SelectField
             label="Institute"
-            value={instituteId}
-            onChange={(v) => setInstituteId(v)}
+            value={formik.values.instituteId}
+            onChange={(v) => void formik.setFieldValue('instituteId', v)}
             options={INSTITUTE_OPTIONS}
+            error={formik.touched.instituteId ? formik.errors.instituteId : undefined}
             required
           />
         )}
+
+        <FormField
+          id="password"
+          name="password"
+          type="password"
+          autoComplete="new-password"
+          label="Temporary Password"
+          value={formik.values.password}
+          onChange={formik.handleChange}
+          onBlur={formik.handleBlur}
+          error={formik.touched.password ? formik.errors.password : undefined}
+          required
+        />
+
         <p className="text-xs text-muted-foreground">
-          The initial password is set by the super admin and shared with the user (mock — not wired
-          yet).
+          Share this password with the user directly — there is no invitation email yet. They can
+          change it from the account menu after signing in.
         </p>
+
+        {createMutation.isError && (
+          <div
+            role="alert"
+            className="rounded-md bg-danger-subtle px-4 py-3 text-sm text-danger-foreground"
+          >
+            {apiErrorMessage(createMutation.error)}
+          </div>
+        )}
       </div>
-    </>
+    </form>
   );
 }
 

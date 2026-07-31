@@ -38,6 +38,7 @@ export {
   Highlighter,
   History,
   Keyboard,
+  KeyRound,
   LayoutDashboard,
   Lock,
   LogOut,

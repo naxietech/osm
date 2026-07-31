@@ -61,8 +61,9 @@ export function RoleLayout(): ReactElement {
         user={user ? { fullName: user.fullName, email: user.email } : null}
         onLogout={() => {
           logout();
-          void navigate('/login');
+          void navigate(ROUTES.login);
         }}
+        onChangePassword={() => void navigate(ROUTES.changePassword)}
       >
         <Outlet />
       </DashboardLayout>

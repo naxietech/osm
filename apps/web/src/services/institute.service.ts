@@ -185,3 +185,21 @@ export function rejectInstitute(id: string, reason?: string): Institute | undefi
   institute.updatedAt = new Date().toISOString();
   return institute;
 }
+
+// ---- institute pickers (used by any screen that has to choose or name an institute) ----
+
+/**
+ * Institutes offered in a picker. Derived from the seed above rather than hand-listed, so
+ * the two can't drift apart. Like the rest of this mock it is a module-level snapshot —
+ * an institute registered during the session won't appear until reload, which is the same
+ * behaviour these screens had before.
+ */
+export const INSTITUTE_OPTIONS: Array<{ value: string; label: string }> = institutes.map((i) => ({
+  value: i.id,
+  label: i.instituteName,
+}));
+
+/** An institute's display name, or an em dash when there is none to show. */
+export function instituteName(id: string | undefined): string {
+  return (id && institutes.find((i) => i.id === id)?.instituteName) || '—';
+}

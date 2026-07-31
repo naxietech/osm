@@ -1,20 +1,24 @@
 /**
- * Roles list (super admin) — every role in the system: the seeded system roles plus
- * any custom roles. System roles are read-only; custom roles can be edited. "Create
- * Role" opens the permission-matrix editor.
+ * Roles list (super admin) — every role in the system, read from the API.
  *
- * TODO: replace the direct roles-store read with a rolesApi + React Query.
+ * Read-only: the backend seeds the five TRD roles and exposes only `GET /roles`. Creating
+ * and editing roles is designed for (the editor and `CreateRoleDto` exist) but has no
+ * endpoint yet, so those actions stay hidden rather than pretending to save.
  */
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+
+import { useQuery } from '@tanstack/react-query';
 
 import { type Role } from '@oses/types';
 
 import { PageHeader } from '@/components/widgets';
 import { Button } from '@/design-system/atoms/button';
 import { type ColumnDef, DataTable } from '@/design-system/organisms/data-table';
-import { listRoles } from '@/services/roles.service';
-import { instituteName } from '@/services/users.service';
+import { ROUTES } from '@/router/routes';
+import { apiErrorMessage } from '@/services/api-client';
+import { instituteName } from '@/services/institute.service';
+import { rolesService } from '@/services/roles.service';
 
 function TypePill({ isSystem }: { isSystem: boolean }): React.ReactElement {
   return isSystem ? (
@@ -30,7 +34,9 @@ function TypePill({ isSystem }: { isSystem: boolean }): React.ReactElement {
 
 export function RolesListPage(): React.ReactElement {
   const navigate = useNavigate();
-  const roles = listRoles();
+  const rolesQuery = useQuery({ queryKey: ['roles'], queryFn: () => rolesService.listRoles() });
+
+  const openRole = (id: string): void => void navigate(`${ROUTES.admin.roles}/${id}`);
 
   const columns: ColumnDef<Role>[] = [
     {
@@ -48,7 +54,7 @@ export function RolesListPage(): React.ReactElement {
       key: 'owner',
       header: 'Owner',
       render: (row) => (row.instituteId ? instituteName(row.instituteId) : 'Global'),
-      width: '260px',
+      width: '240px',
     },
     {
       key: 'permissions',
@@ -69,10 +75,10 @@ export function RolesListPage(): React.ReactElement {
           size="sm"
           onClick={(e) => {
             e.stopPropagation();
-            void navigate(`/admin/roles/${row.id}`);
+            openRole(row.id);
           }}
         >
-          {row.isSystem ? 'View' : 'Edit'}
+          View
         </Button>
       ),
       width: '100px',
@@ -83,19 +89,24 @@ export function RolesListPage(): React.ReactElement {
     <>
       <PageHeader
         title="Roles & Permissions"
-        subtitle="Define roles and assign what each role can do"
-        actions={
-          <Button variant="primary" onClick={() => void navigate('/admin/roles/new')}>
-            Create Role
-          </Button>
-        }
+        subtitle="What each role in the system is allowed to do"
       />
+
+      {rolesQuery.isError && (
+        <div
+          role="alert"
+          className="mb-4 rounded-md bg-danger-subtle px-4 py-3 text-sm text-danger-foreground"
+        >
+          {apiErrorMessage(rolesQuery.error)}
+        </div>
+      )}
 
       <div className="rounded-lg border border-border bg-card shadow-sm">
         <DataTable<Role>
-          data={roles}
+          data={rolesQuery.data ?? []}
           columns={columns}
-          onRowClick={(row) => void navigate(`/admin/roles/${row.id}`)}
+          isLoading={rolesQuery.isLoading}
+          onRowClick={(row) => openRole(row.id)}
           emptyMessage="No roles found"
         />
       </div>

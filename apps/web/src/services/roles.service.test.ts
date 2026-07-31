@@ -1,58 +1,66 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { SYSTEM_ROLE_IDS, getRole, listRoles } from './roles.service';
+import { PERMISSION_CATALOG, SYSTEM_ROLE_IDS, rolesService } from './roles.service';
 
-/** The TRD's five default roles, all seeded as system roles. */
-describe('roles.service seed (5 TRD roles)', () => {
-  it('seeds exactly the five system roles', () => {
-    const system = listRoles().filter((r) => r.isSystem);
-    expect(system.map((r) => r.name)).toEqual([
-      'Super Admin',
-      'Admin',
-      'Controller Examiner',
-      'Evaluator',
-      'Institute',
-    ]);
+const ROLES = [
+  {
+    id: 'role_super_admin',
+    name: 'Super Admin',
+    isSystem: true,
+    grants: [{ action: 'users.manage', scope: 'all' }],
+    createdAt: '2026-01-01T00:00:00.000Z',
+  },
+];
+
+let fetchMock: ReturnType<typeof vi.fn>;
+
+beforeEach(() => {
+  fetchMock = vi.fn();
+  vi.stubGlobal('fetch', fetchMock);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe('rolesService.listRoles', () => {
+  it('unwraps the role list from the envelope', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: true, data: ROLES, timestamp: 'now' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    await expect(rolesService.listRoles()).resolves.toEqual(ROLES);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/roles');
+  });
+});
+
+describe('SYSTEM_ROLE_IDS', () => {
+  it('matches the ids the API seeds', () => {
+    // These are referenced by id across the app (checker approval picks role_checker),
+    // so they must stay in step with apps/api/src/rbac/system-roles.ts.
+    expect(SYSTEM_ROLE_IDS).toEqual({
+      superAdmin: 'role_super_admin',
+      admin: 'role_admin',
+      institute: 'role_institute',
+      checker: 'role_checker',
+      controller: 'role_controller',
+    });
+  });
+});
+
+describe('PERMISSION_CATALOG', () => {
+  it('describes every action exactly once', () => {
+    const actions = PERMISSION_CATALOG.map((p) => p.action);
+    expect(new Set(actions).size).toBe(actions.length);
   });
 
-  it('Super Admin has full access but never marks', () => {
-    const sa = getRole(SYSTEM_ROLE_IDS.superAdmin);
-    const actions = sa?.grants.map((g) => g.action) ?? [];
-    expect(actions).toContain('roles.manage');
-    expect(actions).toContain('clients.manage');
-    expect(actions).not.toContain('marking.mark');
-  });
-
-  it('Admin is limited back-office — data yes, no roles/clients/reference data', () => {
-    const admin = getRole(SYSTEM_ROLE_IDS.admin);
-    const actions = admin?.grants.map((g) => g.action) ?? [];
-    // manages operational data
-    expect(actions).toContain('institutes.manage');
-    expect(actions).toContain('students.manage');
-    expect(actions).toContain('exams.manage');
-    // but NOT the super-admin-only surfaces
-    expect(actions).not.toContain('roles.manage');
-    expect(actions).not.toContain('clients.manage');
-    expect(actions).not.toContain('institute-categories.manage');
-    expect(actions).not.toContain('subjects.manage');
-  });
-
-  it('Controller Examiner creates exams and supervises marking', () => {
-    const ce = getRole(SYSTEM_ROLE_IDS.controller);
-    const actions = ce?.grants.map((g) => g.action) ?? [];
-    expect(actions).toContain('exams.manage');
-    expect(actions).toContain('marking.supervise');
-    expect(actions).not.toContain('marking.mark');
-  });
-
-  it('Evaluator marks scripts only', () => {
-    const ev = getRole(SYSTEM_ROLE_IDS.checker);
-    expect(ev?.name).toBe('Evaluator');
-    expect(ev?.grants.map((g) => g.action)).toContain('marking.mark');
-  });
-
-  it('Institute is scoped to its own institute', () => {
-    const inst = getRole(SYSTEM_ROLE_IDS.institute);
-    expect(inst?.grants.every((g) => g.scope === 'own-institute')).toBe(true);
+  it('covers the actions the role screens have to label', () => {
+    const actions = PERMISSION_CATALOG.map((p) => p.action);
+    expect(actions).toEqual(
+      expect.arrayContaining(['students.viewPII', 'marking.mark', 'templates.manage']),
+    );
   });
 });

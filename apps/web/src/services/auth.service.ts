@@ -1,74 +1,42 @@
 /**
- * Mock auth API. Resolves from a static list of 5 users (one per role) using a
- * shared demo password. Frontend-only — simulates latency, no real backend.
- * TODO: Replace with a real call to the NestJS /auth/login endpoint later.
+ * Real auth API — the first service wired to the live backend (everything else is
+ * still a mock).
+ *
+ * The API keeps the session in HttpOnly cookies, so nothing here returns or stores a
+ * token: `login` sets the cookies as a side effect and `me` is the only way to find out
+ * whether the browser still holds a valid session. Renewal is handled inside
+ * `api-client` and never needs calling from here.
  */
-import { type SafeUser, UserRole } from '@oses/types';
+import type { ChangePasswordRequest, LoginRequest, PermissionGrant, SafeUser } from '@oses/types';
 
-import { SYSTEM_ROLE_IDS } from './roles.service';
+import { apiRequest } from './api-client';
+import { API_ENDPOINTS } from './api-endpoints';
 
-export interface LoginResult {
-  user: SafeUser;
-  token: string;
+const { auth } = API_ENDPOINTS;
+
+/** Sign in. On success the API sets the access + refresh cookies. */
+function login(credentials: LoginRequest): Promise<SafeUser> {
+  return apiRequest<SafeUser>(auth.login, { method: 'POST', body: credentials });
 }
 
-/** Shared demo password for every mock account. */
-export const DEMO_PASSWORD = 'password123';
-
-/** Static mock users — one per role. Sign in with the email + DEMO_PASSWORD. */
-export const MOCK_USERS: SafeUser[] = [
-  {
-    id: 'usr_admin',
-    email: 'admin@oses.pk',
-    role: UserRole.ADMIN,
-    roleId: SYSTEM_ROLE_IDS.superAdmin,
-    fullName: 'Board Admin',
-    createdAt: '2026-01-01T00:00:00.000Z',
-  },
-  {
-    id: 'usr_controller',
-    email: 'controller@oses.pk',
-    role: UserRole.CONTROLLER,
-    roleId: SYSTEM_ROLE_IDS.controller,
-    fullName: 'Examiner',
-    createdAt: '2026-01-01T00:00:00.000Z',
-  },
-  {
-    id: 'usr_evaluator',
-    email: 'evaluator@oses.pk',
-    role: UserRole.EVALUATOR,
-    roleId: SYSTEM_ROLE_IDS.checker,
-    fullName: 'Checker',
-    createdAt: '2026-01-01T00:00:00.000Z',
-  },
-  {
-    id: 'usr_school',
-    email: 'school@oses.pk',
-    role: UserRole.INSTITUTE,
-    roleId: SYSTEM_ROLE_IDS.institute,
-    instituteId: 'sch_001', // ties institute staff to their institute (drives exam registration scope)
-    fullName: 'Institute Staff',
-    createdAt: '2026-01-01T00:00:00.000Z',
-  },
-];
-
-/** Fake JWT-ish token (base64 payload, unsigned) — mock only. */
-function makeToken(user: SafeUser): string {
-  const payload = btoa(JSON.stringify({ sub: user.id, role: user.role }));
-  return `mock.${payload}.signature`;
+/** The signed-in user, or a 401 if the browser holds no usable session. */
+function me(): Promise<SafeUser> {
+  return apiRequest<SafeUser>(auth.me);
 }
 
-function login(email: string, password: string): Promise<LoginResult> {
-  return new Promise<LoginResult>((resolve, reject) => {
-    setTimeout(() => {
-      const user = MOCK_USERS.find((u) => u.email.toLowerCase() === email.trim().toLowerCase());
-      if (!user || password !== DEMO_PASSWORD) {
-        reject(new Error('Invalid email or password.'));
-        return;
-      }
-      resolve({ user, token: makeToken(user) });
-    }, 700);
-  });
+/** The signed-in user's permission grants (action + scope). */
+function permissions(): Promise<PermissionGrant[]> {
+  return apiRequest<PermissionGrant[]>(auth.permissions);
 }
 
-export const authService = { login };
+/** Revoke the session server-side and clear the cookies. */
+async function logout(): Promise<void> {
+  await apiRequest<{ message: string }>(auth.logout, { method: 'POST' });
+}
+
+/** Change your own password. The API then revokes every session, so you must sign in again. */
+async function changePassword(dto: ChangePasswordRequest): Promise<void> {
+  await apiRequest<{ message: string }>(auth.changePassword, { method: 'POST', body: dto });
+}
+
+export const authService = { login, me, permissions, logout, changePassword };

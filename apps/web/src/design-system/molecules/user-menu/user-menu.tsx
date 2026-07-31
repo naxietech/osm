@@ -1,6 +1,6 @@
 import { type ReactElement } from 'react';
 
-import { LogOut } from '@/design-system/atoms/icon';
+import { KeyRound, LogOut } from '@/design-system/atoms/icon';
 import { getInitials } from '@/lib/utils';
 
 export interface UserMenuProps {
@@ -8,10 +8,12 @@ export interface UserMenuProps {
   name?: string;
   email?: string;
   onLogout: () => void;
+  /** Omit to hide the change-password action. */
+  onChangePassword?: () => void;
 }
 
-/** Avatar + identity + logout button. Presentational — logout is a callback. */
-export function UserMenu({ name, email, onLogout }: UserMenuProps): ReactElement {
+/** Avatar + identity + account actions. Presentational — every action is a callback. */
+export function UserMenu({ name, email, onLogout, onChangePassword }: UserMenuProps): ReactElement {
   return (
     <div className="flex items-center gap-2 sm:gap-3">
       <div className="flex items-center gap-2 pl-1">
@@ -23,6 +25,17 @@ export function UserMenu({ name, email, onLogout }: UserMenuProps): ReactElement
           <p className="text-xs text-muted-foreground">{email ?? ''}</p>
         </div>
       </div>
+      {onChangePassword && (
+        <button
+          type="button"
+          onClick={onChangePassword}
+          title="Change password"
+          aria-label="Change password"
+          className="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          <KeyRound size={16} aria-hidden />
+        </button>
+      )}
       <button
         type="button"
         onClick={onLogout}

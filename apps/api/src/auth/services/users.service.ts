@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import type { SafeUser } from '@oses/types';
+import type { PaginatedUsers, SafeUser } from '@oses/types';
 
 import { SYSTEM_ROLE_IDS } from '../../rbac/system-roles';
 import { hashPassword } from '../../shared/crypto';
@@ -26,12 +26,7 @@ import {
   USER_REPOSITORY,
   type UserRepository,
 } from '../ports';
-import { type AdminUser, toAdminUser, toSafeUser } from '../user-mapper';
-
-export interface PaginatedUsers {
-  items: AdminUser[];
-  total: number;
-}
+import { toAdminUser, toSafeUser } from '../user-mapper';
 
 const VALID_ROLE_IDS = new Set<string>(Object.values(SYSTEM_ROLE_IDS));
 

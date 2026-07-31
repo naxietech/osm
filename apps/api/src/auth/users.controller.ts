@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiCookieAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
-import type { SafeUser } from '@oses/types';
+import type { PaginatedUsers, SafeUser } from '@oses/types';
 
 import { CurrentUser } from '../shared/decorators/current-user.decorator';
 import { RequirePermissions } from '../shared/decorators/require-permissions.decorator';
@@ -31,7 +31,7 @@ import { ActiveUserGuard } from './guards/active-user.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PermissionsGuard } from './guards/permissions.guard';
 import type { AuthPrincipal } from './principal';
-import { type PaginatedUsers, UsersService } from './services';
+import { UsersService } from './services';
 
 /**
  * Admin user provisioning. Every route requires authentication (JwtAuthGuard) plus the
