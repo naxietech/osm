@@ -16,6 +16,7 @@ import type { ChangePasswordRequest } from '@oses/types';
 
 import { Button } from '@/design-system/atoms/button';
 import { Lock } from '@/design-system/atoms/icon';
+import { Alert } from '@/design-system/molecules/alert';
 import { FormField } from '@/design-system/molecules/form-field';
 import { AuthLayout } from '@/design-system/templates/auth-layout';
 import { useAuth } from '@/hooks';
@@ -115,14 +116,7 @@ export function ChangePasswordPage(): React.ReactElement {
           required
         />
 
-        {submitError && (
-          <div
-            role="alert"
-            className="rounded-md bg-danger-subtle px-4 py-3 text-sm text-danger-foreground"
-          >
-            {submitError}
-          </div>
-        )}
+        {submitError && <Alert tone="danger">{submitError}</Alert>}
 
         <div className="flex gap-2">
           <Button

@@ -3,9 +3,9 @@ import { useLocation } from 'react-router-dom';
 
 import { type NavSection, Sidebar } from '@/design-system/organisms/sidebar';
 import { Topbar } from '@/design-system/organisms/topbar';
+import { useFocusTrap } from '@/lib/use-focus-trap';
 
 import { useDrawer } from './use-drawer';
-import { useFocusTrap } from './use-focus-trap';
 
 export interface DashboardLayoutProps {
   /** Navigation sections for the current role. */

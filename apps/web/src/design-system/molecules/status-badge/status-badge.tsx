@@ -47,6 +47,16 @@ export function UserStatusBadge({ status }: UserStatusBadgeProps): React.ReactEl
   return <Badge variant={config.variant}>{config.label}</Badge>;
 }
 
+export interface RoleTypeBadgeProps {
+  /** True for the seeded TRD roles, which the server owns and nobody can edit. */
+  isSystem: boolean;
+}
+
+/** System vs custom role on the roles directory. */
+export function RoleTypeBadge({ isSystem }: RoleTypeBadgeProps): React.ReactElement {
+  return <Badge variant={isSystem ? 'default' : 'info'}>{isSystem ? 'System' : 'Custom'}</Badge>;
+}
+
 export interface ActiveBadgeProps {
   active: boolean;
 }

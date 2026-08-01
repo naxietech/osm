@@ -71,6 +71,25 @@ function grants(scope: PermissionScope, actions: PermissionAction[]): Permission
   return actions.map((action) => ({ action, scope }));
 }
 
+/**
+ * Whether a role may be bound to an institute.
+ *
+ * This is not cosmetic. `assertOwnInstitute` and PermissionsGuard both treat any caller
+ * carrying an `instituteId` as institute-bound and refuse them everything outside it — so
+ * binding a global role to one institute silently cripples that account, with no screen to
+ * undo it. Reject the combination rather than store a contradiction.
+ *
+ * Institute — required: its grants are all `own-institute`, meaningless without one.
+ * Evaluator — allowed: an institute makes them a school-specific checker, and leaving it
+ *   off makes them a general checker who marks across the board (see checker.types.ts).
+ * Everyone else — forbidden: Super Admin, Admin and Controller are global by design.
+ */
+export function roleAcceptsInstitute(roleId: string): boolean {
+  if (roleId === SYSTEM_ROLE_IDS.checker) return true;
+  const role = SYSTEM_ROLES.find((r) => r.id === roleId);
+  return Boolean(role?.grants.some((g) => g.scope === 'own-institute'));
+}
+
 export interface SystemRoleSeed {
   id: string;
   name: string;

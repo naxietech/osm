@@ -17,3 +17,4 @@ export * from './slo-form';
 export * from './student-form';
 export * from './student-profile';
 export * from './topbar';
+export * from './user-form';

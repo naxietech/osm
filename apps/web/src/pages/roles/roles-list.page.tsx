@@ -8,33 +8,21 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { useQuery } from '@tanstack/react-query';
-
 import { type Role } from '@oses/types';
 
 import { PageHeader } from '@/components/widgets';
 import { Button } from '@/design-system/atoms/button';
+import { Alert } from '@/design-system/molecules/alert';
+import { RoleTypeBadge } from '@/design-system/molecules/status-badge';
 import { type ColumnDef, DataTable } from '@/design-system/organisms/data-table';
+import { useRoles } from '@/hooks/use-roles';
 import { ROUTES } from '@/router/routes';
 import { apiErrorMessage } from '@/services/api-client';
 import { instituteName } from '@/services/institute.service';
-import { rolesService } from '@/services/roles.service';
-
-function TypePill({ isSystem }: { isSystem: boolean }): React.ReactElement {
-  return isSystem ? (
-    <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-      System
-    </span>
-  ) : (
-    <span className="rounded-full bg-brand-subtle px-2.5 py-0.5 text-xs font-medium text-brand">
-      Custom
-    </span>
-  );
-}
 
 export function RolesListPage(): React.ReactElement {
   const navigate = useNavigate();
-  const rolesQuery = useQuery({ queryKey: ['roles'], queryFn: () => rolesService.listRoles() });
+  const { roles, isLoading, isError, error } = useRoles();
 
   const openRole = (id: string): void => void navigate(`${ROUTES.admin.roles}/${id}`);
 
@@ -47,7 +35,7 @@ export function RolesListPage(): React.ReactElement {
     {
       key: 'type',
       header: 'Type',
-      render: (row) => <TypePill isSystem={row.isSystem} />,
+      render: (row) => <RoleTypeBadge isSystem={row.isSystem} />,
       width: '120px',
     },
     {
@@ -92,20 +80,17 @@ export function RolesListPage(): React.ReactElement {
         subtitle="What each role in the system is allowed to do"
       />
 
-      {rolesQuery.isError && (
-        <div
-          role="alert"
-          className="mb-4 rounded-md bg-danger-subtle px-4 py-3 text-sm text-danger-foreground"
-        >
-          {apiErrorMessage(rolesQuery.error)}
-        </div>
+      {isError && (
+        <Alert tone="danger" className="mb-4">
+          {apiErrorMessage(error)}
+        </Alert>
       )}
 
       <div className="rounded-lg border border-border bg-card shadow-sm">
         <DataTable<Role>
-          data={rolesQuery.data ?? []}
+          data={roles}
           columns={columns}
-          isLoading={rolesQuery.isLoading}
+          isLoading={isLoading}
           onRowClick={(row) => openRole(row.id)}
           emptyMessage="No roles found"
         />

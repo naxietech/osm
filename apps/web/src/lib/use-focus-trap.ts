@@ -10,6 +10,10 @@ export interface FocusTrapOptions {
 }
 
 /**
+ * Lives in lib/ rather than beside the drawer that first needed it: molecules cannot
+ * import from templates (eslint-enforced), and the Modal molecule needs this too.
+ */
+/**
  * Traps Tab focus within `containerRef` while `active`. Focuses the first
  * focusable element on activate, cycles Tab/Shift+Tab at the edges, and restores
  * focus to `restoreRef` on deactivate.

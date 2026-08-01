@@ -106,6 +106,36 @@ describe('UsersService', () => {
       expect(users.create).not.toHaveBeenCalled();
     });
 
+    it('refuses to tie a global role to an institute', async () => {
+      // assertOwnInstitute treats anyone carrying an instituteId as institute-bound, so
+      // storing this would silently lock a Super Admin out of every other institute —
+      // with no screen to undo it.
+      for (const roleId of ['role_super_admin', 'role_admin', 'role_controller']) {
+        await expect(
+          service.createUser({ ...dto, roleId, instituteId: 'sch_001' }, 'admin'),
+        ).rejects.toBeInstanceOf(BadRequestException);
+      }
+      expect(users.create).not.toHaveBeenCalled();
+    });
+
+    it('accepts an institute for the roles that take one', async () => {
+      // Institute needs one (all its grants are own-institute); an Evaluator may have one,
+      // which makes them a school-specific checker rather than a general one.
+      for (const roleId of ['role_institute', 'role_checker']) {
+        users.findByEmail.mockResolvedValue(undefined);
+        await expect(
+          service.createUser({ ...dto, roleId, instituteId: 'sch_001' }, 'admin'),
+        ).resolves.toBeDefined();
+      }
+    });
+
+    it('accepts a global role with no institute', async () => {
+      users.findByEmail.mockResolvedValue(undefined);
+      await expect(
+        service.createUser({ ...dto, roleId: 'role_super_admin' }, 'admin'),
+      ).resolves.toBeDefined();
+    });
+
     it('creates the user (hashed password) and audits', async () => {
       users.findByEmail.mockResolvedValue(null);
       const result = await service.createUser(dto, 'admin');

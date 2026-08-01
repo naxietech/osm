@@ -15,6 +15,7 @@ import type { LoginRequest } from '@oses/types';
 import { Button } from '@/design-system/atoms/button';
 import { Checkbox } from '@/design-system/atoms/checkbox';
 import { Lock, Mail } from '@/design-system/atoms/icon';
+import { Alert } from '@/design-system/molecules/alert';
 import { FormField } from '@/design-system/molecules/form-field';
 import { AuthLayout } from '@/design-system/templates/auth-layout';
 import { useAuth } from '@/hooks';
@@ -69,11 +70,7 @@ export function LoginPage(): React.ReactElement {
   return (
     <AuthLayout title="Welcome back" subtitle="Sign in to continue to your dashboard.">
       <form onSubmit={formik.handleSubmit} noValidate className="space-y-4">
-        {notice && !submitError && (
-          <div role="status" className="rounded-md bg-brand-subtle px-4 py-3 text-sm text-brand">
-            {notice}
-          </div>
-        )}
+        {notice && !submitError && <Alert tone="success">{notice}</Alert>}
 
         <FormField
           id="email"
@@ -117,14 +114,7 @@ export function LoginPage(): React.ReactElement {
           </button>
         </div>
 
-        {submitError && (
-          <div
-            role="alert"
-            className="rounded-md bg-danger-subtle px-4 py-3 text-sm text-danger-foreground"
-          >
-            {submitError}
-          </div>
-        )}
+        {submitError && <Alert tone="danger">{submitError}</Alert>}
 
         <Button type="submit" isLoading={loginMutation.isPending} className="w-full">
           Sign In

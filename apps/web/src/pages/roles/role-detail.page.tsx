@@ -13,18 +13,18 @@
 import React, { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { useQuery } from '@tanstack/react-query';
-
 import type { PermissionGrant } from '@oses/types';
 
 import { PageHeader } from '@/components/widgets';
 import { Button } from '@/design-system/atoms/button';
 import { Check, Lock } from '@/design-system/atoms/icon';
 import { Spinner } from '@/design-system/atoms/spinner';
+import { Alert } from '@/design-system/molecules/alert';
+import { useRoles } from '@/hooks/use-roles';
 import { ROUTES } from '@/router/routes';
 import { apiErrorMessage } from '@/services/api-client';
 import { instituteName } from '@/services/institute.service';
-import { PERMISSION_CATALOG, rolesService } from '@/services/roles.service';
+import { PERMISSION_CATALOG } from '@/services/roles.service';
 
 const SCOPE_LABEL: Record<string, string> = {
   all: 'All institutes',
@@ -35,8 +35,8 @@ export function RoleDetailPage(): React.ReactElement {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
 
-  const rolesQuery = useQuery({ queryKey: ['roles'], queryFn: () => rolesService.listRoles() });
-  const role = rolesQuery.data?.find((r) => r.id === id);
+  const { roles, isLoading, isError, error } = useRoles();
+  const role = roles.find((r) => r.id === id);
 
   const modules = useMemo(() => [...new Set(PERMISSION_CATALOG.map((p) => p.module))], []);
   const grantFor = (action: string): PermissionGrant | undefined =>
@@ -44,7 +44,7 @@ export function RoleDetailPage(): React.ReactElement {
 
   const backToList = (): void => void navigate(ROUTES.admin.roles);
 
-  if (rolesQuery.isLoading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16">
         <Spinner size="lg" />
@@ -52,15 +52,8 @@ export function RoleDetailPage(): React.ReactElement {
     );
   }
 
-  if (rolesQuery.isError) {
-    return (
-      <div
-        role="alert"
-        className="rounded-md bg-danger-subtle px-4 py-3 text-sm text-danger-foreground"
-      >
-        {apiErrorMessage(rolesQuery.error)}
-      </div>
-    );
+  if (isError) {
+    return <Alert tone="danger">{apiErrorMessage(error)}</Alert>;
   }
 
   if (!role) {

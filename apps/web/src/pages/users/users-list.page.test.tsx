@@ -56,12 +56,17 @@ interface MockOptions {
   statusResponse?: Response;
   /** What GET /users answers with, when the list itself should fail. */
   listResponse?: Response;
+  /** What POST /users/:id/reset-password answers with. Defaults to success. */
+  resetResponse?: Response;
 }
 
 function mockApi(options: MockOptions = {}): ReturnType<typeof vi.fn> {
   const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.includes('/roles')) return Promise.resolve(envelope(ROLES));
+    if (url.includes('/reset-password')) {
+      return Promise.resolve(options.resetResponse ?? envelope({ message: 'Password reset.' }));
+    }
     if (init?.method === 'PATCH') {
       return Promise.resolve(options.statusResponse ?? envelope({ message: 'Updated.' }));
     }
@@ -141,13 +146,35 @@ describe('UsersListPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('sends the new status when suspending', async () => {
+  it('asks for confirmation before suspending, and sends nothing if cancelled', async () => {
+    // Suspending signs the person out of every device — too destructive for one click.
     const fetchMock = mockApi();
     renderPage();
 
     await userEvent.click(
       within(await rowFor('Ayesha Khan')).getByRole('button', { name: /suspend/i }),
     );
+
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveAccessibleName(/suspend ayesha khan/i);
+    expect(dialog).toHaveAccessibleDescription(/signed out of every device/i);
+
+    await userEvent.click(within(dialog).getByRole('button', { name: /cancel/i }));
+
+    expect(fetchMock.mock.calls.some(([, init]) => (init as RequestInit)?.method === 'PATCH')).toBe(
+      false,
+    );
+  });
+
+  it('sends the new status once the suspension is confirmed', async () => {
+    const fetchMock = mockApi();
+    renderPage();
+
+    await userEvent.click(
+      within(await rowFor('Ayesha Khan')).getByRole('button', { name: /suspend/i }),
+    );
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: /^suspend$/i }));
 
     await waitFor(() => {
       const patch = fetchMock.mock.calls.find(
@@ -159,6 +186,23 @@ describe('UsersListPage', () => {
     });
   });
 
+  it('reactivates without a confirmation — it is not destructive', async () => {
+    const fetchMock = mockApi({ users: [SUSPENDED_USER], total: 1 });
+    renderPage();
+
+    await userEvent.click(
+      within(await rowFor('Bilal Ahmed')).getByRole('button', { name: /reactivate/i }),
+    );
+
+    await waitFor(() => {
+      const patch = fetchMock.mock.calls.find(
+        ([, init]) => (init as RequestInit)?.method === 'PATCH',
+      );
+      expect(JSON.parse(String((patch?.[1] as RequestInit).body))).toEqual({ status: 'active' });
+    });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
   it("shows the server's reason when a suspension is refused", async () => {
     // The rule (no suspending yourself / the last Super Admin) lives on the server, so
     // the page must show what it said rather than guessing.
@@ -168,10 +212,76 @@ describe('UsersListPage', () => {
     await userEvent.click(
       within(await rowFor('Ayesha Khan')).getByRole('button', { name: /suspend/i }),
     );
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: /^suspend$/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'You cannot suspend your own account.',
     );
+  });
+
+  it('resets a password through the dialog', async () => {
+    const fetchMock = mockApi();
+    renderPage();
+
+    await userEvent.click(
+      within(await rowFor('Ayesha Khan')).getByRole('button', { name: /reset password/i }),
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.type(
+      within(dialog).getByLabelText(/temporary password/i, { selector: 'input' }),
+      'brand-new-1',
+    );
+    await userEvent.click(within(dialog).getByRole('button', { name: /^reset password$/i }));
+
+    await waitFor(() => {
+      const post = fetchMock.mock.calls.find(([url]) => String(url).includes('/reset-password'));
+      expect(post).toBeDefined();
+      expect(String(post?.[0])).toContain('/users/usr_1/reset-password');
+      expect(JSON.parse(String((post?.[1] as RequestInit).body))).toEqual({
+        password: 'brand-new-1',
+      });
+    });
+  });
+
+  it('will not submit a password shorter than the API allows', async () => {
+    mockApi();
+    renderPage();
+
+    await userEvent.click(
+      within(await rowFor('Ayesha Khan')).getByRole('button', { name: /reset password/i }),
+    );
+    const dialog = await screen.findByRole('dialog');
+
+    // Empty to begin with, so confirm is unavailable until something valid is typed.
+    expect(within(dialog).getByRole('button', { name: /^reset password$/i })).toBeDisabled();
+
+    await userEvent.type(
+      within(dialog).getByLabelText(/temporary password/i, { selector: 'input' }),
+      'short7',
+    );
+    expect(within(dialog).getByRole('button', { name: /^reset password$/i })).toBeDisabled();
+    expect(within(dialog).getByText(/at least 8 characters/i)).toBeInTheDocument();
+  });
+
+  it('confirms the reset happened and warns that the user was signed out', async () => {
+    mockApi();
+    renderPage();
+
+    await userEvent.click(
+      within(await rowFor('Ayesha Khan')).getByRole('button', { name: /reset password/i }),
+    );
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.type(
+      within(dialog).getByLabelText(/temporary password/i, { selector: 'input' }),
+      'brand-new-1',
+    );
+    await userEvent.click(within(dialog).getByRole('button', { name: /^reset password$/i }));
+
+    // Nothing on the row changes, so without this the admin can't tell it worked.
+    expect(await screen.findByRole('status')).toHaveTextContent(/password reset/i);
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 
   it('explains a failed load instead of showing an empty table', async () => {
