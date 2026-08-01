@@ -7,6 +7,7 @@ import {
   type ApplyUpdateInput,
   type ApplyUpdateOutcome,
   CategoryCodeAlreadyExistsError,
+  CategoryInUseError,
   type CategoryPatch,
   type CategoryQuestionRecord,
   type CreateInstituteCategoryInput,
@@ -15,7 +16,7 @@ import {
   type QuestionMutationPlan,
 } from '../../../modules/institute-categories/ports';
 import { InstituteCategoryEntity, InstituteCategoryQuestionEntity } from '../entities';
-import { isUniqueViolation } from '../pg-errors';
+import { isForeignKeyViolation, isUniqueViolation } from '../pg-errors';
 
 function toQuestionRecord(question: InstituteCategoryQuestionEntity): CategoryQuestionRecord {
   return {
@@ -203,8 +204,18 @@ export class TypeOrmInstituteCategoryRepository implements InstituteCategoryRepo
   }
 
   async remove(id: string): Promise<boolean> {
-    const result = await this.repo.delete({ id });
-    return (result.affected ?? 0) > 0;
+    try {
+      const result = await this.repo.delete({ id });
+      return (result.affected ?? 0) > 0;
+    } catch (err) {
+      // On a DELETE the only foreign key that can fire points AT this row, so the meaning is
+      // unambiguous: something still references the category. Translated here rather than left
+      // raw so the caller answers 409 instead of 500 — this is what closes the gap between the
+      // service's in-use pre-check and the delete itself. (Questions cascade, so they are never
+      // the cause; the first real referrer arrives with the institutes table.)
+      if (isForeignKeyViolation(err)) throw new CategoryInUseError(id);
+      throw err;
+    }
   }
 
   private async applyPlan(

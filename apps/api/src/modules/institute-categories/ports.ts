@@ -92,6 +92,21 @@ export class CategoryCodeAlreadyExistsError extends Error {
   }
 }
 
+/**
+ * The database refused to delete a category because something still references it.
+ *
+ * The service checks {@link CategoryReferenceProbe.isCategoryInUse} first, which gives a better
+ * message — but a reference can be created in the gap between that check and the delete. This is
+ * the database closing that race, so a concurrent registration can never strand an institute's
+ * classification.
+ */
+export class CategoryInUseError extends Error {
+  constructor(public readonly categoryId: string) {
+    super(`Institute category ${categoryId} is still referenced`);
+    this.name = 'CategoryInUseError';
+  }
+}
+
 /** A submitted question id does not belong to the category being updated. */
 export class UnknownQuestionError extends Error {
   constructor(public readonly questionId: string) {

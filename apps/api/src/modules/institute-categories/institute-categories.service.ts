@@ -21,6 +21,7 @@ import {
   AnsweredQuestionChangeError,
   CATEGORY_REFERENCE_PROBE,
   CategoryCodeAlreadyExistsError,
+  CategoryInUseError,
   type CategoryPatch,
   type CategoryQuestionRecord,
   type CategoryReferenceProbe,
@@ -41,6 +42,10 @@ const NO_QUESTION_CHANGES: QuestionMutationPlan = {
 };
 
 const PUBLIC_CACHE_TTL_MS = 60_000;
+
+/** One wording for both routes to it: the pre-check, and the database losing the race. */
+const CATEGORY_IN_USE =
+  'This category is in use by one or more institutes. Deactivate it instead of deleting it.';
 
 interface PublicCache {
   at: number;
@@ -208,13 +213,18 @@ export class InstituteCategoriesService {
    * classification.
    */
   async remove(id: string): Promise<void> {
-    if (await this.references.isCategoryInUse(id)) {
-      throw new ConflictException(
-        'This category is in use by one or more institutes. Deactivate it instead of deleting it.',
-      );
+    if (await this.references.isCategoryInUse(id)) throw new ConflictException(CATEGORY_IN_USE);
+
+    let removed: boolean;
+    try {
+      removed = await this.categories.remove(id);
+    } catch (err) {
+      // A reference can appear between the check above and this delete. The database refuses it
+      // and the repository reports it as CategoryInUseError, so the racing caller gets the same
+      // 409 as the pre-check rather than a 500.
+      throw this.translate(err);
     }
 
-    const removed = await this.categories.remove(id);
     if (!removed) throw new NotFoundException('Institute category not found');
     this.invalidatePublicCache();
   }
@@ -234,6 +244,7 @@ export class InstituteCategoriesService {
   /** Domain errors carry the detail; this only chooses the HTTP status that fits each one. */
   private translate(err: unknown): unknown {
     if (err instanceof CategoryCodeAlreadyExistsError) return new ConflictException(err.message);
+    if (err instanceof CategoryInUseError) return new ConflictException(CATEGORY_IN_USE);
     if (err instanceof AnsweredQuestionChangeError) return new ConflictException(err.message);
     if (err instanceof UnknownQuestionError) return new BadRequestException(err.message);
     if (err instanceof DuplicateQuestionIdError) return new BadRequestException(err.message);

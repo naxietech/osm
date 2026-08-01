@@ -3,6 +3,7 @@ import { DataSource, type Logger as TypeOrmLogger } from 'typeorm';
 import {
   type ApplyUpdateOutcome,
   CategoryCodeAlreadyExistsError,
+  CategoryInUseError,
   type InstituteCategoryRecord,
   type QuestionMutationPlan,
 } from '../src/modules/institute-categories/ports';
@@ -447,6 +448,43 @@ describeDb('TypeOrmInstituteCategoryRepository (integration)', () => {
 
     it('reports false when nothing was deleted', async () => {
       expect(await repo.remove('00000000-0000-4000-8000-000000000000')).toBe(false);
+    });
+
+    it('reports a category still referenced by another table, rather than failing opaquely', async () => {
+      // Stands in for Module 2's `institutes.category_id ... ON DELETE RESTRICT`. Without it the
+      // delete-in-use path cannot be exercised at all, because questions cascade — so this is the
+      // only way to prove the 23503 is translated instead of escaping as an opaque 500.
+      const category = await seedSchool();
+      await dataSource.query(`
+        create table if not exists fk_probe_referrers (
+          id uuid primary key default gen_random_uuid(),
+          category_id uuid not null references institute_categories(id) on delete restrict
+        )`);
+      try {
+        await dataSource.query('insert into fk_probe_referrers (category_id) values ($1)', [
+          category.id,
+        ]);
+
+        await expect(repo.remove(category.id)).rejects.toBeInstanceOf(CategoryInUseError);
+        // And the category survives the refused delete.
+        expect(await repo.findById(category.id)).not.toBeNull();
+      } finally {
+        await dataSource.query('drop table if exists fk_probe_referrers');
+      }
+    });
+
+    it('still surfaces an unrelated foreign-key failure as a real error, not "in use"', async () => {
+      // A bad `created_by` is also a 23503, but it means a bug — it must NOT be reported as
+      // "this category is in use".
+      await expect(
+        repo.create({
+          code: 'BADACTOR',
+          name: 'Bad actor',
+          description: null,
+          questions: [],
+          actorId: '00000000-0000-4000-8000-000000000000',
+        }),
+      ).rejects.not.toBeInstanceOf(CategoryInUseError);
     });
   });
 });
