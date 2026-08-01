@@ -4,9 +4,33 @@ import {
   AnsweredQuestionChangeError,
   type CategoryQuestionRecord,
   DuplicateQuestionIdError,
+  type QuestionInsert,
   type QuestionMutationPlan,
   UnknownQuestionError,
 } from './ports';
+
+/**
+ * Fill in what a submitted question left out, and stamp its display position.
+ *
+ * Both paths that store a question — creating a category outright, and adding one during an
+ * update — go through here, so the defaults can never drift apart between them. (They once
+ * lived as two copies; a later change to, say, the `required` default would have silently
+ * applied to only one of the two.)
+ *
+ * @param sortOrder 1-based position in the submitted list.
+ */
+export function toQuestionInsert(
+  question: CategoryQuestionInput,
+  sortOrder: number,
+): QuestionInsert {
+  return {
+    text: question.text,
+    type: question.type,
+    required: question.required ?? false,
+    options: question.options ?? [],
+    sortOrder,
+  };
+}
 
 /**
  * Work out the difference between the question list a caller submitted and the rows already
@@ -39,12 +63,10 @@ export function reconcileQuestions(
   const plan: QuestionMutationPlan = { insert: [], update: [], deactivate: [], remove: [] };
 
   incoming.forEach((question, index) => {
-    const sortOrder = index + 1;
-    const options = question.options ?? [];
-    const required = question.required ?? false;
+    const normalized = toQuestionInsert(question, index + 1);
 
     if (question.id === undefined) {
-      plan.insert.push({ text: question.text, type: question.type, required, options, sortOrder });
+      plan.insert.push(normalized);
       return;
     }
 
@@ -62,7 +84,7 @@ export function reconcileQuestions(
       }
       // Options are append-only once answered: withdrawing one would strand every answer
       // holding that value. Adding options is always safe.
-      const withdrawn = current.options.filter((option) => !options.includes(option));
+      const withdrawn = current.options.filter((option) => !normalized.options.includes(option));
       if (withdrawn.length > 0) {
         throw new AnsweredQuestionChangeError(
           question.id,
@@ -72,12 +94,8 @@ export function reconcileQuestions(
     }
 
     plan.update.push({
+      ...normalized,
       id: question.id,
-      text: question.text,
-      type: question.type,
-      required,
-      options,
-      sortOrder,
       // Submitting a retired question puts it back on the form.
       isActive: true,
     });

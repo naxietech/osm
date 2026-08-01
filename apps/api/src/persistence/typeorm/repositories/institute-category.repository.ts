@@ -78,8 +78,9 @@ export class TypeOrmInstituteCategoryRepository implements InstituteCategoryRepo
       .orderBy('LOWER("category"."name")', 'ASC')
       .addOrderBy('category.code', 'ASC')
       // createdAt breaks ties among questions: a retired question keeps the sortOrder it had
-      // when it was retired, so it can collide with a later active one. Without a tie-break the
-      // admin view's ordering would be non-deterministic.
+      // when it was retired, so it can collide with a later active one. Neither view shows
+      // retired questions, so this is not about what an admin sees — it keeps the raw result
+      // deterministic, which tests and debugging depend on.
       .addOrderBy('question.sortOrder', 'ASC')
       .addOrderBy('question.createdAt', 'ASC');
 

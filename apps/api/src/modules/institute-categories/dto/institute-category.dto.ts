@@ -49,6 +49,10 @@ export const CategoryQuestionSchema = z
       .min(1, 'Question text is required')
       .max(300, 'Question text must be at most 300 characters')
       .refine(printable, 'Question text contains invalid characters'),
+    // KNOWN TRD DIVERGENCE — do not silently "fix" either way. The signed OSMS TRD (Module 1)
+    // describes category questions as yes/no only; we accept five types because `@oses/types`
+    // and the built registration form already commit to them. Agreed as deliberate and pending
+    // resolution with Cantab — see docs/oses-007-trd-alignment.md §1.
     type: z.enum(['text', 'radio', 'checkbox', 'select', 'file'], {
       errorMap: () => ({ message: 'Type must be one of: text, radio, checkbox, select, file' }),
     }),

@@ -94,6 +94,24 @@ describeDb('Institute category seed (integration)', () => {
     expect(await questions().countBy({ categoryId: after.id })).toBe(0);
   });
 
+  it('re-creates the standard row when an admin changes a standard code', async () => {
+    // `code` is admin-editable and is also the seed's idempotency key, so renaming a standard
+    // category's code frees that code up. Documented here because it is the one case where
+    // re-seeding adds something rather than doing nothing.
+    await seedInstituteCategories(dataSource);
+    const school = await categories().findOneByOrFail({ code: 'SCH' });
+    await categories().update({ id: school.id }, { code: 'SCHOOL' });
+
+    const summary = await seedInstituteCategories(dataSource);
+
+    expect(summary.categoriesCreated).toBe(1);
+    expect(await categories().count()).toBe(7);
+    // The admin's renamed row is untouched...
+    await expect(categories().findOneByOrFail({ code: 'SCHOOL' })).resolves.toBeDefined();
+    // ...and a fresh standard School now sits alongside it.
+    await expect(categories().findOneByOrFail({ code: 'SCH' })).resolves.toBeDefined();
+  });
+
   it('re-creates a standard category that was deleted outright', async () => {
     await seedInstituteCategories(dataSource);
     await categories().delete({ code: 'PECTA' });

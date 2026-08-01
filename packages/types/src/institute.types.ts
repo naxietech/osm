@@ -203,6 +203,12 @@ export interface CreateInstituteCategoryDto {
   questions?: CategoryQuestionInput[];
 }
 
+/**
+ * NOTE — this is the mock/pre-versioning shape, not the live API contract. The backend's update
+ * endpoint additionally requires a `version` (optimistic lock), accepts `description: null` to
+ * clear it, and moves `isActive` to its own `PATCH /institute-categories/:id/status` route.
+ * Reconcile this type with that contract when the web app is wired to the real API.
+ */
 export interface UpdateInstituteCategoryDto {
   code?: string;
   name?: string;

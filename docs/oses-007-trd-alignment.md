@@ -34,6 +34,13 @@
 
 Added by super admin. Fields: **Name**, **Description**, **dynamic questions** (a builder — each question is yes/no, e.g. "Are you ed-tech?", "Are you NSSOE?"). Categories: School, College, Board, University, Academy, PECTA.
 
+> **Known divergence — question types.** The TRD says each question is yes/no. Both `@oses/types`
+> (`CategoryQuestionType`) and the built backend accept **five** types — `text`, `radio`,
+> `checkbox`, `select`, `file` — because the shared contract and the registration form already
+> committed to them before this module was built. Kept deliberately (agreed 2026-08-01), enforced
+> in `apps/api/.../dto/institute-category.dto.ts` and by a DB check constraint. **Raise with
+> Cantab** rather than treating the implementation as TRD-compliant.
+
 ### 2. Institute Registration _(new: public link + approval)_
 
 Open public link → **Super Admin approves**. Fields: Institute Name **with branch** (e.g. "NSSOE, Shakargarh Campus"), **Institute Code** (govt-provided, e.g. S01), **Category** (from module 1), the category's **dynamic questions** shown with answers, **Type** (Govt / Semi-govt / Private / Other), Address, Province, City, Postal code, Contact Name, Designation, Contact email, Contact no.

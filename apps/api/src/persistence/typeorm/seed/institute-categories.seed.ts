@@ -67,12 +67,16 @@ export interface InstituteCategorySeedSummary {
  *
  * Deliberately **insert-only**: unlike the Super Admin (whose credential is reconciled to `.env`
  * every run so a locked-out bootstrap account is always recoverable), categories are the user's
- * own data. Once a category exists — renamed, deactivated, its questions rewritten — the seed
- * leaves it completely alone. Re-running `db:seed` is therefore always safe and never undoes an
- * admin's work.
+ * own data. Re-running `db:seed` never edits or removes an existing row, so an admin's work is
+ * never undone.
  *
- * A category an admin deleted outright *is* re-created: its code is free again, and it is one of
- * the six the system is expected to ship with.
+ * The idempotency key is **`code`**, which matters because `code` is itself admin-editable:
+ *
+ * - name, description, active flag or questions changed → matched by code, skipped entirely
+ * - the whole category deleted → its code is free, so the standard row is re-created
+ * - **a standard category's `code` changed** (e.g. `SCH` → `SCHOOL`) → the old code is free too,
+ *   so re-seeding adds a fresh standard row alongside the admin's renamed one. Nothing is lost,
+ *   but the count grows. Covered by a test so the behaviour is a decision, not a surprise.
  *
  * `ON CONFLICT DO NOTHING ... RETURNING id` makes the create-or-skip decision atomic, so two
  * seeds racing on an empty database cannot both insert, nor duplicate the questions.

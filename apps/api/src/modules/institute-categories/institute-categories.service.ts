@@ -22,6 +22,7 @@ import {
   CATEGORY_REFERENCE_PROBE,
   CategoryCodeAlreadyExistsError,
   type CategoryPatch,
+  type CategoryQuestionRecord,
   type CategoryReferenceProbe,
   DuplicateQuestionIdError,
   INSTITUTE_CATEGORY_REPOSITORY,
@@ -29,7 +30,7 @@ import {
   type QuestionMutationPlan,
   UnknownQuestionError,
 } from './ports';
-import { reconcileQuestions } from './question-reconciler';
+import { reconcileQuestions, toQuestionInsert } from './question-reconciler';
 
 /** No question changes — used when a caller omits `questions` entirely from an update. */
 const NO_QUESTION_CHANGES: QuestionMutationPlan = {
@@ -122,13 +123,9 @@ export class InstituteCategoriesService {
     dto: CreateInstituteCategoryRequestDto,
     actorId: string,
   ): Promise<AdminInstituteCategory> {
-    const questions = (dto.questions ?? []).map((question, index) => ({
-      text: question.text,
-      type: question.type,
-      required: question.required ?? false,
-      options: question.options ?? [],
-      sortOrder: index + 1,
-    }));
+    const questions = (dto.questions ?? []).map((question, index) =>
+      toQuestionInsert(question, index + 1),
+    );
 
     try {
       const created = await this.categories.create({
@@ -223,7 +220,7 @@ export class InstituteCategoriesService {
   }
 
   private async planQuestionChanges(
-    existing: Parameters<typeof reconcileQuestions>[0],
+    existing: readonly CategoryQuestionRecord[],
     incoming: NonNullable<UpdateInstituteCategoryRequestDto['questions']>,
   ): Promise<QuestionMutationPlan> {
     const answered = await this.references.questionsWithAnswers(existing.map((q) => q.id));
