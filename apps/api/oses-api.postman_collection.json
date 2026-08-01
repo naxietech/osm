@@ -1,0 +1,414 @@
+{
+  "info": {
+    "name": "OSES — API (Phase 1)",
+    "description": "Backend endpoints for the OSES API: auth, user + role management, and institute categories.\n\nAuth is COOKIE-BASED: after `Login`, Postman's cookie jar stores `oses_access` + `oses_refresh` (HttpOnly) and sends them automatically on later requests — so `Me`, `Refresh`, admin routes, etc. just work. There are no tokens in the response body.\n\nSet the `baseUrl` variable if your API isn't on http://localhost:3001.\n\nMost admin routes need a Super Admin session: user + role management require the `users.manage` grant, and institute categories require `institute-categories.manage` — both held by Super Admin only, so an Admin or Evaluator gets 403.\n\nThe one exception is the `Public` folder, which needs no login at all.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001/api/v1"
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "categoryId",
+      "value": ""
+    },
+    {
+      "key": "categoryVersion",
+      "value": "1"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"superadmin@oses.pk\",\n  \"password\": \"change-me-to-a-strong-password-min-12-chars\"\n}"
+            },
+            "description": "Verify email + password; sets the HttpOnly auth cookies. Wrong password (6+ chars) → 401; short password → 400; 5 wrong attempts → account locked ~15 min."
+          }
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/auth/me",
+            "description": "Current user (SafeUser). Uses the access cookie. 401 without a session."
+          }
+        },
+        {
+          "name": "Permissions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/auth/permissions",
+            "description": "The caller's permission grants (action + scope)."
+          }
+        },
+        {
+          "name": "Refresh",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/auth/refresh",
+            "description": "Rotate the refresh token and reissue cookies. Replaying an old refresh token → 401 (reuse detected, family revoked)."
+          }
+        },
+        {
+          "name": "Change password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/password/change",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"current-password\",\n  \"newPassword\": \"new-strong-password\"\n}"
+            },
+            "description": "Change your own password. Revokes ALL sessions — you must log in again afterward."
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/auth/logout",
+            "description": "Revoke the current session and clear cookies."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users (Super Admin only)",
+      "description": "Require an authenticated session with the users.manage grant (Super Admin). Others get 403.",
+      "item": [
+        {
+          "name": "List users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users?limit=50&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "Paginated list of users, newest first. Returns { items, total }, where each item is a SafeUser plus the admin fields 'status' (active/suspended) and 'lastLoginAt'. Query params limit (default 50, max 200) and offset (default 0)."
+          }
+        },
+        {
+          "name": "Create user",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"staff@oses.pk\",\n  \"fullName\": \"Staff Member\",\n  \"roleId\": \"role_admin\",\n  \"password\": \"temporary-password-123\"\n}"
+            },
+            "description": "Create a user with a role + temporary password. roleId is one of: role_super_admin, role_admin, role_controller, role_checker, role_institute. Duplicate email → 409. Not a Super Admin → 403."
+          }
+        },
+        {
+          "name": "Reset password (admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users/:userId/reset-password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"new-temporary-password-123\"\n}"
+            },
+            "description": "Set a new temporary password for a user (replaces the emailed reset flow). Revokes their sessions. Put the user id in the :userId path variable."
+          }
+        },
+        {
+          "name": "Set status (activate / suspend)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users/:userId/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"suspended\"\n}"
+            },
+            "description": "Activate or suspend an account. status is 'active' or 'suspended'. Suspending revokes the user's sessions immediately."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Roles (Super Admin only)",
+      "description": "Read-only role catalogue. Requires the users.manage grant (Super Admin); others get 403.",
+      "item": [
+        {
+          "name": "List roles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/roles",
+            "description": "The 5 system roles with their permission grants (action + scope) — used to populate the role picker on the create-user screen."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Institute Categories (Super Admin only)",
+      "description": "The super-admin taxonomy institutes are classified by, plus the dynamic questions each category asks at registration. Requires the institute-categories.manage grant — held by Super Admin only, so an Admin or Evaluator gets 403. Log in first: these use the same HttpOnly cookie as the rest of the API.\n\nThese requests keep the {{categoryId}} and {{categoryVersion}} collection variables in step with the server automatically, so you can run List → Update → Update without editing anything by hand.",
+      "item": [
+        {
+          "name": "List categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/institute-categories",
+            "description": "Every category, including deactivated ones, each with its active questions and the `version` you must send back when updating. Copy an id into the {{categoryId}} variable."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Convenience for a fresh start: if no category is selected yet, target the first one.",
+                  "// Once {{categoryId}} is set this leaves your choice alone.",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  const first = body && body.data && body.data[0];",
+                  "  if (first && !pm.collectionVariables.get('categoryId')) {",
+                  "    pm.collectionVariables.set('categoryId', first.id);",
+                  "    pm.collectionVariables.set('categoryVersion', String(first.version));",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get one category",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/institute-categories/{{categoryId}}",
+            "description": "One category with its questions. 404 if it does not exist; 400 if the id is not a uuid."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Keeps {{categoryId}} and {{categoryVersion}} in step with the server, so the next",
+                  "// Update never fails with 409 just because the version in Postman went stale.",
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const body = pm.response.json();",
+                  "  if (body && body.data && body.data.id) {",
+                  "    pm.collectionVariables.set('categoryId', body.data.id);",
+                  "    pm.collectionVariables.set('categoryVersion', String(body.data.version));",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create category",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/institute-categories",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"DEMO\",\n  \"name\": \"Demo Category\",\n  \"description\": \"A throwaway category for trying the endpoints\",\n  \"questions\": [\n    {\n      \"text\": \"Are you an ed-tech institute?\",\n      \"type\": \"radio\",\n      \"required\": true,\n      \"options\": [\n        \"Yes\",\n        \"No\"\n      ]\n    },\n    {\n      \"text\": \"Describe your institute\",\n      \"type\": \"text\"\n    }\n  ]\n}"
+            },
+            "description": "Creates the category and its questions together — each question gets a permanent uuid.\n\nValidation: code 1-20 chars (letters/numbers/dash/underscore, case-insensitively unique), name 1-100, at most 50 questions, at most 20 options each.\nradio/checkbox/select MUST carry options; text/file must NOT. Unknown fields are rejected.\n\nDuplicate code (even differing only by case) → 409."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Keeps {{categoryId}} and {{categoryVersion}} in step with the server, so the next",
+                  "// Update never fails with 409 just because the version in Postman went stale.",
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const body = pm.response.json();",
+                  "  if (body && body.data && body.data.id) {",
+                  "    pm.collectionVariables.set('categoryId', body.data.id);",
+                  "    pm.collectionVariables.set('categoryVersion', String(body.data.version));",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update category + its questions",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/institute-categories/{{categoryId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"version\": {{categoryVersion}},\n  \"name\": \"Demo Category (updated)\",\n  \"questions\": [\n    {\n      \"text\": \"A brand-new question (no id)\",\n      \"type\": \"text\"\n    },\n    {\n      \"id\": \"PASTE-AN-EXISTING-QUESTION-ID-HERE\",\n      \"text\": \"Are you an ed-tech institute?\",\n      \"type\": \"radio\",\n      \"required\": true,\n      \"options\": [\n        \"Yes\",\n        \"No\"\n      ]\n    }\n  ]\n}"
+            },
+            "description": "The category and its question list are saved together, in one transaction.\n\nYou do not need to set `version` by hand — List, Get, Create, Update and the status change all capture the current `{{categoryId}}` and `{{categoryVersion}}` from their response. A 409 therefore means a genuine clash: somebody really did save between your read and your write.\n\n`version` is the copy you loaded — send it back and the save applies only while it still matches, so two people editing at once cannot silently overwrite each other.\n\nHow the question list is read:\n  • a question WITH an id  → updates that stored question, keeping its id (and so every answer already stored against it)\n  • a question WITHOUT an id → creates a new one\n  • a stored question you omit → removed (retired instead of deleted once it has answers)\n  • omit `questions` entirely → the stored list is left completely untouched\n\nPosition in the list becomes the display order; ids never change, so reordering is safe.\n\nAnswers: 200 · 400 (a question id from another category) · 404 · 409 (someone else saved first — reload and retry, or the code is taken)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Keeps {{categoryId}} and {{categoryVersion}} in step with the server, so the next",
+                  "// Update never fails with 409 just because the version in Postman went stale.",
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const body = pm.response.json();",
+                  "  if (body && body.data && body.data.id) {",
+                  "    pm.collectionVariables.set('categoryId', body.data.id);",
+                  "    pm.collectionVariables.set('categoryVersion', String(body.data.version));",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Activate / deactivate category",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/institute-categories/{{categoryId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": false\n}"
+            },
+            "description": "Sends the state you want rather than toggling, so a double submit is harmless.\n\nDeactivating hides the category from the public registration form while every institute already classified under it keeps working. This is the normal way to withdraw a category — deleting is the rare one."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Keeps {{categoryId}} and {{categoryVersion}} in step with the server, so the next",
+                  "// Update never fails with 409 just because the version in Postman went stale.",
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const body = pm.response.json();",
+                  "  if (body && body.data && body.data.id) {",
+                  "    pm.collectionVariables.set('categoryId', body.data.id);",
+                  "    pm.collectionVariables.set('categoryVersion', String(body.data.version));",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete category",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/institute-categories/{{categoryId}}",
+            "description": "Permanent delete; its questions go with it. Allowed only while nothing references the category — once institute registration exists, a category in use answers 409 and you deactivate it instead.\n\n204 on success, 404 if it was already gone."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 204) {",
+                  "  pm.collectionVariables.set('categoryId', '');",
+                  "  pm.collectionVariables.set('categoryVersion', '1');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Public (no authentication)",
+      "description": "The only routes in the API that need no login. Rate limited, and deliberately narrow.",
+      "item": [
+        {
+          "name": "List active categories (public registration form)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/public/institute-categories",
+            "description": "Powers the open institute-registration link, so it answers without any cookie.\n\nReturns ONLY active categories and their active questions, and only these fields: id, code, name, description, questions[id, text, type, required, options]. No version, no isActive, no timestamps — the response is built from an explicit allow-list.\n\nThere is deliberately no \"get one by id\" here, so hidden categories cannot be probed for.\n\nCache-Control: public, max-age=60. Throttled to 30 requests/minute — exceed it and you get 429."
+          }
+        }
+      ]
+    }
+  ]
+}

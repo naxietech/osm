@@ -3,6 +3,7 @@ import { config as loadDotenv } from 'dotenv';
 import 'reflect-metadata';
 
 import { createDataSource } from '../data-source';
+import { seedInstituteCategories } from './institute-categories.seed';
 import { seedDatabase } from './seed';
 
 // apps/api/.env is the source of truth locally — override any stale shell value (e.g. a
@@ -34,6 +35,12 @@ async function main(): Promise<void> {
         : summary.superAdminPasswordReset
           ? `Super Admin password reset from .env and account unlocked: ${email}`
           : `Super Admin already matches .env (${email}) — unlocked, password unchanged.`,
+    );
+
+    const categories = await seedInstituteCategories(dataSource);
+    console.log(
+      `Institute categories: ${categories.categoriesCreated} created ` +
+        `(${categories.questionsCreated} questions), ${categories.categoriesSkipped} already present.`,
     );
   } finally {
     await dataSource.destroy();

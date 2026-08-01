@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 import { AuthModule } from './auth/auth.module';
+import { InstituteCategoriesModule } from './modules/institute-categories/institute-categories.module';
 import { PersistenceModule } from './persistence/persistence.module';
 
 @Module({
@@ -13,8 +14,8 @@ import { PersistenceModule } from './persistence/persistence.module';
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     PersistenceModule,
     AuthModule,
-    // Feature modules (schools, students, …) are frontend-only for now and will
-    // be added here once the backend for each is built.
+    InstituteCategoriesModule,
+    // Add new modules here as each backend is built.
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
