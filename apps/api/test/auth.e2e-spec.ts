@@ -11,8 +11,7 @@ import { seedDatabase } from '../src/persistence/typeorm/seed/seed';
 import { hashPassword } from '../src/shared/crypto';
 
 const TEST_URL = process.env['DATABASE_URL_TEST'] ?? process.env['DATABASE_URL'];
-process.env['JWT_SECRET'] ??= 'test-only-secret-minimum-32-characters-long';
-process.env['DATABASE_URL'] = TEST_URL ?? 'postgres://oses:oses_dev_pw@localhost:5432/oses_test';
+process.env['DATABASE_URL'] = TEST_URL ?? 'postgres://oses:oses_dev_pw@localhost:5433/oses_test';
 
 const SUPER = {
   email: 'superadmin@oses.pk',
