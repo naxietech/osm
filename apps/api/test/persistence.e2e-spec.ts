@@ -1,8 +1,13 @@
-import { sql } from 'kysely';
+import { type DataSource } from 'typeorm';
 
-import { type AppDatabase, createDatabase } from '../src/persistence/kysely/database';
-import { migrateToLatest } from '../src/persistence/kysely/migrator';
-import { seedDatabase } from '../src/persistence/kysely/seed/seed';
+import { createDataSource } from '../src/persistence/typeorm/data-source';
+import {
+  PermissionEntity,
+  RoleEntity,
+  RoleGrantEntity,
+  UserEntity,
+} from '../src/persistence/typeorm/entities';
+import { seedDatabase } from '../src/persistence/typeorm/seed/seed';
 import { ALL_PERMISSION_ACTIONS } from '../src/rbac/permissions.constants';
 import { SYSTEM_ROLE_IDS } from '../src/rbac/system-roles';
 import { verifyPassword } from '../src/shared/crypto';
@@ -19,69 +24,58 @@ const SUPER = {
 const describeDb = TEST_URL ? describe : describe.skip;
 
 describeDb('auth persistence + seed (integration)', () => {
-  let db: AppDatabase;
+  let dataSource: DataSource;
 
   beforeAll(async () => {
-    db = createDatabase(TEST_URL as string);
-    await migrateToLatest(db);
+    dataSource = createDataSource(TEST_URL as string);
+    await dataSource.initialize();
+    await dataSource.runMigrations();
     // deterministic start
-    await sql`truncate table users, sessions, auth_audit_log, role_grants, roles, permissions restart identity cascade`.execute(
-      db,
+    await dataSource.query(
+      'truncate table users, sessions, auth_audit_log, role_grants, roles, permissions restart identity cascade',
     );
-    await seedDatabase(db, { superAdmin: SUPER });
+    await seedDatabase(dataSource, { superAdmin: SUPER });
   });
 
   afterAll(async () => {
-    await db.destroy();
+    await dataSource.destroy();
   });
 
-  const countOf = async (table: 'permissions' | 'users'): Promise<number> => {
-    const row = await db
-      .selectFrom(table)
-      .select((eb) => eb.fn.countAll<string>().as('count'))
-      .executeTakeFirstOrThrow();
-    return Number(row.count);
-  };
-
   it('seeds the full permission catalogue', async () => {
-    expect(await countOf('permissions')).toBe(ALL_PERMISSION_ACTIONS.length);
+    expect(await dataSource.getRepository(PermissionEntity).count()).toBe(
+      ALL_PERMISSION_ACTIONS.length,
+    );
   });
 
   it('seeds the five system roles', async () => {
-    const rows = await db.selectFrom('roles').select('id').execute();
+    const rows = await dataSource.getRepository(RoleEntity).find();
     expect(rows.map((r) => r.id).sort()).toEqual(Object.values(SYSTEM_ROLE_IDS).sort());
   });
 
   it('Evaluator grants are exactly marking.mark + dashboard.view — no PII', async () => {
-    const rows = await db
-      .selectFrom('role_grants')
-      .select(['action'])
-      .where('role_id', '=', SYSTEM_ROLE_IDS.checker)
-      .execute();
+    const rows = await dataSource
+      .getRepository(RoleGrantEntity)
+      .find({ where: { roleId: SYSTEM_ROLE_IDS.checker }, select: ['action'] });
     expect(rows.map((r) => r.action).sort()).toEqual(['dashboard.view', 'marking.mark']);
     expect(rows.map((r) => r.action)).not.toContain('students.viewPII');
   });
 
   it('bootstraps an active Super Admin with a verifiable argon2id hash', async () => {
-    const user = await db
-      .selectFrom('users')
-      .selectAll()
-      .where('email', '=', SUPER.email)
-      .executeTakeFirstOrThrow();
+    const user = await dataSource.getRepository(UserEntity).findOneByOrFail({ email: SUPER.email });
 
     expect(user.status).toBe('active');
-    expect(user.role_id).toBe(SYSTEM_ROLE_IDS.superAdmin);
-    expect(user.password_hash?.startsWith('$argon2id$')).toBe(true);
-    await expect(verifyPassword(user.password_hash as string, SUPER.password)).resolves.toBe(true);
-    await expect(verifyPassword(user.password_hash as string, 'wrong-password')).resolves.toBe(
+    expect(user.roleId).toBe(SYSTEM_ROLE_IDS.superAdmin);
+    expect(user.passwordHash?.startsWith('$argon2id$')).toBe(true);
+    await expect(verifyPassword(user.passwordHash as string, SUPER.password)).resolves.toBe(true);
+    await expect(verifyPassword(user.passwordHash as string, 'wrong-password')).resolves.toBe(
       false,
     );
   });
 
   it('is idempotent — re-seeding creates no duplicate Super Admin', async () => {
-    const again = await seedDatabase(db, { superAdmin: SUPER });
+    const again = await seedDatabase(dataSource, { superAdmin: SUPER });
     expect(again.superAdminCreated).toBe(false);
-    expect(await countOf('users')).toBe(1);
+    expect(await dataSource.getRepository(UserEntity).count()).toBe(1);
   });
 
   it('reconciles a drifted password back to .env and clears any lockout (no more drift)', async () => {
@@ -89,29 +83,24 @@ describeDb('auth persistence + seed (integration)', () => {
     // hash of some OTHER string) and the account got locked.
     const driftedHash =
       '$argon2id$v=19$m=19456,t=2,p=1$LJzkt/dgiA3w7NvkJhN93A$VV9kvzNzl4sLu0STHJWJwUfiT6uzjJ5LDolcUppC6lw';
-    await db
-      .updateTable('users')
-      .set({
-        password_hash: driftedHash,
-        failed_login_count: 5,
-        locked_until: new Date(Date.now() + 900_000),
-      })
-      .where('email', '=', SUPER.email)
-      .execute();
+    await dataSource.getRepository(UserEntity).update(
+      { email: SUPER.email },
+      {
+        passwordHash: driftedHash,
+        failedLoginCount: 5,
+        lockedUntil: new Date(Date.now() + 900_000),
+      },
+    );
 
-    const summary = await seedDatabase(db, { superAdmin: SUPER });
+    const summary = await seedDatabase(dataSource, { superAdmin: SUPER });
     expect(summary.superAdminPasswordReset).toBe(true);
 
-    const user = await db
-      .selectFrom('users')
-      .selectAll()
-      .where('email', '=', SUPER.email)
-      .executeTakeFirstOrThrow();
+    const user = await dataSource.getRepository(UserEntity).findOneByOrFail({ email: SUPER.email });
 
     // Password now matches .env again, and the account is unlocked + active.
-    await expect(verifyPassword(user.password_hash as string, SUPER.password)).resolves.toBe(true);
-    expect(user.failed_login_count).toBe(0);
-    expect(user.locked_until).toBeNull();
+    await expect(verifyPassword(user.passwordHash as string, SUPER.password)).resolves.toBe(true);
+    expect(user.failedLoginCount).toBe(0);
+    expect(user.lockedUntil).toBeNull();
     expect(user.status).toBe('active');
   });
 });

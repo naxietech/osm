@@ -1,9 +1,9 @@
 import type { PermissionGrant, UserStatus } from '@oses/types';
 
 /**
- * Account lifecycle status. Now defined in @oses/types, because the web app renders it on
- * the admin user directory; re-exported here so the Kysely schema (`database.types.ts`)
- * and the repositories keep importing it from the domain port.
+ * Account lifecycle status. Defined in @oses/types because the web app renders it on the
+ * admin user directory; re-exported here so the TypeORM user entity and the repositories
+ * keep importing it from the domain port, leaving the dependency pointing adapter → port.
  */
 export type { UserStatus };
 
@@ -14,7 +14,7 @@ export interface ListUsersOptions {
 
 /**
  * Repository ports for the auth module. The auth logic depends on these interfaces
- * only; the Kysely adapters that implement them live in `persistence/kysely/`, so the
+ * only; the TypeORM adapters that implement them live in `persistence/typeorm/`, so the
  * data layer stays swappable.
  */
 
