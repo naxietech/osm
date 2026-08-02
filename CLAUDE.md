@@ -27,16 +27,15 @@ Turborepo + **pnpm 9** (Node ≥ 20). Run everything through `pnpm` / `turbo`, n
 ## The reality you must not forget
 
 - **`apps/api` covers auth only.** Three controllers (`auth`, `users`, `roles`), 11 routes, and
-  PostgreSQL + Kysely for the auth schema (users, roles, permissions, role_grants, sessions,
-  audit log, invitations, reset tokens, MFA codes). Sessions are **HttpOnly cookies** with
-  rotating refresh tokens. There is **no table and no endpoint** for institutes, students,
-  exams, checkers, e-sheet templates, or marking.
-- **`apps/web` is live for auth and mocked for everything else.** `auth.service.ts` calls the
-  real API through `api-client.ts`; `use-auth` and `use-permissions` read the session and grants
-  from the server. Every other module still runs on `services/*.service.ts` + `mock-store.ts`.
-  Do not add `fetch`/axios calls for a module the API doesn't have yet.
-- **The Users and Roles screens are still on mocks** even though `/users` and `/roles` exist —
-  wiring them up is its own branch.
+  PostgreSQL via **TypeORM** for the auth schema — six tables: users, roles, permissions,
+  role_grants, sessions, auth_audit_log. Sessions are **HttpOnly cookies** with rotating refresh
+  tokens. There is **no table and no endpoint** for institutes, students, exams, checkers,
+  subjects, classes, e-sheet templates, or marking.
+- **`apps/web` is live for auth, users and roles; mocked for everything else.** `auth.service.ts`,
+  `users.service.ts` and `roles.service.ts` call the real API through `api-client.ts`; `use-auth`
+  and `use-permissions` read the session and grants from the server. Every other module still
+  runs on `services/*.service.ts` + `mock-store.ts`. Do not add `fetch`/axios calls for a module
+  the API doesn't have yet.
 - **`apps/worker` is a placeholder.** Don't implement scan processing unless asked.
 
 If a task seems to need a table or endpoint outside the auth schema, stop and confirm scope —
@@ -50,7 +49,7 @@ you're probably about to build the deferred backend by accident.
 oses/
 ├── apps/
 │   ├── web/    # React frontend (atomic design) — the bulk of the product, on mocks
-│   ├── api/    # NestJS scaffold (auth, guards, Zod) — no DB yet
+│   ├── api/    # NestJS (auth, guards, Zod) + PostgreSQL/TypeORM — auth schema only
 │   └── worker/ # Python placeholder
 ├── packages/
 │   ├── types/         # @oses/types — import types from here, never redefine

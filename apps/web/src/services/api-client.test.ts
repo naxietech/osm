@@ -92,25 +92,74 @@ describe('apiRequest', () => {
 
   it('falls back to a generic message when the body is not JSON', async () => {
     fetchMock.mockResolvedValueOnce(new Response('<html>gateway error</html>', { status: 502 }));
-    await expect(apiRequest('/auth/me')).rejects.toMatchObject({
-      status: 502,
-      message: 'Request failed (502)',
-    });
+    const error = await apiRequest('/auth/me').catch((e: unknown) => e);
+    expect(error).toMatchObject({ status: 502, message: 'Request failed (502)' });
+    // Marked as ours, not the server's, so it never reaches a user verbatim.
+    expect((error as ApiError).fromServer).toBe(false);
+  });
+
+  it('marks a server-written message as the server’s own', async () => {
+    fetchMock.mockResolvedValueOnce(fail(401, 'Invalid email or password'));
+    const error = await apiRequest('/auth/login', { method: 'POST' }).catch((e: unknown) => e);
+    expect((error as ApiError).fromServer).toBe(true);
+  });
+
+  it('throws on a 2xx that carries success:false instead of returning undefined', async () => {
+    // Something answered in our envelope shape without going through the interceptor.
+    // Trusting `success` blindly turned this into `data: undefined`, which a caller renders
+    // as a successful empty result — a signed-in user showing as signed-out, silently.
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: false, message: 'Session could not be read' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    const error = await apiRequest('/auth/me').catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({ status: 200, message: 'Session could not be read' });
+  });
+
+  it('still throws when success:false arrives with no message to explain it', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: false }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    const error = await apiRequest('/auth/me').catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).fromServer).toBe(false);
   });
 });
 
 describe('apiErrorMessage', () => {
   it("passes the API's own message through", () => {
     // The API already writes for users; restating those here would only let the two drift.
-    expect(apiErrorMessage(new ApiError(401, 'Invalid email or password'))).toBe(
+    // The third argument is what marks a message as the server's own words.
+    expect(apiErrorMessage(new ApiError(401, 'Invalid email or password', true))).toBe(
       'Invalid email or password',
     );
-    expect(apiErrorMessage(new ApiError(400, 'Current password is incorrect'))).toBe(
+    expect(apiErrorMessage(new ApiError(400, 'Current password is incorrect', true))).toBe(
       'Current password is incorrect',
     );
-    expect(apiErrorMessage(new ApiError(409, 'A user with that email already exists'))).toBe(
+    expect(apiErrorMessage(new ApiError(409, 'A user with that email already exists', true))).toBe(
       'A user with that email already exists',
     );
+  });
+
+  it('never shows a message we invented ourselves', () => {
+    // A 404 with no JSON body — a proxy, or a base URL pointing somewhere that isn't the
+    // API. `Request failed (404)` is a status code wearing a sentence; it reached the login
+    // form once and told the user nothing they could act on.
+    const message = apiErrorMessage(new ApiError(404, 'Request failed (404)'));
+    expect(message).not.toContain('404');
+    expect(message).toMatch(/could not be found/i);
+
+    const other = apiErrorMessage(new ApiError(418, 'Request failed (418)'));
+    expect(other).not.toContain('418');
+    expect(other).toMatch(/something went wrong/i);
   });
 
   it('replaces the throttler message, which is developer text', () => {

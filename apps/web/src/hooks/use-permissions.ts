@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
 
@@ -78,13 +78,17 @@ export function usePermissions(): UsePermissionsReturn {
     retry: 1,
   });
 
-  if (isError) {
-    // Without this the only symptom is an app where every capability answers false — a
-    // fully-permissioned admin looking like they have no rights at all, with nothing
-    // anywhere to point at the real cause.
+  // Without this the only symptom is an app where every capability answers false — a
+  // fully-permissioned admin looking like they have no rights at all, with nothing anywhere
+  // to point at the real cause.
+  //
+  // In an effect, not in the render body: rendering happens on every keystroke and hover, so
+  // logging there repeated one failure hundreds of times and buried it in copies of itself.
+  useEffect(() => {
+    if (!isError) return;
     // eslint-disable-next-line no-console -- otherwise this failure is invisible
     console.error('Could not load permission grants', error);
-  }
+  }, [isError, error]);
 
   const retryPermissions = useCallback((): void => {
     void refetch();

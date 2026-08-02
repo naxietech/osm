@@ -18,17 +18,13 @@ export interface PlatformRoutePaths {
   roleDetail: string;
   users: string;
   usersNew: string;
-  userDetail: string;
 }
 
 export function platformRoutes(home: string, paths: PlatformRoutePaths): React.ReactElement[] {
   return [
-    // No roles/new route: the API has no role-write endpoints, so there is nothing to
-    // create against. Add it back alongside POST /roles.
     <Route key="roles" path={rel(home, paths.roles)} element={<RolesListPage />} />,
     <Route key="role-detail" path={rel(home, paths.roleDetail)} element={<RoleDetailPage />} />,
     <Route key="users" path={rel(home, paths.users)} element={<UsersListPage />} />,
     <Route key="users-new" path={rel(home, paths.usersNew)} element={<UserDetailPage />} />,
-    <Route key="user-detail" path={rel(home, paths.userDetail)} element={<UserDetailPage />} />,
   ];
 }

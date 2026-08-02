@@ -4,8 +4,22 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { UserRole } from '@oses/types';
+
+import { AuthProvider } from '@/hooks/use-auth';
+
 import { RoleDetailPage } from './role-detail.page';
 import { RolesListPage } from './roles-list.page';
+
+/** Whoever is signed in while these tests run — the catalogue only loads for a session. */
+const SIGNED_IN = {
+  id: 'usr_admin',
+  email: 'admin@oses.pk',
+  role: UserRole.SUPER_ADMIN,
+  roleId: 'role_super_admin',
+  fullName: 'Super Admin',
+  createdAt: '2026-01-01T00:00:00.000Z',
+};
 
 const ROLES = [
   {
@@ -49,10 +63,20 @@ function failure(status: number, message: string): Response {
   });
 }
 
+/**
+ * `/auth/me` is answered separately from `/roles`: the roles query only runs for a signed-in
+ * user, and the failure cases below must fail the *roles* call while the session still
+ * succeeds — otherwise the page would be signed out rather than showing a load error.
+ */
 function mockRoles(response: Response = envelope(ROLES)): void {
   vi.stubGlobal(
     'fetch',
-    vi.fn(() => Promise.resolve(response)),
+    vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) return Promise.resolve(envelope(SIGNED_IN));
+      if (url.includes('/auth/permissions')) return Promise.resolve(envelope([]));
+      return Promise.resolve(response);
+    }),
   );
 }
 
@@ -61,10 +85,12 @@ function renderAt(path: string): void {
   render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[path]}>
-        <Routes>
-          <Route path="/admin/roles" element={<RolesListPage />} />
-          <Route path="/admin/roles/:id" element={<RoleDetailPage />} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route path="/admin/roles" element={<RolesListPage />} />
+            <Route path="/admin/roles/:id" element={<RoleDetailPage />} />
+          </Routes>
+        </AuthProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );

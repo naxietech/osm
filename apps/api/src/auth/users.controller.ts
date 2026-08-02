@@ -16,7 +16,7 @@ import type { PaginatedUsers, SafeUser } from '@oses/types';
 
 import { CurrentUser } from '../shared/decorators/current-user.decorator';
 import { RequirePermissions } from '../shared/decorators/require-permissions.decorator';
-import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
+import { ZodValidationPipe, uuidParam } from '../shared/pipes';
 import {
   type CreateUserRequestDto,
   CreateUserSchema,
@@ -78,7 +78,7 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'User not found' })
   resetPassword(
     @CurrentUser() actor: AuthPrincipal,
-    @Param('id') id: string,
+    @Param('id', uuidParam('User')) id: string,
     @Body(new ZodValidationPipe(ResetPasswordSchema)) dto: ResetPasswordDto,
   ): Promise<{ message: string }> {
     return this.users.resetPassword(id, dto, actor.sub);
@@ -91,7 +91,7 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'User not found' })
   setStatus(
     @CurrentUser() actor: AuthPrincipal,
-    @Param('id') id: string,
+    @Param('id', uuidParam('User')) id: string,
     @Body(new ZodValidationPipe(UpdateStatusSchema)) dto: UpdateStatusDto,
   ): Promise<{ message: string }> {
     return this.users.setStatus(id, dto, actor.sub);

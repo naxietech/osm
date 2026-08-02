@@ -7,7 +7,19 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { UserRole } from '@oses/types';
 
+import { AuthProvider } from '@/hooks/use-auth';
+
 import { UsersListPage } from './users-list.page';
+
+/** Whoever is signed in while these tests run — the page only fetches when someone is. */
+const SIGNED_IN = {
+  id: 'usr_admin',
+  email: 'admin@oses.pk',
+  role: UserRole.SUPER_ADMIN,
+  roleId: 'role_super_admin',
+  fullName: 'Super Admin',
+  createdAt: '2026-01-01T00:00:00.000Z',
+};
 
 const ROLES = [
   { id: 'role_super_admin', name: 'Super Admin', isSystem: true, grants: [], createdAt: 'x' },
@@ -63,6 +75,9 @@ interface MockOptions {
 function mockApi(options: MockOptions = {}): ReturnType<typeof vi.fn> {
   const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
+    // Must come first: the list and the roles both wait on a session now.
+    if (url.includes('/auth/me')) return Promise.resolve(envelope(SIGNED_IN));
+    if (url.includes('/auth/permissions')) return Promise.resolve(envelope([]));
     if (url.includes('/roles')) return Promise.resolve(envelope(ROLES));
     if (url.includes('/reset-password')) {
       return Promise.resolve(options.resetResponse ?? envelope({ message: 'Password reset.' }));
@@ -90,7 +105,9 @@ function renderPage(): void {
   render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={['/admin/users']}>
-        <UsersListPage />
+        <AuthProvider>
+          <UsersListPage />
+        </AuthProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );

@@ -20,15 +20,16 @@ import { Alert } from '@/design-system/molecules/alert';
 import { FormField } from '@/design-system/molecules/form-field';
 import { AuthLayout } from '@/design-system/templates/auth-layout';
 import { useAuth } from '@/hooks';
+import { MIN_PASSWORD_LENGTH } from '@/lib/constants';
 import { ROUTES } from '@/router/routes';
 import { apiErrorMessage } from '@/services/api-client';
 import { authService } from '@/services/auth.service';
 
-/** Matches the API's own rule (min 8) so the form fails before the round trip. */
+/** Mirrors the API's own rule so the form fails before the round trip. */
 const validationSchema = Yup.object({
   currentPassword: Yup.string().required('Your current password is required'),
   newPassword: Yup.string()
-    .min(8, 'New password must be at least 8 characters')
+    .min(MIN_PASSWORD_LENGTH, `New password must be at least ${MIN_PASSWORD_LENGTH} characters`)
     .notOneOf([Yup.ref('currentPassword')], 'The new password must be different')
     .required('New password is required'),
   confirmPassword: Yup.string()

@@ -9,10 +9,8 @@ import { Button } from '@/design-system/atoms/button';
 import { Alert } from '@/design-system/molecules/alert';
 import { FormField } from '@/design-system/molecules/form-field';
 import { SelectField } from '@/design-system/molecules/select-field';
+import { MIN_PASSWORD_LENGTH } from '@/lib/constants';
 import { instituteRequirementFor, showsInstitutePicker } from '@/lib/role-institute-scope';
-
-/** The API's own minimum, mirrored so the form fails before the round trip. */
-export const MIN_TEMP_PASSWORD_LENGTH = 8;
 
 export interface UserFormValues {
   fullName: string;
@@ -48,7 +46,10 @@ function buildValidationSchema(roles: Role[]): Yup.ObjectSchema<UserFormValues> 
     email: Yup.string().email('Enter a valid email address').required('Email is required'),
     roleId: Yup.string().required('A role is required'),
     password: Yup.string()
-      .min(MIN_TEMP_PASSWORD_LENGTH, `Temporary password must be at least 8 characters`)
+      .min(
+        MIN_PASSWORD_LENGTH,
+        `Temporary password must be at least ${MIN_PASSWORD_LENGTH} characters`,
+      )
       .required('A temporary password is required'),
     instituteId: Yup.string().test(
       'institute-required-for-scoped-role',

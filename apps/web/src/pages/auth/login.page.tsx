@@ -22,11 +22,15 @@ import { useAuth } from '@/hooks';
 import { ROUTES } from '@/router/routes';
 import { apiErrorMessage } from '@/services/api-client';
 
+/**
+ * No length rule on sign-in. It used to demand 6 characters while the API's floor is 8, so
+ * it could never reject anything real — an account with a 6-character password cannot exist.
+ * All it did was state a password rule, wrongly, in the most-read file in the app. Whether
+ * the password is right is the server's answer to give.
+ */
 const validationSchema = Yup.object({
   email: Yup.string().email('Enter a valid email address').required('Email is required'),
-  password: Yup.string()
-    .min(6, 'Password must be at least 6 characters')
-    .required('Password is required'),
+  password: Yup.string().required('Password is required'),
 });
 
 export function LoginPage(): React.ReactElement {

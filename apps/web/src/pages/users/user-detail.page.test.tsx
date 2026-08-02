@@ -7,7 +7,19 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { UserRole } from '@oses/types';
 
+import { AuthProvider } from '@/hooks/use-auth';
+
 import { UserDetailPage } from './user-detail.page';
+
+/** Whoever is signed in while these tests run — the role catalogue only loads for a session. */
+const SIGNED_IN = {
+  id: 'usr_admin',
+  email: 'admin@oses.pk',
+  role: UserRole.SUPER_ADMIN,
+  roleId: 'role_super_admin',
+  fullName: 'Super Admin',
+  createdAt: '2026-01-01T00:00:00.000Z',
+};
 
 const ROLES = [
   { id: 'role_admin', name: 'Admin', isSystem: true, grants: [], createdAt: 'x' },
@@ -56,6 +68,9 @@ function failure(status: number, message: string): Response {
 function mockApi(createResponse: Response = envelope(CREATED)): ReturnType<typeof vi.fn> {
   const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
+    // Must come first: the role catalogue only loads for a signed-in user now.
+    if (url.includes('/auth/me')) return Promise.resolve(envelope(SIGNED_IN));
+    if (url.includes('/auth/permissions')) return Promise.resolve(envelope([]));
     if (url.includes('/roles')) return Promise.resolve(envelope(ROLES));
     if (url.includes('/users') && init?.method === 'POST') {
       return Promise.resolve(createResponse);
@@ -74,10 +89,12 @@ function renderPage(
   render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={['/admin/users/new']}>
-        <Routes>
-          <Route path="/admin/users/new" element={<UserDetailPage />} />
-          <Route path="/admin/users" element={<div>Users List</div>} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route path="/admin/users/new" element={<UserDetailPage />} />
+            <Route path="/admin/users" element={<div>Users List</div>} />
+          </Routes>
+        </AuthProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );

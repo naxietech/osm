@@ -222,6 +222,28 @@ describeDb('Auth sessions (e2e)', () => {
         .expect(403);
     });
 
+    /**
+     * `users.id` is a uuid column, so an id of the wrong shape never reached a row lookup —
+     * Postgres rejected the query itself ("invalid input syntax for type uuid") and the
+     * global filter turned that into a 500 claiming the server was broken. It also wrote a
+     * stack trace to the error log for a request that was never a server fault, which is how
+     * genuine 500s get lost. Both id routes must answer 404, as they document.
+     */
+    it('answers 404 — not 500 — for an id that is not a uuid', async () => {
+      const access = await accessFor(SUPER);
+      await request(server())
+        .patch('/api/v1/users/not-a-uuid/status')
+        .set('Cookie', `oses_access=${access}`)
+        .send({ status: 'suspended' })
+        .expect(404);
+
+      await request(server())
+        .post('/api/v1/users/not-a-uuid/reset-password')
+        .set('Cookie', `oses_access=${access}`)
+        .send({ password: 'temp-pass-1234' })
+        .expect(404);
+    });
+
     it('rejects a duplicate email — 409', async () => {
       const access = await accessFor(SUPER);
       await request(server())

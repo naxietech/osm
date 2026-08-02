@@ -9,6 +9,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
 
 import type { AdminUser } from '@oses/types';
 
@@ -19,7 +21,9 @@ import { FormField } from '@/design-system/molecules/form-field';
 import { ConfirmDialog } from '@/design-system/molecules/modal';
 import { UserStatusBadge } from '@/design-system/molecules/status-badge';
 import { type ColumnDef, DataTable } from '@/design-system/organisms/data-table';
+import { useAuth } from '@/hooks/use-auth';
 import { useRoles } from '@/hooks/use-roles';
+import { MIN_PASSWORD_LENGTH } from '@/lib/constants';
 import { ROUTES } from '@/router/routes';
 import { apiErrorMessage } from '@/services/api-client';
 import { instituteName } from '@/services/institute.service';
@@ -35,12 +39,17 @@ function formatLastLogin(iso: string | null): string {
   });
 }
 
-/** The API's own minimum — fail here rather than after a round trip. */
-const MIN_PASSWORD_LENGTH = 8;
+/** Mirrors the API's own minimum, so the dialog fails before the round trip. */
+const resetPasswordSchema = Yup.object({
+  password: Yup.string()
+    .min(MIN_PASSWORD_LENGTH, `At least ${MIN_PASSWORD_LENGTH} characters`)
+    .required('A temporary password is required'),
+});
 
 export function UsersListPage(): React.ReactElement {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { isAuthenticated } = useAuth();
   const [page, setPage] = useState(0);
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -48,7 +57,6 @@ export function UsersListPage(): React.ReactElement {
   /** The row a dialog is open for, and which dialog. Null when none is open. */
   const [pendingSuspend, setPendingSuspend] = useState<AdminUser | null>(null);
   const [pendingReset, setPendingReset] = useState<AdminUser | null>(null);
-  const [newPassword, setNewPassword] = useState('');
 
   /**
    * Which rows have a status change in flight. Every row shares one mutation, and React
@@ -67,9 +75,12 @@ export function UsersListPage(): React.ReactElement {
       return next;
     });
 
+  // `enabled` for the same reason as use-roles: signing out drops this query, and a dropped
+  // query that a mounted screen is still watching asks again — with the session just ended.
   const usersQuery = useQuery({
     queryKey: ['users', page],
     queryFn: () => usersService.listUsers({ offset: page * USERS_PAGE_SIZE }),
+    enabled: isAuthenticated,
   });
 
   // Roles are a small, stable list, fetched once so the table can name a user's role
@@ -117,10 +128,22 @@ export function UsersListPage(): React.ReactElement {
     },
   });
 
+  /**
+   * The temporary-password field. Formik + Yup like every other form in the app — it was
+   * the one place still on `useState` with the length rule written out at each use site.
+   */
+  const resetPasswordForm = useFormik({
+    initialValues: { password: '' },
+    validationSchema: resetPasswordSchema,
+    onSubmit: ({ password }) => {
+      if (pendingReset) resetMutation.mutate({ id: pendingReset.id, password });
+    },
+  });
+
   function closeResetDialog(): void {
     setPendingReset(null);
     // Never leave a typed password sitting in state behind a closed dialog.
-    setNewPassword('');
+    resetPasswordForm.resetForm();
   }
 
   /** Suspending is the destructive direction; reactivating needs no confirmation. */
@@ -170,10 +193,14 @@ export function UsersListPage(): React.ReactElement {
       key: 'actions',
       header: '',
       width: '210px',
+      // Both were `ghost`, which paints as bare text — two words in a table cell with no
+      // border or fill do not read as things you can press, and the destructive one looked
+      // identical to the harmless one. Outlined for "this is a control", danger for the
+      // action that signs someone out of every device.
       render: (row) => (
-        <div className="flex justify-end gap-1">
+        <div className="flex flex-wrap justify-end gap-2">
           <Button
-            variant="ghost"
+            variant="secondary"
             size="sm"
             onClick={() => {
               setNotice(null);
@@ -184,7 +211,7 @@ export function UsersListPage(): React.ReactElement {
             Reset password
           </Button>
           <Button
-            variant="ghost"
+            variant={row.status === 'suspended' ? 'secondary' : 'danger'}
             size="sm"
             isLoading={busyRowIds.has(row.id)}
             disabled={busyRowIds.has(row.id)}
@@ -196,8 +223,6 @@ export function UsersListPage(): React.ReactElement {
       ),
     },
   ];
-
-  const passwordTooShort = newPassword.length > 0 && newPassword.length < MIN_PASSWORD_LENGTH;
 
   const total = usersQuery.data?.total ?? 0;
   const pageCount = Math.max(1, Math.ceil(total / USERS_PAGE_SIZE));
@@ -281,24 +306,30 @@ export function UsersListPage(): React.ReactElement {
       <ConfirmDialog
         open={pendingReset !== null}
         onClose={closeResetDialog}
-        onConfirm={() =>
-          pendingReset && resetMutation.mutate({ id: pendingReset.id, password: newPassword })
-        }
+        onConfirm={() => void resetPasswordForm.submitForm()}
         title={`Reset password for ${pendingReset?.fullName ?? 'this account'}`}
         description="Set a temporary password and pass it on yourself — there is no reset email. They will be signed out everywhere."
         confirmLabel="Reset password"
         busy={resetMutation.isPending}
-        confirmDisabled={newPassword.length < MIN_PASSWORD_LENGTH}
+        confirmDisabled={!resetPasswordForm.isValid || !resetPasswordForm.dirty}
       >
         <FormField
-          id="newPassword"
-          name="newPassword"
+          id="password"
+          name="password"
           type="password"
           autoComplete="new-password"
           label="Temporary Password"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          error={passwordTooShort ? `At least ${MIN_PASSWORD_LENGTH} characters` : undefined}
+          value={resetPasswordForm.values.password}
+          onChange={resetPasswordForm.handleChange}
+          onBlur={resetPasswordForm.handleBlur}
+          // Shown as soon as anything has been typed, not only after blur: in a dialog whose
+          // confirm button is disabled until the value is valid, waiting for blur leaves the
+          // user looking at a dead button with no explanation.
+          error={
+            resetPasswordForm.touched.password || resetPasswordForm.values.password.length > 0
+              ? resetPasswordForm.errors.password
+              : undefined
+          }
           required
         />
       </ConfirmDialog>

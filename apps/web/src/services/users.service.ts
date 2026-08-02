@@ -7,7 +7,7 @@
  * There is no delete: accounts are suspended, never removed, so the audit log and any
  * record created by that user keep pointing at something real.
  */
-import type { PaginatedUsers, SafeUser, UserStatus } from '@oses/types';
+import type { CreateUserDto, PaginatedUsers, SafeUser, UserStatus } from '@oses/types';
 
 import { apiRequest } from './api-client';
 import { API_ENDPOINTS } from './api-endpoints';
@@ -30,15 +30,6 @@ function listUsers({
   return apiRequest<PaginatedUsers>(`${users.list}?limit=${limit}&offset=${offset}`);
 }
 
-export interface CreateUserParams {
-  email: string;
-  fullName: string;
-  roleId: string;
-  /** Temporary password, min 8 — the API requires one; there is no invite email yet. */
-  password: string;
-  instituteId?: string;
-}
-
 /**
  * Create an account. A duplicate email comes back as a 409.
  *
@@ -46,8 +37,8 @@ export interface CreateUserParams {
  * was just made, before it has a login history, so there is no `status`/`lastLoginAt` to
  * report. Re-read the list to see it with those.
  */
-function createUser(params: CreateUserParams): Promise<SafeUser> {
-  return apiRequest<SafeUser>(users.create, { method: 'POST', body: params });
+function createUser(dto: CreateUserDto): Promise<SafeUser> {
+  return apiRequest<SafeUser>(users.create, { method: 'POST', body: dto });
 }
 
 /**

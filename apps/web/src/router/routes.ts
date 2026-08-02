@@ -30,7 +30,6 @@ export const ROUTES = {
     roleDetail: '/admin/roles/:id',
     users: '/admin/users',
     usersNew: '/admin/users/new',
-    userDetail: '/admin/users/:id',
     checkers: '/admin/checkers',
     checkersView: '/admin/checkers/view',
     checkersAdd: '/admin/checkers/add',

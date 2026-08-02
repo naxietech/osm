@@ -1,12 +1,17 @@
 # Web Conventions (`apps/web`)
 
-React 18 + TypeScript + Vite. **Auth is live; everything else is still mocks.**
+React 18 + TypeScript + Vite. **Auth, users and roles are live; everything else is still mocks.**
 
-## Data layer — one live module, the rest mocked
+## Data layer — three live modules, the rest mocked
 
-- **Live:** `auth.service.ts` calls the real API (`/auth/login`, `/auth/me`, `/auth/permissions`,
-  `/auth/refresh`, `/auth/logout`, `/auth/password/change`). `use-auth` and `use-permissions` read
-  from it. Every request goes through `api-client.ts`.
+- **Live:** `auth.service.ts` (`/auth/login`, `/auth/me`, `/auth/permissions`, `/auth/refresh`,
+  `/auth/logout`, `/auth/password/change`), `users.service.ts` (`/users` list + create,
+  `/users/:id/reset-password`, `/users/:id/status`) and `roles.service.ts` (`/roles`).
+  `use-auth` and `use-permissions` read from the first. Every request goes through
+  `api-client.ts`.
+- **`VITE_API_BASE_URL`** is read once, in `lib/constants.ts`. `apps/web/.env` is git-ignored, so
+  it falls back to the dev address there and throws on a production build with no value — never
+  read `import.meta.env` for it at a call site.
 - **Mocked:** every other `src/services/*.service.ts`. Two patterns coexist:
   - Per-page `MOCK_*` constants for read-only screens.
   - A shared, mutable `src/services/mock-store.ts` for flows where a record created on one screen

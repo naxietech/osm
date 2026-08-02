@@ -156,7 +156,9 @@ Types live in `@oses/types`. **[BUILT]** = defined & used; **[PLANNED]** = requi
 ### 5.1 User & auth **[BUILT]**
 
 - `User` / `SafeUser` (`id, email, role, schoolId?, fullName, createdAt`) — `SafeUser` never carries a password.
-- Auth DTOs: `LoginRequest`, `LoginResponse`, `AuthTokens`, `JwtPayload`.
+- Auth DTOs: `LoginRequest`, `ChangePasswordRequest`, `JwtPayload`. There is deliberately no
+  `LoginResponse`/`AuthTokens`: sessions are HttpOnly cookies, so no token is ever returned in a
+  response body for the client to read. `POST /auth/login` answers with `SafeUser`.
 
 ### 5.2 School **[BUILT]**
 
@@ -205,13 +207,15 @@ Proposed PostgreSQL entities to support scanning and on-screen marking:
 
 ## 6. Functional requirements by module
 
-### 6.1 Authentication & session **[PARTIAL — mock on web]**
+### 6.1 Authentication & session **[BUILT — live end to end]**
 
-- FR-AUTH-1: Email/password login returns `LoginResponse` (user + access/refresh tokens).
-- FR-AUTH-2: Access token carries role + `schoolId`; expiry via refresh token rotation.
-- FR-AUTH-3: Route access is role-gated (web: `ProtectedRoute` + `RoleRoute`; api: guards).
-- FR-AUTH-4: Logout invalidates the refresh token server-side.
-- Current: `authService` is a mock (5 demo users, shared password). Real `/api/v1/auth/*` required.
+- FR-AUTH-1: Email/password login returns `SafeUser` and sets HttpOnly access + refresh cookies.
+  No token reaches JavaScript.
+- FR-AUTH-2: The access cookie carries role + `instituteId`; expiry via refresh-token rotation,
+  with replay of a retired token revoking the whole family.
+- FR-AUTH-3: Route access is role-gated (web: `ProtectedRoute` + `RoleRoute`; api: `JwtAuthGuard`
+  → `ActiveUserGuard` → `PermissionsGuard`).
+- FR-AUTH-4: Logout revokes the refresh family server-side.
 
 ### 6.2 Schools **[BUILT — web, mock]**
 

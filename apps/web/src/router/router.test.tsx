@@ -112,6 +112,19 @@ describe('RouterConfig module composition', () => {
     expect(await screen.findByRole('heading', { name: /403/i }, FIND)).toBeInTheDocument();
   });
 
+  /**
+   * There is no `GET /users/:id`, so there is no detail page to open. The route used to
+   * exist and pointed at UserDetailPage — which reads no `:id` — so an existing user's URL
+   * rendered a blank **Add User** form, and submitting it created a second account. 404 is
+   * the honest answer until the read endpoint exists.
+   */
+  it('has no user detail route — an id must not open the create form', async () => {
+    seed(UserRole.SUPER_ADMIN);
+    renderAt('/admin/users/usr_someone');
+    expect(await screen.findByText(/not found/i, undefined, FIND)).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /add user/i })).not.toBeInTheDocument();
+  });
+
   it('redirects a module index path to its view child', async () => {
     seed(UserRole.ADMIN);
     renderAt('/admin/exams');

@@ -24,10 +24,19 @@ import { API_ENDPOINTS } from './api-endpoints';
 export class ApiError extends Error {
   readonly status: number;
 
-  constructor(status: number, message: string) {
+  /**
+   * True when `message` is the API's own wording and fit to show a user; false when we
+   * had to invent it because the response carried nothing readable. Without this flag the
+   * two are indistinguishable, and a synthesised `Request failed (404)` reaches the screen
+   * looking exactly like a real message from the server.
+   */
+  readonly fromServer: boolean;
+
+  constructor(status: number, message: string, fromServer = false) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.fromServer = fromServer;
   }
 }
 
@@ -37,22 +46,31 @@ export class ApiError extends Error {
  * The API's own message is used wherever it has one worth showing — it already writes for
  * users ("Invalid email or password", "Current password is incorrect", "A user with that
  * email already exists"), and restating those here would only let the two drift. We supply
- * text in exactly the three cases where the API gives us nothing usable:
+ * text only where the API gives us nothing usable:
  *
  *   429 — the throttler's message is "ThrottlerException: Too Many Requests"
  *   5xx — the API hides internals by design, and a proxy failure has no JSON body at all
+ *   no readable body — nothing answered in our envelope, so `message` is one we made up
  *   no response — the request never reached the server, so there is no message to use
+ *
+ * That fourth case is the one that used to leak: a 404 from a proxy or a misconfigured base
+ * URL has no JSON body, so the fallback string `Request failed (404)` was shown verbatim on
+ * the login form. A status code is not something a user can act on.
  *
  * Anything policy-specific (lockout thresholds, password rules) belongs in the API's
  * message, not here: duplicating a backend constant in UI copy is how the copy goes stale.
  */
 export function apiErrorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    if (error.status === 429) return 'Too many attempts. Please wait a minute and try again.';
-    if (error.status >= 500) return 'The server is not responding. Please try again shortly.';
-    return error.message;
+  if (!(error instanceof ApiError)) {
+    return 'Could not reach the server. Check your connection and try again.';
   }
-  return 'Could not reach the server. Check your connection and try again.';
+  if (error.status === 429) return 'Too many attempts. Please wait a minute and try again.';
+  if (error.status >= 500) return 'The server is not responding. Please try again shortly.';
+  if (error.fromServer) return error.message;
+  if (error.status === 404) {
+    return 'That service could not be found. Please try again, or contact support if it keeps happening.';
+  }
+  return 'Something went wrong handling that request. Please try again.';
 }
 
 // ---- session-expired notification ----
@@ -171,16 +189,28 @@ async function unwrap<T>(res: Response, schema?: z.ZodType<T>): Promise<T> {
     throw new ApiError(res.status, 'The server returned an unreadable response.');
   }
 
+  // A 2xx carrying `success: false`. Rare, but it happens when something answers in our
+  // envelope shape without going through the interceptor. Left unchecked, `data` is
+  // undefined and the caller renders it as a successful empty result — a signed-in user
+  // shows as signed-out, a list shows as empty, and nothing anywhere records why.
+  if (!envelope.success) {
+    throw new ApiError(
+      res.status,
+      envelope.message ?? 'The server rejected the request.',
+      envelope.message !== undefined,
+    );
+  }
+
   return schema ? schema.parse(envelope.data) : (envelope.data as T);
 }
 
 async function toApiError(res: Response): Promise<ApiError> {
-  let message = `Request failed (${res.status})`;
   try {
     const body = (await res.json()) as { message?: string };
-    if (body.message) message = body.message;
+    if (body.message) return new ApiError(res.status, body.message, true);
   } catch {
-    /* no JSON body — keep the generic message */
+    /* no JSON body — fall through to the synthesised message */
   }
-  return new ApiError(res.status, message);
+  // Marked as not-from-server, so `apiErrorMessage` swaps it for something a user can read.
+  return new ApiError(res.status, `Request failed (${res.status})`);
 }

@@ -12,9 +12,18 @@ export interface SafeUser {
   createdAt: string;
 }
 
+/**
+ * Request body for `POST /users`. The single home for this shape: the API's Zod schema is
+ * checked against it (`create-user.dto.ts`) and the web service types its body with it, so
+ * the two cannot drift.
+ *
+ * `password` is required. It was optional here while the client was on mocks, which made
+ * this type disagree with the endpoint it describes — the API has always rejected a create
+ * without a temporary password, because there is no invite email to set one later.
+ */
 export interface CreateUserDto {
   email: string;
-  password?: string; // set by the super admin / server-side; optional in the client mock
+  password: string;
   roleId: string; // the assigned Role
   fullName: string;
   instituteId?: string;
