@@ -76,7 +76,7 @@ export function LoginPage(): React.ReactElement {
   // with no marker never gets here — the provider does not ask, so this is never true.
   if (isLoading) {
     return (
-      <AuthLayout title="Welcome back" subtitle="Checking your session…">
+      <AuthLayout title="Welcome" subtitle="Checking your session…">
         <div className="flex justify-center py-8">
           <Spinner size="lg" />
         </div>
@@ -85,7 +85,9 @@ export function LoginPage(): React.ReactElement {
   }
 
   return (
-    <AuthLayout title="Welcome back" subtitle="Sign in to continue to your dashboard.">
+    // "Welcome", not "Welcome back": this is the front door for everyone, and most people
+    // reading it are signing in for the first time on this browser.
+    <AuthLayout title="Welcome" subtitle="Sign in to continue to your dashboard.">
       <form onSubmit={formik.handleSubmit} noValidate className="space-y-4">
         {notice && !submitError && <Alert tone="success">{notice}</Alert>}
 

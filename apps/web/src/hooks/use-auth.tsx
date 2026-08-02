@@ -25,7 +25,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { LoginRequest, SafeUser } from '@oses/types';
 
-import { hasSessionHint } from '@/lib/session-hint';
+import { clearSessionHint, hasSessionHint } from '@/lib/session-hint';
 import { ROUTES, isPublicRoute } from '@/router/routes';
 import { ApiError, onSessionExpired } from '@/services/api-client';
 import { authService } from '@/services/auth.service';
@@ -73,12 +73,24 @@ const AuthContext = createContext<AuthContextValue>({
  * "Not signed in" is a normal answer, not a failure — turn the 401 into `null` so the
  * login page isn't sitting on a query stuck in an error state. Anything else (server
  * down, offline) still throws.
+ *
+ * A 401 that reaches here is final: the api client has already tried to renew and replayed the
+ * request, so there is no session to be had — the moment to drop the marker, which otherwise
+ * outlives its session and charges the login page a 401 plus a renewal on every later visit.
+ *
+ * `clearSession` below drops it too, and today that always fires on this path (the 401 goes
+ * through renewal first, and a failed renewal announces the session as expired). Stated here
+ * anyway: this is the one place that knows the answer directly, rather than inheriting it from
+ * a side effect two files away that a change to `NO_RENEWAL_PATHS` would quietly remove.
  */
 async function fetchSession(): Promise<SafeUser | null> {
   try {
     return await authService.me();
   } catch (error) {
-    if (error instanceof ApiError && error.status === 401) return null;
+    if (error instanceof ApiError && error.status === 401) {
+      clearSessionHint();
+      return null;
+    }
     // eslint-disable-next-line no-console -- an unexplained mass sign-out needs a trace
     console.error('Could not determine the session', error);
     throw error;
@@ -115,6 +127,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
   const clearSession = useCallback((): void => {
     queryClient.setQueryData(AUTH_ME_KEY, null);
     queryClient.removeQueries({ predicate: (q) => isNotSessionQuery(q.queryKey) });
+    // The API clears the marker itself on a clean sign-out. This covers the paths where it
+    // never got the chance: a sign-out request that failed, or a session the client gave up
+    // renewing. Both leave a marker pointing at nothing.
+    clearSessionHint();
   }, [queryClient]);
 
   // The api client renews expired sessions on its own, so this fires only when renewal
