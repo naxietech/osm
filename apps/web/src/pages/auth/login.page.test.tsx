@@ -136,6 +136,16 @@ describe('LoginPage', () => {
     expect(await screen.findByRole('button', { name: /sign in/i })).toBeInTheDocument();
   });
 
+  it('throws the stale marker away so the next visit costs nothing', async () => {
+    // Without this the marker never expires on its own, so every later visit to /login pays
+    // the 401 plus the renewal the client fires behind it — the exact cost it exists to save.
+    giveSessionHint();
+    renderLogin();
+    await screen.findByRole('button', { name: /sign in/i });
+
+    expect(document.cookie).not.toContain(`${SESSION_HINT_COOKIE}=`);
+  });
+
   it('sends only the login request when the form is submitted', async () => {
     renderLogin();
     await submit();
