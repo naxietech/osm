@@ -1,19 +1,21 @@
 import { DataSource, type DataSourceOptions } from 'typeorm';
 
-import { AUTH_ENTITIES } from './entities';
+import { ALL_ENTITIES } from './entities';
 import { InitialAuthSchema1730000000000 } from './migrations/1730000000000-initial-auth-schema';
+import { InstituteCategories1754000000000 } from './migrations/1754000000000-institute-categories';
 
 /**
  * Migrations are listed explicitly (not a filesystem glob) so the set resolves identically
  * under ts-node, compiled dist, and Jest — the same reason the previous migrator kept a code
- * registry. `synchronize` is hard-off: schema changes only ever happen through a migration.
+ * registry. Order matters: they run top to bottom. `synchronize` is hard-off: schema changes
+ * only ever happen through a migration.
  */
 export function buildDataSourceOptions(url: string): DataSourceOptions {
   return {
     type: 'postgres',
     url,
-    entities: AUTH_ENTITIES,
-    migrations: [InitialAuthSchema1730000000000],
+    entities: ALL_ENTITIES,
+    migrations: [InitialAuthSchema1730000000000, InstituteCategories1754000000000],
     synchronize: false,
     logging: false,
   };

@@ -23,14 +23,15 @@ import {
   type SessionRepository,
   USER_REPOSITORY,
   type UserRepository,
-} from '../../auth/ports';
+} from '../../../auth/ports';
 import {
   AuthAuditLogEntity,
   RoleEntity,
   RoleGrantEntity,
   SessionEntity,
   UserEntity,
-} from './entities';
+} from '../entities';
+import { isUniqueViolation } from '../pg-errors';
 
 /** Map a persisted user row to the PII-agnostic domain record the ports expose. */
 function toAuthUser(u: UserEntity): AuthUserRecord {
@@ -47,16 +48,6 @@ function toAuthUser(u: UserEntity): AuthUserRecord {
     lastLoginAt: u.lastLoginAt,
     createdAt: u.createdAt,
   };
-}
-
-/**
- * Postgres unique-violation SQLSTATE. TypeORM wraps the pg error in a QueryFailedError; the
- * code shows up either directly on the error or on its `driverError`.
- */
-function isUniqueViolation(err: unknown): boolean {
-  if (typeof err !== 'object' || err === null) return false;
-  const e = err as { code?: unknown; driverError?: { code?: unknown } };
-  return e.code === '23505' || e.driverError?.code === '23505';
 }
 
 @Injectable()
