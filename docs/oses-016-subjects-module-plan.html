@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OSES — Subjects Module Build Plan</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy: #1B3A6B; --navy-dark: #152E55; --navy-light: #EFF6FF;
+      --teal: #0E7490; --teal-light: #F0FDFA;
+      --gold: #B45309; --gold-light: #FFFBEB;
+      --green: #16A34A; --green-light: #F0FDF4;
+      --bg: #F8FAFC; --surface: #FFFFFF; --border: #E2E8F0;
+      --text: #1E293B; --text-muted: #64748B; --text-faint: #94A3B8;
+      --code-bg: #0F172A; --code-text: #E2E8F0;
+      --radius: 8px; --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+    }
+    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.65; color: var(--text); background: var(--bg); min-height: 100vh; }
+    .shell { display: flex; flex-direction: column; min-height: 100vh; }
+    .topbar { background: var(--navy); color: #fff; padding: 0 32px; display: flex; align-items: center; gap: 16px; height: 60px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+    .topbar-logo { font-size: 20px; font-weight: 800; letter-spacing: .5px; }
+    .topbar-subtitle { font-size: 13px; color: #93C5FD; border-left: 1px solid rgba(255,255,255,.2); padding-left: 16px; }
+    .topbar-badge { margin-left: auto; font-size: 11px; background: rgba(255,255,255,.12); color: #BAE6FD; border: 1px solid rgba(255,255,255,.15); padding: 3px 10px; border-radius: 20px; }
+    .content { flex: 1; max-width: 1000px; margin: 0 auto; padding: 40px 32px 80px; width: 100%; }
+    h1 { font-size: 28px; font-weight: 800; color: var(--navy); margin-bottom: 8px; }
+    h2 { font-size: 20px; font-weight: 700; color: var(--navy); margin: 44px 0 12px; padding-bottom: 8px; border-bottom: 2px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; color: var(--navy-dark); margin: 26px 0 10px; }
+    p { margin-bottom: 14px; }
+    ul, ol { padding-left: 22px; margin-bottom: 14px; }
+    li { margin-bottom: 6px; }
+    strong { font-weight: 700; color: var(--navy-dark); }
+    code { font-family: 'Cascadia Code', Consolas, monospace; font-size: 13px; background: #F1F5F9; padding: 1px 5px; border-radius: 4px; color: var(--navy-dark); }
+    .page-lead { font-size: 16px; color: var(--text-muted); margin-bottom: 32px; line-height: 1.7; }
+    .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .mini { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+    .mini-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-faint); margin-bottom: 4px; }
+    .mini-value { font-size: 15px; font-weight: 700; color: var(--navy); margin-bottom: 6px; }
+    .mini-note { font-size: 13px; color: var(--text-muted); line-height: 1.55; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 14px; background: var(--surface); }
+    th { background: var(--navy-light); color: var(--navy-dark); font-weight: 700; text-align: left; padding: 9px 12px; border: 1px solid var(--border); font-size: 12px; text-transform: uppercase; letter-spacing: .4px; }
+    td { padding: 9px 12px; border: 1px solid var(--border); vertical-align: top; }
+    tbody tr:nth-child(even) { background: #FAFBFC; }
+    pre { background: var(--code-bg); color: var(--code-text); padding: 16px; border-radius: var(--radius); overflow-x: auto; margin-bottom: 16px; font-size: 13px; line-height: 1.55; }
+    pre code { background: none; color: inherit; padding: 0; }
+    .callout { border-left: 4px solid; border-radius: 0 var(--radius) var(--radius) 0; padding: 14px 18px; margin-bottom: 18px; font-size: 14px; }
+    .callout-title { font-weight: 700; margin-bottom: 5px; }
+    .callout.warn { background: var(--gold-light); border-color: var(--gold); }
+    .callout.warn .callout-title { color: var(--gold); }
+    .callout.ok { background: var(--green-light); border-color: var(--green); }
+    .callout.ok .callout-title { color: var(--green); }
+    .callout.info { background: var(--teal-light); border-color: var(--teal); }
+    .callout.info .callout-title { color: var(--teal); }
+    .phase { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--teal); border-radius: var(--radius); padding: 22px; margin-bottom: 18px; box-shadow: var(--shadow); }
+    .phase-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; }
+    .phase-num { font-size: 26px; font-weight: 800; color: var(--teal); line-height: 1; }
+    .phase-title { font-size: 17px; font-weight: 700; color: var(--navy); }
+    .done-when { background: var(--teal-light); border-radius: var(--radius); padding: 12px 16px; margin-top: 14px; font-size: 14px; }
+    .done-when strong { color: var(--teal); }
+    footer { border-top: 1px solid var(--border); padding: 20px 32px; text-align: center; font-size: 13px; color: var(--text-faint); }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <div class="topbar">
+    <span class="topbar-logo">OSES</span>
+    <span class="topbar-subtitle">Subjects — Build Plan</span>
+    <span class="topbar-badge">Module 3</span>
+  </div>
+
+  <div class="content">
+    <h1>Subjects, end to end</h1>
+    <p class="page-lead">
+      One reference-data screen taken from a mock array to a live PostgreSQL table and back into
+      the browser. Four phases, each gated before the next begins.
+    </p>
+
+    <h2>Decisions</h2>
+    <div class="grid2">
+      <div class="mini">
+        <div class="mini-label">Tenancy</div>
+        <div class="mini-value">One shared list</div>
+        <div class="mini-note">No <code>client_id</code>. Every client teaches the same curriculum, so subjects are national reference data.</div>
+      </div>
+      <div class="mini">
+        <div class="mini-label">Removal</div>
+        <div class="mini-value">Deactivate only</div>
+        <div class="mini-note">No <code>DELETE</code> route. Nothing referencing a subject can be orphaned if the row never disappears.</div>
+      </div>
+      <div class="mini">
+        <div class="mini-label">Code uniqueness</div>
+        <div class="mini-value">Case-insensitive</div>
+        <div class="mini-note"><code>citext</code>, so <code>PHY</code> and <code>phy</code> cannot both exist. Enforced in the database, not only the form.</div>
+      </div>
+      <div class="mini">
+        <div class="mini-label">Ordering</div>
+        <div class="mini-value">By name</div>
+        <div class="mini-note">No <code>sort_order</code> column. Alphabetical is enough for a list this size.</div>
+      </div>
+      <div class="mini">
+        <div class="mini-label">Frontend scope</div>
+        <div class="mini-value">Subjects screen only</div>
+        <div class="mini-note">The six other screens reading subjects keep the mock array until their own modules land.</div>
+      </div>
+      <div class="mini">
+        <div class="mini-label">Page build</div>
+        <div class="mini-value">Written by hand</div>
+        <div class="mini-note"><code>ReferenceCrud</code> stays untouched, so the e-sheet screen carries no risk from this branch.</div>
+      </div>
+    </div>
+
+    <h2>Backend</h2>
+
+    <h3>Table</h3>
+    <pre><code>subjects
+  id          uuid        primary key, generated
+  code        citext      unique, 1–20 chars     ← PHY and phy cannot coexist
+  name        text        1–100 chars
+  is_active   boolean     not null default true
+  created_by  uuid        → users.id
+  updated_by  uuid        → users.id, nullable
+  created_at  timestamptz not null default now()
+  updated_at  timestamptz not null default now()</code></pre>
+
+    <p>
+      Check constraints repeat the DTO's length rules, so bad data cannot arrive through a path
+      that skips validation. No <code>version</code> column — a subject is three scalar fields and
+      last-write-wins is the honest behaviour.
+    </p>
+
+    <h3>Routes</h3>
+    <table>
+      <thead><tr><th style="width:34%">Route</th><th style="width:66%">Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>GET /subjects</code></td><td>Ordered by name. <code>?activeOnly=</code> for pickers.</td></tr>
+        <tr><td><code>GET /subjects/:id</code></td><td>Single fetch.</td></tr>
+        <tr><td><code>POST /subjects</code></td><td>Duplicate code → <strong>409</strong> via the shared <code>pg-errors</code> helper.</td></tr>
+        <tr><td><code>PATCH /subjects/:id</code></td><td>Name and code.</td></tr>
+        <tr><td><code>PATCH /subjects/:id/status</code></td><td>Activate / deactivate.</td></tr>
+      </tbody>
+    </table>
+    <p>
+      All five carry <code>JwtAuthGuard</code>, <code>ActiveUserGuard</code>,
+      <code>PermissionsGuard</code> and <code>@RequirePermissions('subjects.manage')</code>.
+    </p>
+
+    <div class="callout ok">
+      <div class="callout-title">Nothing to add to RBAC</div>
+      <code>subjects.manage</code> is already in the permission catalogue and only
+      <code>role_super_admin</code> holds it — verified against the running database.
+    </div>
+
+    <h3>Files</h3>
+    <pre><code>apps/api/src/modules/subjects/
+  subjects.module.ts
+  subjects.controller.ts
+  subjects.service.ts
+  subjects.service.spec.ts
+  subject-mapper.ts        # record → API shape, field by field
+  ports.ts                 # SubjectRepository interface + SUBJECT_REPOSITORY token
+  dto/subject.dto.ts       # Zod, .strict(), types via z.infer
+  dto/index.ts
+  index.ts
+
+apps/api/src/persistence/typeorm/
+  entities/subject.entity.ts
+  repositories/subject.repository.ts
+  migrations/&lt;timestamp&gt;-subjects.ts
+  seed/subjects.seed.ts    # the seven existing subjects, insert-only</code></pre>
+
+    <p>
+      Shaped after <code>modules/institute-categories/</code>, minus the parts that module needs
+      and this one does not: no second controller, no question reconciler, no in-memory cache.
+    </p>
+
+    <h2>Frontend</h2>
+    <pre><code>services/api-endpoints.ts           # add the subjects group
+services/subjects.service.ts        # NEW — list, get, create, update, setStatus
+services/subjects.service.test.ts   # NEW
+hooks/use-subjects.ts               # NEW — one query, one caching policy
+pages/setup/subjects.page.tsx       # REWRITTEN — React Query + DataTable + Modal
+pages/setup/subjects.page.test.tsx  # NEW
+services/academic.service.ts        # comment: this subjects array is mock-only now
+
+pages/setup/reference-crud.tsx      # UNCHANGED
+e-sheet/templates-list.page.tsx     # UNCHANGED</code></pre>
+
+    <p>
+      The page is built from parts that already exist: <code>DataTable</code> for the list,
+      <code>Modal</code> for add/edit, <code>ConfirmDialog</code> before deactivating,
+      <code>Alert</code> for errors.
+    </p>
+
+    <div class="callout warn">
+      <div class="callout-title">The mock array stays — and must say so</div>
+      Six screens still read <code>subjects</code> from <code>academic.service.ts</code>. That
+      array starts drifting from the database the moment an admin adds a subject. A comment naming
+      which list is live and which is not is a required task in phase 4.
+    </div>
+
+    <h2>Phases</h2>
+
+    <div class="phase">
+      <div class="phase-head"><span class="phase-num">01</span><span class="phase-title">Table, entity, migration, seed</span></div>
+      <p>The table with its check constraints, the TypeORM entity, a reversible migration, and the seed of the seven existing subjects. Nothing wired yet.</p>
+      <div class="done-when"><strong>Done when</strong> — <code>pnpm db:migrate &amp;&amp; pnpm db:seed</code> creates and fills the table, a second seed run changes nothing, and <code>db:migrate:revert</code> cleanly drops it.</div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-head"><span class="phase-num">02</span><span class="phase-title">Ports, repository, service, DTOs</span></div>
+      <p>Port interface and injection token, the TypeORM adapter, the service, and Zod DTOs with <code>.strict()</code> so unknown fields are rejected rather than silently dropped. Duplicate codes translated to 409 through the shared <code>pg-errors</code> helper.</p>
+      <div class="done-when"><strong>Done when</strong> — unit tests cover create, update, status and the duplicate-code path; <code>npx jest</code> green.</div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-head"><span class="phase-num">03</span><span class="phase-title">Controller and routes</span></div>
+      <p>Five routes with their guards, permission decorator and Swagger annotations. The controller returns plain data; <code>TransformInterceptor</code> wraps it.</p>
+      <div class="done-when"><strong>Done when</strong> — Postman lists, creates, edits and deactivates a subject; a non-Super-Admin gets 403; a duplicate code gets 409, not 500.</div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-head"><span class="phase-num">04</span><span class="phase-title">Rebuild the Subjects screen</span></div>
+      <p><code>subjects.service.ts</code> through <code>apiRequest</code>, a <code>useSubjects()</code> hook, and the page on React Query. Server messages shown through <code>apiErrorMessage()</code> — the 409 wording comes from the API, never restated in the UI. Every mutation invalidates the list, or a new row will not appear until the cache expires.</p>
+      <div class="done-when"><strong>Done when</strong> — add a subject in the browser, it appears without a refresh, survives one, a duplicate code shows the server's own message, and the e-sheet templates screen still passes its tests untouched.</div>
+    </div>
+
+    <h2>Not in this branch</h2>
+    <table>
+      <thead><tr><th style="width:32%">Left out</th><th style="width:68%">Why</th></tr></thead>
+      <tbody>
+        <tr><td>Classes, groups, subgroups</td><td>Their own module.</td></tr>
+        <tr><td>Curriculum</td><td>Needs classes and groups first. Until it exists, nothing links a subject to a class.</td></tr>
+        <tr><td>The other six consumers</td><td>Checkers, SLOs and evaluator keep the mock array until those modules land.</td></tr>
+        <tr><td>“In use by” counts</td><td>Nothing references a subject yet. A fake zero would invite someone to deactivate a subject that is genuinely in use.</td></tr>
+        <tr><td>Delete</td><td>Deactivate is the withdrawal path.</td></tr>
+        <tr><td><code>credit_hours</code></td><td>Nothing sets it, nothing shows it. A later migration adds it when the university/GPA phase needs it. The optional field stays in <code>@oses/types</code>.</td></tr>
+        <tr><td>Changes to <code>ReferenceCrud</code></td><td>Left untouched so the e-sheet screen carries no risk. Revisit extracting a shared async list once a second reference screen is live.</td></tr>
+        <tr><td>Bulk import</td><td>Seven subjects. Worth revisiting at a few hundred.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout info">
+      <div class="callout-title">Sequencing</div>
+      Merge PR #15 (auth) and PR #16 (institute categories) first. Both touch
+      <code>packages/types</code> and the web services layer, and PR #16 is where
+      <code>pg-errors.ts</code> comes from — which phase 2 depends on.
+    </div>
+  </div>
+
+  <footer>OSES — On-Screen Exam System · Subjects module build plan</footer>
+</div>
+</body>
+</html>
