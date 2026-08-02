@@ -7,8 +7,8 @@
  * change here, and `api-client` matches on these same constants to decide which requests
  * may trigger a session renewal.
  *
- * Auth, users and roles are the only modules the API serves today. Every other module is
- * still a mock service, so nothing else belongs here yet.
+ * Auth, users, roles and subjects are the modules the API serves today. Every other module
+ * is still a mock service, so nothing else belongs here yet.
  */
 export const API_ENDPOINTS = {
   auth: {
@@ -27,5 +27,11 @@ export const API_ENDPOINTS = {
   },
   roles: {
     list: '/roles',
+  },
+  subjects: {
+    list: '/subjects',
+    create: '/subjects',
+    detail: (id: string) => `/subjects/${id}`,
+    status: (id: string) => `/subjects/${id}/status`,
   },
 } as const;

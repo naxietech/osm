@@ -10,8 +10,8 @@
  * This page owns the draft that passes between the form and the preview, because an organism
  * may not import another organism.
  *
- * Deleting asks first, in an inline strip (the ReferenceCrud pattern). A template can be
- * deactivated instead, which keeps it for reference but hides it from new e-sheets.
+ * Deleting asks first, in an inline strip. A template can be deactivated instead, which keeps
+ * it for reference but hides it from new e-sheets.
  *
  * TODO: Replace the eSheetTemplateService calls with React Query.
  */

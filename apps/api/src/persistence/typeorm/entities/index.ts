@@ -5,6 +5,7 @@ import { PermissionEntity } from './permission.entity';
 import { RoleGrantEntity } from './role-grant.entity';
 import { RoleEntity } from './role.entity';
 import { SessionEntity } from './session.entity';
+import { SubjectEntity } from './subject.entity';
 import { UserEntity } from './user.entity';
 
 export { AuthAuditLogEntity } from './auth-audit-log.entity';
@@ -14,6 +15,7 @@ export { PermissionEntity } from './permission.entity';
 export { RoleGrantEntity } from './role-grant.entity';
 export { RoleEntity } from './role.entity';
 export { SessionEntity } from './session.entity';
+export { SubjectEntity } from './subject.entity';
 export { UserEntity } from './user.entity';
 
 /** Every entity in the auth persistence layer — registered with `forFeature` by AuthModule. */
@@ -26,8 +28,12 @@ export const AUTH_ENTITIES = [
   AuthAuditLogEntity,
 ];
 
-/** Super-admin-managed reference data (institute categories + their dynamic questions). */
-export const REFERENCE_ENTITIES = [InstituteCategoryEntity, InstituteCategoryQuestionEntity];
+/** Super-admin-managed reference data (institute categories + their questions, and subjects). */
+export const REFERENCE_ENTITIES = [
+  InstituteCategoryEntity,
+  InstituteCategoryQuestionEntity,
+  SubjectEntity,
+];
 
 /** Everything the DataSource must know about. Feature modules still scope their own forFeature. */
 export const ALL_ENTITIES = [...AUTH_ENTITIES, ...REFERENCE_ENTITIES];

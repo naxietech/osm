@@ -5,6 +5,7 @@ import 'reflect-metadata';
 import { createDataSource } from '../data-source';
 import { seedInstituteCategories } from './institute-categories.seed';
 import { seedDatabase } from './seed';
+import { seedSubjects } from './subjects.seed';
 
 // apps/api/.env is the source of truth locally — override any stale shell value (e.g. a
 // leftover `SUPERADMIN_PASSWORD` export) so the seeded credential always matches .env.
@@ -42,6 +43,9 @@ async function main(): Promise<void> {
       `Institute categories: ${categories.categoriesCreated} created ` +
         `(${categories.questionsCreated} questions), ${categories.categoriesSkipped} already present.`,
     );
+
+    const subjects = await seedSubjects(dataSource);
+    console.log(`Subjects: ${subjects.created} created, ${subjects.skipped} already present.`);
   } finally {
     await dataSource.destroy();
   }

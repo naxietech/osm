@@ -139,6 +139,20 @@ export const groups: Group[] = [
 ];
 
 // ---- subjects ----
+/**
+ * MOCK ONLY — this is no longer the live subject list.
+ *
+ * `GET /subjects` is real, and `services/subjects.service.ts` + `hooks/use-subjects.ts` are
+ * what the Subjects management screen reads. This array is what six screens that have no
+ * backend yet still read (checkers, SLOs, exams, students, evaluator profile), and it does
+ * **not** track the database: the moment an admin adds or renames a subject, the two diverge.
+ *
+ * Do not "sync" them by hand. Each of those screens should switch to `useSubjects()` when its
+ * own module is wired up, and this array should be deleted when the last one has.
+ *
+ * The ids here (`sub_phy`, …) are also not the database's uuids, so nothing may pass an id
+ * from this list to the subjects API.
+ */
 export const subjects: Subject[] = [
   { id: 'sub_eng', code: 'ENG', name: 'English', isActive: true },
   { id: 'sub_urd', code: 'URD', name: 'Urdu', isActive: true },
