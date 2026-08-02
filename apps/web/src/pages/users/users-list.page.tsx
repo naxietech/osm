@@ -16,6 +16,8 @@ import type { AdminUser } from '@oses/types';
 
 import { PageHeader } from '@/components/widgets';
 import { Button } from '@/design-system/atoms/button';
+import { Ban, KeyRound, UserCheck } from '@/design-system/atoms/icon';
+import { IconButton } from '@/design-system/atoms/icon-button';
 import { Alert } from '@/design-system/molecules/alert';
 import { FormField } from '@/design-system/molecules/form-field';
 import { ConfirmDialog } from '@/design-system/molecules/modal';
@@ -191,34 +193,45 @@ export function UsersListPage(): React.ReactElement {
     },
     {
       key: 'actions',
-      header: '',
-      width: '210px',
-      // Both were `ghost`, which paints as bare text — two words in a table cell with no
-      // border or fill do not read as things you can press, and the destructive one looked
-      // identical to the harmless one. Outlined for "this is a control", danger for the
-      // action that signs someone out of every device.
+      header: 'Actions',
+      width: '110px',
+      /**
+       * Icon buttons, not word buttons. Two labelled buttons per row took more width than
+       * the name and email they belonged to, and a third action would not have fitted at
+       * all. Each carries its words in `label`, which is both the tooltip and what a screen
+       * reader announces — so nothing is lost by dropping the visible text, and the row
+       * reads as data again rather than as a toolbar.
+       */
       render: (row) => (
-        <div className="flex flex-wrap justify-end gap-2">
-          <Button
-            variant="secondary"
+        <div className="flex justify-end gap-1.5">
+          <IconButton
+            icon={<KeyRound size={15} aria-hidden />}
+            label="Reset password"
             size="sm"
             onClick={() => {
               setNotice(null);
               setActionError(null);
               setPendingReset(row);
             }}
-          >
-            Reset password
-          </Button>
-          <Button
-            variant={row.status === 'suspended' ? 'secondary' : 'danger'}
-            size="sm"
-            isLoading={busyRowIds.has(row.id)}
-            disabled={busyRowIds.has(row.id)}
-            onClick={() => requestStatusChange(row)}
-          >
-            {row.status === 'suspended' ? 'Reactivate' : 'Suspend'}
-          </Button>
+          />
+          {row.status === 'suspended' ? (
+            <IconButton
+              icon={<UserCheck size={15} aria-hidden />}
+              label="Reactivate account"
+              size="sm"
+              isLoading={busyRowIds.has(row.id)}
+              onClick={() => requestStatusChange(row)}
+            />
+          ) : (
+            <IconButton
+              icon={<Ban size={15} aria-hidden />}
+              label="Suspend account"
+              tone="danger"
+              size="sm"
+              isLoading={busyRowIds.has(row.id)}
+              onClick={() => requestStatusChange(row)}
+            />
+          )}
         </div>
       ),
     },

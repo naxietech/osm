@@ -16,6 +16,7 @@
 export {
   ArrowUpRight,
   Award,
+  Ban,
   BarChart3,
   Building2,
   Calendar,
@@ -60,6 +61,7 @@ export {
   Undo2,
   Upload,
   User,
+  UserCheck,
   UserPlus,
   Users,
   X,

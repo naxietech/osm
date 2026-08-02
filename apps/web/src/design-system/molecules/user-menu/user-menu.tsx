@@ -1,6 +1,7 @@
 import { type ReactElement } from 'react';
 
 import { KeyRound, LogOut } from '@/design-system/atoms/icon';
+import { IconButton } from '@/design-system/atoms/icon-button';
 import { getInitials } from '@/lib/utils';
 
 export interface UserMenuProps {
@@ -26,25 +27,13 @@ export function UserMenu({ name, email, onLogout, onChangePassword }: UserMenuPr
         </div>
       </div>
       {onChangePassword && (
-        <button
-          type="button"
+        <IconButton
+          icon={<KeyRound size={16} aria-hidden />}
+          label="Change password"
           onClick={onChangePassword}
-          title="Change password"
-          aria-label="Change password"
-          className="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        >
-          <KeyRound size={16} aria-hidden />
-        </button>
+        />
       )}
-      <button
-        type="button"
-        onClick={onLogout}
-        title="Log out"
-        aria-label="Log out"
-        className="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-      >
-        <LogOut size={16} aria-hidden />
-      </button>
+      <IconButton icon={<LogOut size={16} aria-hidden />} label="Log out" onClick={onLogout} />
     </div>
   );
 }

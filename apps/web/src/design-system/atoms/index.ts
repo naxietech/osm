@@ -6,6 +6,7 @@ export * from './check-mark';
 export * from './checkbox';
 export * from './gauge-ring';
 export * from './icon';
+export * from './icon-button';
 export * from './input';
 export * from './kbd';
 export * from './label';
