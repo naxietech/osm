@@ -15,6 +15,7 @@ import type { LoginRequest } from '@oses/types';
 import { Button } from '@/design-system/atoms/button';
 import { Checkbox } from '@/design-system/atoms/checkbox';
 import { Lock, Mail } from '@/design-system/atoms/icon';
+import { Spinner } from '@/design-system/atoms/spinner';
 import { Alert } from '@/design-system/molecules/alert';
 import { FormField } from '@/design-system/molecules/form-field';
 import { AuthLayout } from '@/design-system/templates/auth-layout';
@@ -36,7 +37,7 @@ const validationSchema = Yup.object({
 export function LoginPage(): React.ReactElement {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, isLoading } = useAuth();
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Set by the change-password page, which has to send the user back here because the
@@ -65,10 +66,22 @@ export function LoginPage(): React.ReactElement {
   });
 
   // Already signed in and came back here — browser back button, a bookmark, a stale tab.
-  // This reads the cached session only; the provider still skips `GET /auth/me` on public
-  // routes, so a genuinely signed-out visitor costs no request to land here.
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
+  }
+
+  // Only reachable when the browser carries the session marker, so we are mid-check on
+  // someone who has signed in here before. Showing the form now would flash a sign-in
+  // screen at a signed-in user for the length of one request, then yank it away. A visitor
+  // with no marker never gets here — the provider does not ask, so this is never true.
+  if (isLoading) {
+    return (
+      <AuthLayout title="Welcome back" subtitle="Checking your session…">
+        <div className="flex justify-center py-8">
+          <Spinner size="lg" />
+        </div>
+      </AuthLayout>
+    );
   }
 
   return (

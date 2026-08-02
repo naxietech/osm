@@ -5,7 +5,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { UserRole } from '@oses/types';
+import { SESSION_HINT_COOKIE, UserRole } from '@oses/types';
 
 import { AuthProvider } from '@/hooks';
 
@@ -76,7 +76,13 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  document.cookie = `${SESSION_HINT_COOKIE}=; max-age=0`;
 });
+
+/** Pretend someone has signed in on this browser before — what the API leaves behind. */
+function giveSessionHint(): void {
+  document.cookie = `${SESSION_HINT_COOKIE}=1`;
+}
 
 describe('LoginPage', () => {
   it('signs in and routes to the role home', async () => {
@@ -92,11 +98,42 @@ describe('LoginPage', () => {
   });
 
   it('makes no auth requests until the form is submitted', () => {
-    // Nothing to look up: a visitor here has no session. Checking anyway would 401,
-    // and the api client answers a 401 by trying to renew — two wasted round trips
-    // on the one page guaranteed to be opened by signed-out people.
+    // Nothing to look up: a visitor with no session marker has never signed in here.
+    // Checking anyway would 401, and the api client answers a 401 by trying to renew —
+    // two wasted round trips on the one page guaranteed to be opened by signed-out people.
     renderLogin();
     expect(vi.mocked(fetch)).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The bug this pair exists for: `isAuthenticated` could only ever read false on `/login`,
+   * because the provider never checked the session on a public route. So a signed-in user
+   * opening the login page — a bookmark, a second tab, the back button — was shown a sign-in
+   * form for an account they were already signed into, and the redirect below could never
+   * fire. The marker is what makes asking worthwhile without charging every visitor for it.
+   */
+  it('sends an already-signed-in visitor to their dashboard', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        if (String(input).endsWith('/auth/me')) return Promise.resolve(envelope(USER));
+        return Promise.resolve(failure(401, 'Unauthorized'));
+      }),
+    );
+    giveSessionHint();
+    renderLogin();
+
+    expect(await screen.findByText('Signed In')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /sign in/i })).not.toBeInTheDocument();
+  });
+
+  it('falls back to the form when the marker is stale', async () => {
+    // The cookie outlives its session — cleared server-side, or the account was suspended.
+    // The check answers 401, which means signed out, so the form is the right thing to show.
+    giveSessionHint();
+    renderLogin();
+
+    expect(await screen.findByRole('button', { name: /sign in/i })).toBeInTheDocument();
   });
 
   it('sends only the login request when the form is submitted', async () => {

@@ -1,5 +1,7 @@
 import type { ConfigService } from '@nestjs/config';
 
+import { SESSION_HINT_COOKIE } from '@oses/types';
+
 export const AUTH_CONFIG = 'AUTH_CONFIG';
 
 export type SameSite = 'lax' | 'strict' | 'none';
@@ -16,6 +18,8 @@ export interface AuthConfig {
   cookie: { secure: boolean; sameSite: SameSite; domain?: string };
   accessCookieName: string;
   refreshCookieName: string;
+  /** Readable, secret-free session marker — see `SESSION_HINT_COOKIE` in `@oses/types`. */
+  sessionHintCookieName: string;
 }
 
 const SECOND = 1000;
@@ -71,5 +75,6 @@ export function loadAuthConfig(config: ConfigService): AuthConfig {
     },
     accessCookieName: 'oses_access',
     refreshCookieName: 'oses_refresh',
+    sessionHintCookieName: SESSION_HINT_COOKIE,
   };
 }

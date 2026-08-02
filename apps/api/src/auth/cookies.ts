@@ -24,17 +24,28 @@ export function setAuthCookies(
     ...base,
     maxAge: config.refreshTtlMs,
   });
+
+  // Readable on purpose (`httpOnly: false`) and worth nothing on its own — it says only that
+  // someone signed in on this browser. The login page reads it to decide whether asking
+  // `/auth/me` is worth a round trip. Nothing is authorised on the strength of it.
+  res.cookie(config.sessionHintCookieName, '1', {
+    ...base,
+    httpOnly: false,
+    maxAge: config.refreshTtlMs,
+  });
 }
 
-/** Clear both auth cookies (logout). Options must match how they were set. */
+/** Clear every auth cookie (logout, password change). Options must match how they were set. */
 export function clearAuthCookies(res: Response, config: AuthConfig): void {
   const base = {
-    httpOnly: true,
     secure: config.cookie.secure,
     sameSite: config.cookie.sameSite,
     domain: config.cookie.domain,
     path: '/',
   } as const;
-  res.clearCookie(config.accessCookieName, base);
-  res.clearCookie(config.refreshCookieName, base);
+  res.clearCookie(config.accessCookieName, { ...base, httpOnly: true });
+  res.clearCookie(config.refreshCookieName, { ...base, httpOnly: true });
+  // Must go too: left behind, it would send the login page to ask `/auth/me` on every visit
+  // for a session that no longer exists — the wasted round trip the marker exists to prevent.
+  res.clearCookie(config.sessionHintCookieName, { ...base, httpOnly: false });
 }

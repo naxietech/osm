@@ -93,6 +93,37 @@ describeDb('Auth sessions (e2e)', () => {
     expect(joined).toMatch(/HttpOnly/i);
   });
 
+  /**
+   * The one cookie the browser is allowed to read, and the only one that must NOT be
+   * HttpOnly. It carries no secret — the login page reads it to decide whether asking
+   * `/auth/me` is worth a round trip, so a signed-in visitor gets redirected to their
+   * dashboard while a signed-out one pays nothing. If it ever gains HttpOnly, the login
+   * page silently stops redirecting; if it ever gains a secret, it stops being safe.
+   */
+  it('sets a readable, secret-free session marker alongside the HttpOnly cookies', async () => {
+    const res = await login(SUPER).expect(200);
+    const raw = (res.headers['set-cookie'] ?? []) as unknown as string[];
+    const marker = raw.find((c) => c.startsWith('oses_session='));
+
+    expect(marker).toBeDefined();
+    expect(marker).not.toMatch(/HttpOnly/i);
+    expect(cookieValue(res, 'oses_session')).toBe('1');
+  });
+
+  it('clears the session marker on logout, so the login page stops asking', async () => {
+    const res = await login(SUPER).expect(200);
+    const out = await request(server())
+      .post('/api/v1/auth/logout')
+      .set('Cookie', `oses_refresh=${cookieValue(res, 'oses_refresh')}`)
+      .expect(200);
+
+    const raw = (out.headers['set-cookie'] ?? []) as unknown as string[];
+    const marker = raw.find((c) => c.startsWith('oses_session='));
+    // Left behind, it would send every future visit to /auth/me for a session that is gone.
+    expect(marker).toBeDefined();
+    expect(marker).toMatch(/oses_session=;/);
+  });
+
   // ---- /me (cookie auth) ----
   it('GET /me with the access cookie returns the SafeUser', async () => {
     const res = await login(SUPER).expect(200);

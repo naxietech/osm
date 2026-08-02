@@ -7,9 +7,16 @@
  * whether the user is signed in, and ProtectedRoute has to wait rather than assume "no"
  * and bounce a signed-in user to the login page on every refresh.
  *
- * The check is skipped entirely on public routes. A signed-out visitor on the login page
- * has no session to look up, and asking anyway would 401 — which the api client answers
- * by attempting a token renewal, so one pointless question becomes two.
+ * The check is skipped on public routes. A signed-out visitor on the login page has no
+ * session to look up, and asking anyway would 401 — which the api client answers by
+ * attempting a token renewal, so one pointless question becomes two.
+ *
+ * The login page is the one exception, and only when the browser carries the session marker
+ * the API leaves readable. Without that exception a signed-in user who opens `/login` — a
+ * bookmark, a second tab, the back button — sits looking at a sign-in form they do not need,
+ * because `isAuthenticated` can only ever read false on a route we never check. The marker
+ * keeps the cost where it belongs: visitors who have signed in here before pay one request,
+ * everyone else still pays none.
  */
 import React, { createContext, useCallback, useContext, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
@@ -18,7 +25,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { LoginRequest, SafeUser } from '@oses/types';
 
-import { isPublicRoute } from '@/router/routes';
+import { hasSessionHint } from '@/lib/session-hint';
+import { ROUTES, isPublicRoute } from '@/router/routes';
 import { ApiError, onSessionExpired } from '@/services/api-client';
 import { authService } from '@/services/auth.service';
 
@@ -80,7 +88,9 @@ async function fetchSession(): Promise<SafeUser | null> {
 export function AuthProvider({ children }: { children: React.ReactNode }): React.ReactElement {
   const queryClient = useQueryClient();
   const { pathname } = useLocation();
-  const needsSession = !isPublicRoute(pathname);
+  // Checked once per render rather than held in state: a cookie can be cleared by the server
+  // (logout) or by hand, and a remembered `true` would keep asking for a session long gone.
+  const needsSession = !isPublicRoute(pathname) || (pathname === ROUTES.login && hasSessionHint());
 
   const {
     data: user,
