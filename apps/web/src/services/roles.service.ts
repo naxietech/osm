@@ -1,34 +1,22 @@
 /**
- * Mock roles/permissions service (frontend only) — the data-driven RBAC store.
+ * Roles API — read-only.
  *
- * Seeds the TRD's five system roles:
- *   Super Admin        — full access (everything except personally marking).
- *   Admin              — limited back-office: institutes / students / exams data.
- *                        NO roles, permissions, clients, or reference data (categories,
- *                        subjects, classes, SLOs).
- *   Controller Examiner— creates/manages exams; supervises marking.
- *   Evaluator          — marks scripts (paper checker).
- *   Institute          — manages/registers its OWN students (own-institute scope).
+ * The server owns roles and their grants (`apps/api/src/rbac/system-roles.ts` seeds the
+ * five TRD roles). `GET /roles` is the only endpoint: there is no create, update or
+ * delete, so the Roles screens show what exists and nothing more.
  *
- * The super admin can create/edit custom roles on top; this store is mutable so those
- * flows can push in. `SYSTEM_ROLE_IDS` keys are legacy (checker/controller) but the
- * display names now follow the TRD (Evaluator / Controller Examiner) — ids stay stable.
+ * BACKEND GAP: custom roles were designed for (`CreateRoleDto`/`UpdateRoleDto` exist in
+ * @oses/types, and the role editor was built against the old mock) but the API has no
+ * write routes yet. The editing UI stays hidden until POST/PATCH/DELETE /roles land.
  *
- * `PERMISSION_CATALOG` describes every action for the role editor: its module grouping,
- * a human label, and whether the `own-institute` scope is meaningful for it.
- *
- * TODO: replace with a real rolesApi + super-admin Roles/Users management screens.
+ * `PERMISSION_CATALOG` stays local: it is UI text — module grouping, human labels, and
+ * which actions are scopeable — not data. @oses/types deliberately keeps it out of the
+ * shared package so that package stays type-only.
  */
-import {
-  type CreateRoleDto,
-  type PermissionAction,
-  type PermissionGrant,
-  type PermissionScope,
-  type Role,
-  type SafeUser,
-  type UpdateRoleDto,
-  UserRole,
-} from '@oses/types';
+import type { PermissionAction, Role } from '@oses/types';
+
+import { apiRequest } from './api-client';
+import { API_ENDPOINTS } from './api-endpoints';
 
 // ---- permission catalog (drives the role editor UI) ----
 export interface PermissionMeta {
@@ -104,43 +92,8 @@ export const PERMISSION_CATALOG: PermissionMeta[] = [
   { action: 'dashboard.view', module: 'Dashboard', label: 'View dashboard', scopeable: false },
 ];
 
-/** Every action a fully-privileged role holds — everything except personally marking. */
-const ALL_ADMIN_ACTIONS: PermissionAction[] = PERMISSION_CATALOG.map((p) => p.action).filter(
-  (a) => a !== 'marking.mark' && a !== 'results.viewOwn',
-);
-
-/**
- * Limited back-office (Admin): operational data only. Explicitly excludes roles,
- * permissions, clients, and all reference data (categories / subjects / classes / SLOs).
- */
-const ADMIN_ACTIONS: PermissionAction[] = [
-  'institutes.manage',
-  'students.manage',
-  'students.viewPII',
-  'exams.manage',
-  'exams.assignRolls',
-  'templates.manage',
-  'registrations.manage',
-  'results.viewAll',
-  'dashboard.view',
-];
-
-/** Controller Examiner: sets up exams and oversees marking. */
-const CONTROLLER_EXAMINER_ACTIONS: PermissionAction[] = [
-  'exams.manage',
-  'exams.assignRolls',
-  'templates.manage',
-  'students.viewPII',
-  'marking.supervise',
-  'results.viewAll',
-  'dashboard.view',
-];
-
-function grants(scope: PermissionScope, actions: PermissionAction[]): PermissionGrant[] {
-  return actions.map((action) => ({ action, scope }));
-}
-
 // ---- stable system role ids (keys are legacy; display names follow the TRD) ----
+// These mirror the ids seeded by apps/api/src/rbac/system-roles.ts and are stable.
 export const SYSTEM_ROLE_IDS = {
   superAdmin: 'role_super_admin',
   admin: 'role_admin',
@@ -149,112 +102,9 @@ export const SYSTEM_ROLE_IDS = {
   controller: 'role_controller', // display name: "Controller Examiner"
 } as const;
 
-const SEEDED_AT = '2026-01-01T00:00:00.000Z';
-
-/** Mutable roles store — the five TRD system roles (super admin adds custom roles later). */
-export const roles: Role[] = [
-  {
-    id: SYSTEM_ROLE_IDS.superAdmin,
-    name: 'Super Admin',
-    isSystem: true,
-    grants: grants('all', ALL_ADMIN_ACTIONS),
-    createdAt: SEEDED_AT,
-  },
-  {
-    id: SYSTEM_ROLE_IDS.admin,
-    name: 'Admin',
-    isSystem: true,
-    grants: grants('all', ADMIN_ACTIONS),
-    createdAt: SEEDED_AT,
-  },
-  {
-    id: SYSTEM_ROLE_IDS.controller,
-    name: 'Controller Examiner',
-    isSystem: true,
-    grants: grants('all', CONTROLLER_EXAMINER_ACTIONS),
-    createdAt: SEEDED_AT,
-  },
-  {
-    id: SYSTEM_ROLE_IDS.checker,
-    name: 'Evaluator',
-    isSystem: true,
-    grants: grants('all', ['marking.mark', 'dashboard.view']),
-    createdAt: SEEDED_AT,
-  },
-  {
-    id: SYSTEM_ROLE_IDS.institute,
-    name: 'Institute',
-    isSystem: true,
-    grants: grants('own-institute', [
-      'students.manage',
-      'students.viewPII',
-      'checkers.manage',
-      'registrations.manage',
-      'results.viewOwn',
-      'dashboard.view',
-    ]),
-    createdAt: SEEDED_AT,
-  },
-];
-
-export function listRoles(): Role[] {
-  return roles;
+/** Every role with its grants. Read-only — the API has no role-write routes. */
+function listRoles(): Promise<Role[]> {
+  return apiRequest<Role[]>(API_ENDPOINTS.roles.list);
 }
 
-export function getRole(id: string): Role | undefined {
-  return roles.find((r) => r.id === id);
-}
-
-/** Transition map: legacy UserRole enum → seeded Role id (until users carry roleId). */
-const ENUM_TO_ROLE_ID: Record<UserRole, string> = {
-  [UserRole.ADMIN]: SYSTEM_ROLE_IDS.superAdmin,
-  [UserRole.CONTROLLER]: SYSTEM_ROLE_IDS.controller,
-  [UserRole.EVALUATOR]: SYSTEM_ROLE_IDS.checker,
-  [UserRole.INSTITUTE]: SYSTEM_ROLE_IDS.institute,
-};
-
-/** Resolve the Role for a user — prefers the data-driven roleId, falls back to the enum. */
-export function resolveRoleForUser(user: SafeUser | null | undefined): Role | undefined {
-  if (!user) return undefined;
-  const roleId = user.roleId ?? ENUM_TO_ROLE_ID[user.role];
-  return getRole(roleId);
-}
-
-export function roleName(id: string | undefined): string {
-  return (id && getRole(id)?.name) || '—';
-}
-
-// ---- mutations (super-admin Roles management) ----
-let roleCounter = roles.length;
-
-/** Create a custom role. `instituteId` tags it as owned by one institute. */
-export function createRole(dto: CreateRoleDto): Role {
-  roleCounter += 1;
-  const role: Role = {
-    id: `role_custom_${roleCounter}`,
-    name: dto.name,
-    isSystem: false,
-    grants: dto.grants,
-    createdAt: new Date().toISOString(),
-    ...(dto.instituteId ? { instituteId: dto.instituteId } : {}),
-  };
-  roles.push(role);
-  return role;
-}
-
-/** Update a custom role's name/grants. System roles are read-only (returns undefined). */
-export function updateRole(id: string, dto: UpdateRoleDto): Role | undefined {
-  const role = getRole(id);
-  if (!role || role.isSystem) return undefined;
-  if (dto.name !== undefined) role.name = dto.name;
-  if (dto.grants !== undefined) role.grants = dto.grants;
-  return role;
-}
-
-/** Delete a custom role. System roles cannot be deleted (returns false). */
-export function deleteRole(id: string): boolean {
-  const role = getRole(id);
-  if (!role || role.isSystem) return false;
-  roles.splice(roles.indexOf(role), 1);
-  return true;
-}
+export const rolesService = { listRoles };

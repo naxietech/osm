@@ -11,8 +11,7 @@ import { seedDatabase } from '../src/persistence/typeorm/seed/seed';
 import { hashPassword } from '../src/shared/crypto';
 
 const TEST_URL = process.env['DATABASE_URL_TEST'] ?? process.env['DATABASE_URL'];
-process.env['JWT_SECRET'] ??= 'test-only-secret-minimum-32-characters-long';
-process.env['DATABASE_URL'] = TEST_URL ?? 'postgres://oses:oses_dev_pw@localhost:5432/oses_test';
+process.env['DATABASE_URL'] = TEST_URL ?? 'postgres://oses:oses_dev_pw@localhost:5433/oses_test';
 
 const SUPER = {
   email: 'superadmin@oses.pk',
@@ -92,6 +91,37 @@ describeDb('Auth sessions (e2e)', () => {
     expect(joined).toMatch(/oses_access=/);
     expect(joined).toMatch(/oses_refresh=/);
     expect(joined).toMatch(/HttpOnly/i);
+  });
+
+  /**
+   * The one cookie the browser is allowed to read, and the only one that must NOT be
+   * HttpOnly. It carries no secret — the login page reads it to decide whether asking
+   * `/auth/me` is worth a round trip, so a signed-in visitor gets redirected to their
+   * dashboard while a signed-out one pays nothing. If it ever gains HttpOnly, the login
+   * page silently stops redirecting; if it ever gains a secret, it stops being safe.
+   */
+  it('sets a readable, secret-free session marker alongside the HttpOnly cookies', async () => {
+    const res = await login(SUPER).expect(200);
+    const raw = (res.headers['set-cookie'] ?? []) as unknown as string[];
+    const marker = raw.find((c) => c.startsWith('oses_session='));
+
+    expect(marker).toBeDefined();
+    expect(marker).not.toMatch(/HttpOnly/i);
+    expect(cookieValue(res, 'oses_session')).toBe('1');
+  });
+
+  it('clears the session marker on logout, so the login page stops asking', async () => {
+    const res = await login(SUPER).expect(200);
+    const out = await request(server())
+      .post('/api/v1/auth/logout')
+      .set('Cookie', `oses_refresh=${cookieValue(res, 'oses_refresh')}`)
+      .expect(200);
+
+    const raw = (out.headers['set-cookie'] ?? []) as unknown as string[];
+    const marker = raw.find((c) => c.startsWith('oses_session='));
+    // Left behind, it would send every future visit to /auth/me for a session that is gone.
+    expect(marker).toBeDefined();
+    expect(marker).toMatch(/oses_session=;/);
   });
 
   // ---- /me (cookie auth) ----
@@ -221,6 +251,28 @@ describeDb('Auth sessions (e2e)', () => {
           password: 'temp-pass-1234',
         })
         .expect(403);
+    });
+
+    /**
+     * `users.id` is a uuid column, so an id of the wrong shape never reached a row lookup —
+     * Postgres rejected the query itself ("invalid input syntax for type uuid") and the
+     * global filter turned that into a 500 claiming the server was broken. It also wrote a
+     * stack trace to the error log for a request that was never a server fault, which is how
+     * genuine 500s get lost. Both id routes must answer 404, as they document.
+     */
+    it('answers 404 — not 500 — for an id that is not a uuid', async () => {
+      const access = await accessFor(SUPER);
+      await request(server())
+        .patch('/api/v1/users/not-a-uuid/status')
+        .set('Cookie', `oses_access=${access}`)
+        .send({ status: 'suspended' })
+        .expect(404);
+
+      await request(server())
+        .post('/api/v1/users/not-a-uuid/reset-password')
+        .set('Cookie', `oses_access=${access}`)
+        .send({ password: 'temp-pass-1234' })
+        .expect(404);
     });
 
     it('rejects a duplicate email — 409', async () => {

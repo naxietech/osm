@@ -36,6 +36,7 @@ import { RoleRoute } from './role-route';
 import { ROUTES } from './routes';
 
 const LoginPage = lazy(() => import('@/pages/auth/login.page'));
+const ChangePasswordPage = lazy(() => import('@/pages/auth/change-password.page'));
 const RoleLayout = lazy(() => import('@/layout/role-layout'));
 const AdminHome = lazy(() => import('@/pages/dashboards/admin-home'));
 const ControllerHome = lazy(() => import('@/pages/dashboards/controller-home'));
@@ -92,8 +93,13 @@ export function RouterConfig(): React.ReactElement {
       <Route element={<ProtectedRoute />}>
         <Route index element={<RoleHome />} />
 
-        {/* ADMIN — all modules */}
-        <Route element={<RoleRoute allowedRoles={[UserRole.ADMIN]} />}>
+        {/* Own-account page — every role has it, so it sits outside the role shells. */}
+        <Route path={ROUTES.changePassword} element={<ChangePasswordPage />} />
+
+        {/* SUPER ADMIN + ADMIN — the /admin back office. Both land here; the RBAC and
+            reference-data modules below are Super-Admin-only, matching the api, which
+            withholds roles.manage / users.manage / reference-data grants from Admin. */}
+        <Route element={<RoleRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.ADMIN]} />}>
           <Route path={admin.home} element={<RoleLayout />}>
             <Route index element={<AdminHome />} />
             {checkerRoutes(admin.home, admin)}
@@ -101,9 +107,11 @@ export function RouterConfig(): React.ReactElement {
             {eSheetRoutes(admin.home, admin)}
             {examRoutes(admin.home, admin)}
             {instituteRoutes(admin.home, admin)}
-            {platformRoutes(admin.home, admin)}
-            {setupRoutes(admin.home, admin)}
             {studentRoutes(admin.home, admin)}
+            <Route element={<RoleRoute allowedRoles={[UserRole.SUPER_ADMIN]} />}>
+              {platformRoutes(admin.home, admin)}
+              {setupRoutes(admin.home, admin)}
+            </Route>
             <Route
               path={rel(admin.home, admin.questions)}
               element={<ModulePlaceholder title="Question Assignments" />}

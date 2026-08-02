@@ -1,15 +1,17 @@
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
-import { fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { type SafeUser, UserRole } from '@oses/types';
 
 import { AuthProvider } from '@/hooks';
+import { mockAuthApi } from '@/test-utils/api-mock';
 
 import { RoleLayout } from './role-layout';
 
-/** Seed an authenticated ADMIN session in localStorage (read by AuthProvider). */
+/** Sign an ADMIN in by making `GET /auth/me` answer with them. */
 function seedAdmin(): void {
   const user: SafeUser = {
     id: 'u',
@@ -18,53 +20,66 @@ function seedAdmin(): void {
     fullName: 'Board Admin',
     createdAt: '2026-01-01T00:00:00.000Z',
   };
-  localStorage.setItem('oses-auth', JSON.stringify({ user, token: 'tok' }));
+  mockAuthApi({ me: user });
 }
 
 /** Render the shell at /admin with a stub page mounted in its <Outlet/>. */
-function renderShell(): void {
+async function renderShell(): Promise<void> {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
-    <AuthProvider>
+    <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={['/admin']}>
-        <Routes>
-          <Route path="/admin" element={<RoleLayout />}>
-            <Route index element={<div>Dashboard Content</div>} />
-          </Route>
-          <Route path="/login" element={<div>Login Page</div>} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route path="/admin" element={<RoleLayout />}>
+              <Route index element={<div>Dashboard Content</div>} />
+            </Route>
+            <Route path="/login" element={<div>Login Page</div>} />
+          </Routes>
+        </AuthProvider>
       </MemoryRouter>
-    </AuthProvider>,
+    </QueryClientProvider>,
   );
+  // The shell reads the user from the session query, so wait for it to arrive.
+  await screen.findByText('Board Admin');
 }
 
 afterEach(() => {
-  localStorage.clear();
+  vi.unstubAllGlobals();
 });
 
 describe('RoleLayout', () => {
-  it('renders the active page in the outlet', () => {
+  it('renders the active page in the outlet', async () => {
     seedAdmin();
-    renderShell();
+    await renderShell();
     expect(screen.getByText('Dashboard Content')).toBeInTheDocument();
   });
 
-  it('renders navigation for the signed-in role', () => {
+  it('renders navigation for the signed-in role', async () => {
     seedAdmin();
-    renderShell();
+    await renderShell();
     // Items from the ADMIN nav config.
     expect(screen.getByText('Question Assignments')).toBeInTheDocument();
     expect(screen.getByText('Institutes')).toBeInTheDocument();
   });
 
-  it('shows the signed-in user', () => {
+  it('does not show the super-admin-only items to an Admin', async () => {
     seedAdmin();
-    renderShell();
+    await renderShell();
+    expect(screen.queryByText('Users')).not.toBeInTheDocument();
+    expect(screen.queryByText('Roles & Permissions')).not.toBeInTheDocument();
+    expect(screen.queryByText('Setup')).not.toBeInTheDocument();
+  });
+
+  it('shows the signed-in user', async () => {
+    seedAdmin();
+    await renderShell();
     expect(screen.getByText('Board Admin')).toBeInTheDocument();
   });
 
-  it('opens and closes the mobile drawer', () => {
+  it('opens and closes the mobile drawer', async () => {
     seedAdmin();
-    renderShell();
+    await renderShell();
 
     fireEvent.click(screen.getByRole('button', { name: /open menu/i }));
     expect(screen.getByRole('dialog', { name: /navigation menu/i })).toBeInTheDocument();
@@ -73,10 +88,10 @@ describe('RoleLayout', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('logs out and redirects to the login page', () => {
+  it('logs out and redirects to the login page', async () => {
     seedAdmin();
-    renderShell();
+    await renderShell();
     fireEvent.click(screen.getByRole('button', { name: /log out/i }));
-    expect(screen.getByText('Login Page')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Login Page')).toBeInTheDocument());
   });
 });

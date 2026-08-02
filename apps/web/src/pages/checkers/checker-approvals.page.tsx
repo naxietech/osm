@@ -18,7 +18,7 @@ import { type ColumnDef, DataTable } from '@/design-system/organisms/data-table'
 import { ROUTES } from '@/router/routes';
 import { subjects } from '@/services/academic.service';
 import { listPendingCheckers } from '@/services/checker.service';
-import { instituteName } from '@/services/users.service';
+import { instituteName } from '@/services/institute.service';
 
 function subjectNames(subjectIds: string[]): string {
   const names = subjectIds.map((id) => subjects.find((s) => s.id === id)?.name ?? id);

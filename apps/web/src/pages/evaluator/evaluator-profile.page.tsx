@@ -12,7 +12,7 @@ import { PageHeader } from '@/components/widgets';
 import { CheckerProfile } from '@/design-system/organisms/checker-profile';
 import { useCurrentChecker } from '@/hooks';
 import { levelNames, subjectNames } from '@/services/academic.service';
-import { instituteName } from '@/services/users.service';
+import { instituteName } from '@/services/institute.service';
 
 export function EvaluatorProfilePage(): React.ReactElement {
   const checker = useCurrentChecker();

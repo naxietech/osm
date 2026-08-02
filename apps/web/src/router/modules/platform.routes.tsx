@@ -10,25 +10,21 @@ import { rel } from './rel';
 const RolesListPage = lazy(() => import('@/pages/roles/roles-list.page'));
 const RoleDetailPage = lazy(() => import('@/pages/roles/role-detail.page'));
 const UsersListPage = lazy(() => import('@/pages/users/users-list.page'));
-const UserDetailPage = lazy(() => import('@/pages/users/user-detail.page'));
+const UserAddPage = lazy(() => import('@/pages/users/user-add.page'));
 
 /** The platform paths a hosting role must declare in ROUTES. */
 export interface PlatformRoutePaths {
   roles: string;
-  rolesNew: string;
   roleDetail: string;
   users: string;
   usersNew: string;
-  userDetail: string;
 }
 
 export function platformRoutes(home: string, paths: PlatformRoutePaths): React.ReactElement[] {
   return [
     <Route key="roles" path={rel(home, paths.roles)} element={<RolesListPage />} />,
-    <Route key="roles-new" path={rel(home, paths.rolesNew)} element={<RoleDetailPage />} />,
     <Route key="role-detail" path={rel(home, paths.roleDetail)} element={<RoleDetailPage />} />,
     <Route key="users" path={rel(home, paths.users)} element={<UsersListPage />} />,
-    <Route key="users-new" path={rel(home, paths.usersNew)} element={<UserDetailPage />} />,
-    <Route key="user-detail" path={rel(home, paths.userDetail)} element={<UserDetailPage />} />,
+    <Route key="users-new" path={rel(home, paths.usersNew)} element={<UserAddPage />} />,
   ];
 }

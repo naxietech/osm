@@ -1,204 +1,142 @@
 /**
- * Role editor (super admin) — create a custom role or view/edit an existing one.
+ * Role detail (super admin) — what one role is allowed to do, read from the API.
  *
- * The core is the permission matrix: every action from PERMISSION_CATALOG grouped by
- * module, each a checkbox. Scopeable actions (e.g. students.manage) get an All / Own
- * institute selector when granted. A role may be tagged to one institute (owner) to make
- * it a custom institute-owned role. System roles render read-only.
+ * The permission matrix shows every action from PERMISSION_CATALOG grouped by module,
+ * ticked where the role holds it, with the scope (all institutes / own institute only)
+ * beside each granted action.
  *
- * TODO: replace direct store calls with a rolesApi + React Query mutations.
+ * Read-only. The editor this page used to be still exists in git history and the shapes
+ * it needs (`CreateRoleDto`, `UpdateRoleDto`) are still in @oses/types, but the API has
+ * no POST/PATCH/DELETE for roles — so there is nothing to save to. Restore the editing
+ * controls when those endpoints land.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { type PermissionAction, type PermissionGrant, type PermissionScope } from '@oses/types';
+import type { PermissionGrant } from '@oses/types';
 
 import { PageHeader } from '@/components/widgets';
 import { Button } from '@/design-system/atoms/button';
-import { Checkbox } from '@/design-system/atoms/checkbox';
-import { FormField } from '@/design-system/molecules/form-field';
-import { SelectField } from '@/design-system/molecules/select-field';
-import { PERMISSION_CATALOG, createRole, getRole, updateRole } from '@/services/roles.service';
-import { INSTITUTE_OPTIONS } from '@/services/users.service';
+import { Check, Lock } from '@/design-system/atoms/icon';
+import { Spinner } from '@/design-system/atoms/spinner';
+import { Alert } from '@/design-system/molecules/alert';
+import { useRoles } from '@/hooks/use-roles';
+import { ROUTES } from '@/router/routes';
+import { apiErrorMessage } from '@/services/api-client';
+import { instituteName } from '@/services/institute.service';
+import { PERMISSION_CATALOG } from '@/services/roles.service';
 
-interface ActionState {
-  granted: boolean;
-  scope: PermissionScope;
-}
-type GrantState = Record<PermissionAction, ActionState>;
-
-const SCOPE_OPTIONS = [
-  { value: 'all', label: 'All institutes' },
-  { value: 'own-institute', label: 'Own institute only' },
-];
-
-const OWNER_OPTIONS = [{ value: '', label: 'Global (all institutes)' }, ...INSTITUTE_OPTIONS];
-
-/** Build the initial per-action state from an existing role's grants (or empty). */
-function initialGrantState(grants: PermissionGrant[]): GrantState {
-  const state = {} as GrantState;
-  for (const meta of PERMISSION_CATALOG) {
-    const existing = grants.find((g) => g.action === meta.action);
-    state[meta.action] = {
-      granted: Boolean(existing),
-      scope: existing?.scope ?? 'all',
-    };
-  }
-  return state;
-}
+const SCOPE_LABEL: Record<string, string> = {
+  all: 'All institutes',
+  'own-institute': 'Own institute only',
+};
 
 export function RoleDetailPage(): React.ReactElement {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const isNew = !id || id === 'new';
-  const existing = isNew ? undefined : getRole(id);
-  const readOnly = Boolean(existing?.isSystem);
 
-  const [name, setName] = useState(existing?.name ?? '');
-  const [ownerInstituteId, setOwnerInstituteId] = useState(existing?.instituteId ?? '');
-  const [grantState, setGrantState] = useState<GrantState>(() =>
-    initialGrantState(existing?.grants ?? []),
-  );
+  const { roles, isLoading, isError, error } = useRoles();
+  const role = roles.find((r) => r.id === id);
 
   const modules = useMemo(() => [...new Set(PERMISSION_CATALOG.map((p) => p.module))], []);
-  const grantedCount = Object.values(grantState).filter((s) => s.granted).length;
+  const grantFor = (action: string): PermissionGrant | undefined =>
+    role?.grants.find((g) => g.action === action);
 
-  const toggle = (action: PermissionAction): void => {
-    setGrantState((prev) => ({
-      ...prev,
-      [action]: { ...prev[action], granted: !prev[action].granted },
-    }));
-  };
-  const setScope = (action: PermissionAction, scope: PermissionScope): void => {
-    setGrantState((prev) => ({ ...prev, [action]: { ...prev[action], scope } }));
-  };
+  const backToList = (): void => void navigate(ROUTES.admin.roles);
 
-  const handleSave = (): void => {
-    const grants: PermissionGrant[] = PERMISSION_CATALOG.filter(
-      (m) => grantState[m.action].granted,
-    ).map((m) => ({
-      action: m.action,
-      scope: m.scopeable ? grantState[m.action].scope : 'all',
-    }));
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
 
-    if (isNew) {
-      createRole({
-        name: name.trim(),
-        grants,
-        ...(ownerInstituteId ? { instituteId: ownerInstituteId } : {}),
-      });
-    } else if (id) {
-      updateRole(id, { name: name.trim(), grants });
-    }
-    void navigate('/admin/roles');
-  };
+  if (isError) {
+    return <Alert tone="danger">{apiErrorMessage(error)}</Alert>;
+  }
 
-  const canSave = !readOnly && name.trim().length > 0 && grantedCount > 0;
+  if (!role) {
+    return (
+      <>
+        <PageHeader title="Role" subtitle="Not found" />
+        <div className="rounded-lg border border-border bg-card p-8 text-center text-muted-foreground">
+          That role no longer exists.
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
       <PageHeader
-        title={isNew ? 'Create Role' : existing ? existing.name : 'Role'}
+        title={role.name}
         subtitle={
-          readOnly
-            ? 'System role — read-only'
-            : 'Choose a name, optional owner, and the permissions this role grants'
+          role.instituteId
+            ? `Owned by ${instituteName(role.instituteId)} — ${role.grants.length} permissions`
+            : `${role.isSystem ? 'System role' : 'Custom role'} — ${role.grants.length} permissions`
         }
         actions={
-          <div className="flex gap-2">
-            <Button variant="ghost" onClick={() => void navigate('/admin/roles')}>
-              {readOnly ? 'Back' : 'Cancel'}
-            </Button>
-            {!readOnly && (
-              <Button variant="primary" disabled={!canSave} onClick={handleSave}>
-                {isNew ? 'Create Role' : 'Save Changes'}
-              </Button>
-            )}
-          </div>
+          <Button variant="ghost" onClick={backToList}>
+            Back
+          </Button>
         }
       />
 
-      {!existing && !isNew ? (
-        <div className="rounded-lg border border-border bg-card p-8 text-center text-muted-foreground">
-          Role not found.
+      <div className="rounded-lg border border-border bg-card shadow-sm">
+        <div className="flex items-center gap-2 border-b border-border px-6 py-4">
+          <Lock size={14} className="text-muted-foreground" aria-hidden />
+          <p className="text-xs text-muted-foreground">
+            Roles are defined by the server and cannot be edited here.
+          </p>
         </div>
-      ) : (
-        <div className="space-y-6">
-          <div className="grid gap-4 rounded-lg border border-border bg-card p-6 shadow-sm sm:grid-cols-2">
-            <FormField
-              id="roleName"
-              name="roleName"
-              label="Role Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={readOnly}
-              required
-            />
-            <SelectField
-              label="Owner"
-              value={ownerInstituteId}
-              onChange={setOwnerInstituteId}
-              options={OWNER_OPTIONS}
-              disabled={readOnly || !isNew}
-            />
-          </div>
 
-          <div className="rounded-lg border border-border bg-card shadow-sm">
-            <div className="border-b border-border px-6 py-4">
-              <h2 className="text-sm font-semibold text-foreground">Permissions</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">{grantedCount} selected</p>
-            </div>
-
-            <div className="divide-y divide-border">
-              {modules.map((module) => (
-                <div key={module} className="px-6 py-4">
-                  <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {module}
-                  </h3>
-                  <div className="space-y-3">
-                    {PERMISSION_CATALOG.filter((m) => m.module === module).map((meta) => {
-                      const state = grantState[meta.action];
-                      return (
-                        <div
-                          key={meta.action}
-                          className="flex flex-wrap items-center justify-between gap-3"
-                        >
-                          <Checkbox
-                            labelClassName="gap-3"
-                            checked={state.granted}
-                            disabled={readOnly}
-                            onChange={() => toggle(meta.action)}
-                            label={
-                              <span>
-                                {meta.label}
-                                <span className="ml-2 font-mono text-xs text-muted-foreground">
-                                  {meta.action}
-                                </span>
-                              </span>
-                            }
+        <div className="divide-y divide-border">
+          {modules.map((module) => (
+            <div key={module} className="px-6 py-4">
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {module}
+              </h3>
+              <div className="space-y-2">
+                {PERMISSION_CATALOG.filter((m) => m.module === module).map((meta) => {
+                  const grant = grantFor(meta.action);
+                  return (
+                    <div
+                      key={meta.action}
+                      className="flex flex-wrap items-center justify-between gap-3"
+                    >
+                      <span
+                        className={
+                          grant ? 'flex items-center gap-2' : 'flex items-center gap-2 opacity-50'
+                        }
+                      >
+                        {grant ? (
+                          <Check size={16} className="text-success" aria-label="Granted" />
+                        ) : (
+                          <span
+                            className="inline-block h-4 w-4 rounded border border-border"
+                            aria-label="Not granted"
                           />
+                        )}
+                        {meta.label}
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {meta.action}
+                        </span>
+                      </span>
 
-                          {meta.scopeable && state.granted && (
-                            <div className="w-56">
-                              <SelectField
-                                label="Scope"
-                                value={state.scope}
-                                onChange={(v) => setScope(meta.action, v as PermissionScope)}
-                                options={SCOPE_OPTIONS}
-                                disabled={readOnly}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+                      {grant && meta.scopeable && (
+                        <span className="text-xs text-muted-foreground">
+                          {SCOPE_LABEL[grant.scope] ?? grant.scope}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          ))}
         </div>
-      )}
+      </div>
     </>
   );
 }

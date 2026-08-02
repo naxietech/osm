@@ -1,45 +1,58 @@
 /**
- * Login page — Formik + Yup validation, submitted via a React Query mutation
- * against the mock authService. On success it stores the user + token (useAuth)
- * and routes to the role home.
+ * Login page — Formik + Yup validation against the real `POST /auth/login`. The API
+ * sets HttpOnly session cookies and returns the user; useAuth holds it and we route to
+ * the role home.
  */
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 
 import { useMutation } from '@tanstack/react-query';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 
+import type { LoginRequest } from '@oses/types';
+
 import { Button } from '@/design-system/atoms/button';
 import { Checkbox } from '@/design-system/atoms/checkbox';
 import { Lock, Mail } from '@/design-system/atoms/icon';
+import { Spinner } from '@/design-system/atoms/spinner';
+import { Alert } from '@/design-system/molecules/alert';
 import { FormField } from '@/design-system/molecules/form-field';
 import { AuthLayout } from '@/design-system/templates/auth-layout';
 import { useAuth } from '@/hooks';
 import { ROUTES } from '@/router/routes';
-import { DEMO_PASSWORD, MOCK_USERS, authService } from '@/services/auth.service';
+import { apiErrorMessage } from '@/services/api-client';
 
+/**
+ * No length rule on sign-in. It used to demand 6 characters while the API's floor is 8, so
+ * it could never reject anything real — an account with a 6-character password cannot exist.
+ * All it did was state a password rule, wrongly, in the most-read file in the app. Whether
+ * the password is right is the server's answer to give.
+ */
 const validationSchema = Yup.object({
   email: Yup.string().email('Enter a valid email address').required('Email is required'),
-  password: Yup.string()
-    .min(6, 'Password must be at least 6 characters')
-    .required('Password is required'),
+  password: Yup.string().required('Password is required'),
 });
 
 export function LoginPage(): React.ReactElement {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const location = useLocation();
+  const { login, isAuthenticated, isLoading } = useAuth();
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  // Set by the change-password page, which has to send the user back here because the
+  // API revokes every session once the password changes.
+  const notice = (location.state as { notice?: string } | null)?.notice;
+
   const loginMutation = useMutation({
-    mutationFn: (vars: { email: string; password: string }) =>
-      authService.login(vars.email, vars.password),
-    onSuccess: ({ user, token }) => {
-      login(user, token);
+    mutationFn: (credentials: LoginRequest) => login(credentials),
+    onSuccess: () => {
       void navigate('/');
     },
+    // The API deliberately answers a bad email and a bad password identically, so this
+    // page must not add anything that would reveal which accounts exist.
     onError: (err: unknown) => {
-      setSubmitError(err instanceof Error ? err.message : 'Login failed. Please try again.');
+      setSubmitError(apiErrorMessage(err));
     },
   });
 
@@ -52,9 +65,30 @@ export function LoginPage(): React.ReactElement {
     },
   });
 
+  // Already signed in and came back here — browser back button, a bookmark, a stale tab.
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+
+  // Only reachable when the browser carries the session marker, so we are mid-check on
+  // someone who has signed in here before. Showing the form now would flash a sign-in
+  // screen at a signed-in user for the length of one request, then yank it away. A visitor
+  // with no marker never gets here — the provider does not ask, so this is never true.
+  if (isLoading) {
+    return (
+      <AuthLayout title="Welcome back" subtitle="Checking your session…">
+        <div className="flex justify-center py-8">
+          <Spinner size="lg" />
+        </div>
+      </AuthLayout>
+    );
+  }
+
   return (
     <AuthLayout title="Welcome back" subtitle="Sign in to continue to your dashboard.">
       <form onSubmit={formik.handleSubmit} noValidate className="space-y-4">
+        {notice && !submitError && <Alert tone="success">{notice}</Alert>}
+
         <FormField
           id="email"
           name="email"
@@ -97,14 +131,7 @@ export function LoginPage(): React.ReactElement {
           </button>
         </div>
 
-        {submitError && (
-          <div
-            role="alert"
-            className="rounded-md bg-danger-subtle px-4 py-3 text-sm text-danger-foreground"
-          >
-            {submitError}
-          </div>
-        )}
+        {submitError && <Alert tone="danger">{submitError}</Alert>}
 
         <Button type="submit" isLoading={loginMutation.isPending} className="w-full">
           Sign In
@@ -117,13 +144,6 @@ export function LoginPage(): React.ReactElement {
           </Link>
         </p>
       </form>
-
-      <p className="mt-6 text-center text-xs leading-relaxed text-muted-foreground">
-        Demo accounts — password{' '}
-        <span className="font-medium text-foreground">{DEMO_PASSWORD}</span>
-        <br />
-        {MOCK_USERS.map((u) => u.email).join(' · ')}
-      </p>
     </AuthLayout>
   );
 }

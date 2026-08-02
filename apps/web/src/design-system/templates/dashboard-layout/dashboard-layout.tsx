@@ -3,9 +3,9 @@ import { useLocation } from 'react-router-dom';
 
 import { type NavSection, Sidebar } from '@/design-system/organisms/sidebar';
 import { Topbar } from '@/design-system/organisms/topbar';
+import { useFocusTrap } from '@/lib/use-focus-trap';
 
 import { useDrawer } from './use-drawer';
-import { useFocusTrap } from './use-focus-trap';
 
 export interface DashboardLayoutProps {
   /** Navigation sections for the current role. */
@@ -14,6 +14,8 @@ export interface DashboardLayoutProps {
   user: { fullName: string; email: string } | null;
   /** Called when the user logs out. */
   onLogout: () => void;
+  /** Called when the user opens the change-password page. Omit to hide the action. */
+  onChangePassword?: () => void;
   /** The active page — typically a router <Outlet/>. */
   children: ReactNode;
 }
@@ -28,6 +30,7 @@ export function DashboardLayout({
   navSections,
   user,
   onLogout,
+  onChangePassword,
   children,
 }: DashboardLayoutProps): ReactElement {
   const { pathname } = useLocation();
@@ -59,6 +62,7 @@ export function DashboardLayout({
           drawerOpen={open}
           onOpenMenu={openDrawer}
           onLogout={onLogout}
+          onChangePassword={onChangePassword}
           menuButtonRef={triggerRef}
         />
         <main id="main-content" className="flex-1 overflow-auto pr-1">

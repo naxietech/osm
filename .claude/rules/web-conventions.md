@@ -1,16 +1,39 @@
 # Web Conventions (`apps/web`)
 
-React 18 + TypeScript + Vite. The app **runs entirely on mocks** — there is no live backend.
+React 18 + TypeScript + Vite. **Auth, users and roles are live; everything else is still mocks.**
 
-## Data layer — mock services
+## Data layer — three live modules, the rest mocked
 
-- Data comes from `src/services/*.service.ts`. Two patterns coexist:
+- **Live:** `auth.service.ts` (`/auth/login`, `/auth/me`, `/auth/permissions`, `/auth/refresh`,
+  `/auth/logout`, `/auth/password/change`), `users.service.ts` (`/users` list + create,
+  `/users/:id/reset-password`, `/users/:id/status`) and `roles.service.ts` (`/roles`).
+  `use-auth` and `use-permissions` read from the first. Every request goes through
+  `api-client.ts`.
+- **`VITE_API_BASE_URL`** is read once, in `lib/constants.ts`. `apps/web/.env` is git-ignored, so
+  it falls back to the dev address there and throws on a production build with no value — never
+  read `import.meta.env` for it at a call site.
+- **Mocked:** every other `src/services/*.service.ts`. Two patterns coexist:
   - Per-page `MOCK_*` constants for read-only screens.
   - A shared, mutable `src/services/mock-store.ts` for flows where a record created on one screen
     must be visible on another within a session (resets on refresh).
-- Services return typed promises shaped like the real API will be. **Do not add `fetch`/axios to
-  a live backend** — wire against the mock service. `api-client.ts` exists for when the backend
-  lands; don't invent new HTTP calls now.
+- **Do not add `fetch`/axios calls for a module the API doesn't have yet** — the backend today is
+  auth + users + roles only (`apps/api/src/auth`). Wire new screens against the mock service and
+  say so. When a module's API does land, route it through `apiRequest` from `api-client.ts`; never
+  call `fetch` directly from a service or page.
+- `api-client.ts` is the interceptor: it owns cookies, envelope unwrapping, error mapping, and the
+  401 renewal. It sends HttpOnly cookies (`credentials: 'include'`) — there is no token to read or
+  attach, and nothing auth-related belongs in `localStorage`.
+- **Endpoint paths live in `services/api-endpoints.ts`**, never inline at a call site — the
+  request-side counterpart to `router/routes.ts`. `api-client` matches on those same constants to
+  decide which requests may trigger a renewal.
+- **Don't restate an API error message in the UI.** `apiErrorMessage()` in `api-client.ts` passes
+  the server's wording through and only substitutes where there is nothing usable (429, 5xx, no
+  response). Policy detail — lockout thresholds, password rules — belongs in the API's message;
+  duplicating a backend constant in UI copy is how the copy goes stale.
+- **`BrowserRouter` sits above `AuthProvider`** so the provider can read the current route and skip
+  the `GET /auth/me` session check on public pages. **Any new public route must be added to
+  `PUBLIC_ROUTES` in `router/routes.ts`**, or opening it costs two wasted auth requests (the failed
+  check plus the renewal attempt behind it). Test wrappers must mirror this nesting.
 - Server-state fetching/caching uses **React Query** (`@tanstack/react-query`). Use it for async
   reads/mutations; don't hand-roll `useEffect` fetch-and-setState.
 

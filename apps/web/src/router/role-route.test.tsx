@@ -1,63 +1,69 @@
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
-import { render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { type SafeUser, UserRole } from '@oses/types';
 
 import { AuthProvider } from '@/hooks';
+import { mockAuthApi } from '@/test-utils/api-mock';
 
 import { RoleRoute } from './role-route';
 
+/** Sign a user in by making `GET /auth/me` answer with them. */
 function seed(role: UserRole | null): void {
-  if (role) {
-    const user: SafeUser = {
-      id: 'u',
-      email: 'u@oses.pk',
-      role,
-      fullName: 'User',
-      createdAt: '2026-01-01T00:00:00.000Z',
-    };
-    localStorage.setItem('oses-auth', JSON.stringify({ user, token: 'tok' }));
-  }
+  const user: SafeUser | null = role
+    ? {
+        id: 'u',
+        email: 'u@oses.pk',
+        role,
+        fullName: 'User',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      }
+    : null;
+  mockAuthApi({ me: user });
 }
 
 function renderAt(path: string): void {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
-    <AuthProvider>
+    <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[path]}>
-        <Routes>
-          <Route element={<RoleRoute allowedRoles={[UserRole.ADMIN]} />}>
-            <Route path="/admin" element={<div>Admin Page</div>} />
-          </Route>
-          <Route path="/unauthorized" element={<div>Forbidden</div>} />
-          <Route path="/login" element={<div>Login Page</div>} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route element={<RoleRoute allowedRoles={[UserRole.ADMIN]} />}>
+              <Route path="/admin" element={<div>Admin Page</div>} />
+            </Route>
+            <Route path="/unauthorized" element={<div>Forbidden</div>} />
+            <Route path="/login" element={<div>Login Page</div>} />
+          </Routes>
+        </AuthProvider>
       </MemoryRouter>
-    </AuthProvider>,
+    </QueryClientProvider>,
   );
 }
 
 afterEach(() => {
-  localStorage.clear();
+  vi.unstubAllGlobals();
 });
 
 describe('RoleRoute', () => {
-  it('renders the route for an allowed role', () => {
+  it('renders the route for an allowed role', async () => {
     seed(UserRole.ADMIN);
     renderAt('/admin');
-    expect(screen.getByText('Admin Page')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Admin Page')).toBeInTheDocument());
   });
 
-  it('redirects a disallowed role to /unauthorized', () => {
+  it('redirects a disallowed role to /unauthorized', async () => {
     seed(UserRole.EVALUATOR);
     renderAt('/admin');
-    expect(screen.getByText('Forbidden')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Forbidden')).toBeInTheDocument());
   });
 
-  it('redirects an unauthenticated user to /login', () => {
+  it('redirects an unauthenticated user to /login', async () => {
     seed(null);
     renderAt('/admin');
-    expect(screen.getByText('Login Page')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Login Page')).toBeInTheDocument());
   });
 });

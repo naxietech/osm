@@ -26,6 +26,7 @@ const config: AuthConfig = {
   cookie: { secure: false, sameSite: 'lax' },
   accessCookieName: 'a',
   refreshCookieName: 'r',
+  sessionHintCookieName: 's',
 };
 
 function makeUser(over: Partial<AuthUserRecord> = {}): AuthUserRecord {

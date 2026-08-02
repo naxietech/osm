@@ -6,9 +6,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import type { SafeUser } from '@oses/types';
+import type { PaginatedUsers, SafeUser } from '@oses/types';
 
-import { SYSTEM_ROLE_IDS } from '../../rbac/system-roles';
+import { SYSTEM_ROLE_IDS, roleAcceptsInstitute } from '../../rbac/system-roles';
 import { hashPassword } from '../../shared/crypto';
 import type {
   CreateUserRequestDto,
@@ -26,12 +26,7 @@ import {
   USER_REPOSITORY,
   type UserRepository,
 } from '../ports';
-import { type AdminUser, toAdminUser, toSafeUser } from '../user-mapper';
-
-export interface PaginatedUsers {
-  items: AdminUser[];
-  total: number;
-}
+import { toAdminUser, toSafeUser } from '../user-mapper';
 
 const VALID_ROLE_IDS = new Set<string>(Object.values(SYSTEM_ROLE_IDS));
 
@@ -59,6 +54,12 @@ export class UsersService {
 
   async createUser(dto: CreateUserRequestDto, actorId: string): Promise<SafeUser> {
     if (!VALID_ROLE_IDS.has(dto.roleId)) throw new BadRequestException('Unknown role');
+    // A global role carrying an institute is a contradiction the guards then enforce
+    // against the user: anyone with an instituteId is treated as institute-bound and
+    // locked out of everything else. Refuse it rather than create a crippled account.
+    if (dto.instituteId && !roleAcceptsInstitute(dto.roleId)) {
+      throw new BadRequestException('That role is global and cannot be tied to an institute.');
+    }
     if (await this.users.findByEmail(dto.email)) {
       throw new ConflictException('A user with that email already exists');
     }

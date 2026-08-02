@@ -3,11 +3,12 @@ import { MemoryRouter } from 'react-router-dom';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { type SafeUser, UserRole } from '@oses/types';
 
 import { AuthProvider, ClientProvider } from '@/hooks';
+import { mockAuthApi } from '@/test-utils/api-mock';
 
 import { RouterConfig } from './router';
 
@@ -18,9 +19,11 @@ import { RouterConfig } from './router';
  * a typecheck cannot prove.
  */
 /**
- * Sign a user in. `id` matters for the evaluator screens, which resolve the signed-in
- * user to their own checker record — pass the demo evaluator's real id there, or those
- * pages correctly find no checker and render their empty state.
+ * Sign a user in by making `GET /auth/me` answer with them — the session is server-side
+ * now, so there is nothing to put in storage. `id` matters for the evaluator screens,
+ * which resolve the signed-in user to their own checker record: pass the demo
+ * evaluator's real id there, or those pages correctly find no checker and render their
+ * empty state.
  */
 function seed(role: UserRole, id = 'u'): void {
   const user: SafeUser = {
@@ -30,31 +33,31 @@ function seed(role: UserRole, id = 'u'): void {
     fullName: 'User',
     createdAt: '2026-01-01T00:00:00.000Z',
   };
-  localStorage.setItem('oses-auth', JSON.stringify({ user, token: 'tok' }));
+  mockAuthApi({ me: user });
 }
 
-/** The demo checker login (auth.service MOCK_USERS), linked to checker chk_001. */
+/** The demo checker login (users.service seed), linked to checker chk_001. */
 const EVALUATOR_USER_ID = 'usr_evaluator';
 
 function renderAt(path: string): void {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <ClientProvider>
-          <MemoryRouter initialEntries={[path]}>
+      <MemoryRouter initialEntries={[path]}>
+        <AuthProvider>
+          <ClientProvider>
             <React.Suspense fallback={<div>loading</div>}>
               <RouterConfig />
             </React.Suspense>
-          </MemoryRouter>
-        </ClientProvider>
-      </AuthProvider>
+          </ClientProvider>
+        </AuthProvider>
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
 
 afterEach(() => {
-  localStorage.clear();
+  vi.unstubAllGlobals();
 });
 
 // Route components are lazy-loaded, so the first paint of a page waits on its chunk.
@@ -89,10 +92,38 @@ describe('RouterConfig module composition', () => {
     expect(await screen.findByRole('heading', { name: /students/i }, FIND)).toBeInTheDocument();
   });
 
-  it('resolves an admin-only module (setup / subjects)', async () => {
-    seed(UserRole.ADMIN);
+  it('resolves a super-admin-only module (setup / subjects)', async () => {
+    seed(UserRole.SUPER_ADMIN);
     renderAt('/admin/subjects');
     expect(await screen.findByRole('heading', { name: /subjects/i }, FIND)).toBeInTheDocument();
+  });
+
+  // Admin shares the /admin shell but holds none of the reference-data or RBAC grants,
+  // so the route must reject it — hiding the nav item is not access control.
+  it('blocks ADMIN from the super-admin-only modules', async () => {
+    seed(UserRole.ADMIN);
+    renderAt('/admin/subjects');
+    expect(await screen.findByRole('heading', { name: /403/i }, FIND)).toBeInTheDocument();
+  });
+
+  it('blocks ADMIN from the users module', async () => {
+    seed(UserRole.ADMIN);
+    renderAt('/admin/users');
+    expect(await screen.findByRole('heading', { name: /403/i }, FIND)).toBeInTheDocument();
+  });
+
+  /**
+   * There is no `GET /users/:id`, so there is no detail page to open. The route used to
+   * exist and pointed at the create form (then misleadingly filed as `user-detail.page`),
+   * which reads no `:id` — so an existing user's URL rendered a blank **Add User** form,
+   * and submitting it created a second account. 404 is the honest answer until the read
+   * endpoint exists.
+   */
+  it('has no user detail route — an id must not open the create form', async () => {
+    seed(UserRole.SUPER_ADMIN);
+    renderAt('/admin/users/usr_someone');
+    expect(await screen.findByText(/not found/i, undefined, FIND)).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /add user/i })).not.toBeInTheDocument();
   });
 
   it('redirects a module index path to its view child', async () => {

@@ -16,6 +16,7 @@
 export {
   ArrowUpRight,
   Award,
+  Ban,
   BarChart3,
   Building2,
   Calendar,
@@ -38,6 +39,7 @@ export {
   Highlighter,
   History,
   Keyboard,
+  KeyRound,
   LayoutDashboard,
   Lock,
   LogOut,
@@ -59,6 +61,7 @@ export {
   Undo2,
   Upload,
   User,
+  UserCheck,
   UserPlus,
   Users,
   X,

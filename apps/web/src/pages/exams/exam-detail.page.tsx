@@ -22,7 +22,7 @@ import {
   subjects,
 } from '@/services/academic.service';
 import { examService } from '@/services/exam.service';
-import { INSTITUTE_OPTIONS } from '@/services/users.service';
+import { INSTITUTE_OPTIONS } from '@/services/institute.service';
 
 import { ExamStatusBadge } from './exam-status-badge';
 

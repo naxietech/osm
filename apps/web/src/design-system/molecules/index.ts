@@ -7,6 +7,7 @@ export * from './form-field';
 export * from './image-upload-field';
 export * from './labeled-progress';
 export * from './marking-band-selector';
+export * from './modal';
 export * from './multi-select-field';
 export * from './select-field';
 export * from './status-badge';

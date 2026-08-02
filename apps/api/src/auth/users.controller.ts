@@ -12,11 +12,11 @@ import {
 } from '@nestjs/common';
 import { ApiCookieAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
-import type { SafeUser } from '@oses/types';
+import type { PaginatedUsers, SafeUser } from '@oses/types';
 
 import { CurrentUser } from '../shared/decorators/current-user.decorator';
 import { RequirePermissions } from '../shared/decorators/require-permissions.decorator';
-import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
+import { ZodValidationPipe, uuidParam } from '../shared/pipes';
 import {
   type CreateUserRequestDto,
   CreateUserSchema,
@@ -31,7 +31,7 @@ import { ActiveUserGuard } from './guards/active-user.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PermissionsGuard } from './guards/permissions.guard';
 import type { AuthPrincipal } from './principal';
-import { type PaginatedUsers, UsersService } from './services';
+import { UsersService } from './services';
 
 /**
  * Admin user provisioning. Every route requires authentication (JwtAuthGuard) plus the
@@ -78,7 +78,7 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'User not found' })
   resetPassword(
     @CurrentUser() actor: AuthPrincipal,
-    @Param('id') id: string,
+    @Param('id', uuidParam('User')) id: string,
     @Body(new ZodValidationPipe(ResetPasswordSchema)) dto: ResetPasswordDto,
   ): Promise<{ message: string }> {
     return this.users.resetPassword(id, dto, actor.sub);
@@ -91,7 +91,7 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'User not found' })
   setStatus(
     @CurrentUser() actor: AuthPrincipal,
-    @Param('id') id: string,
+    @Param('id', uuidParam('User')) id: string,
     @Body(new ZodValidationPipe(UpdateStatusSchema)) dto: UpdateStatusDto,
   ): Promise<{ message: string }> {
     return this.users.setStatus(id, dto, actor.sub);

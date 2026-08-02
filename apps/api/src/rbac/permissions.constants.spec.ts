@@ -11,4 +11,10 @@ describe('ALL_PERMISSION_ACTIONS', () => {
       expect.arrayContaining(['students.viewPII', 'marking.mark', 'roles.manage']),
     );
   });
+
+  // The web e-sheet screens gate on this; it was missing from the catalogue while
+  // @oses/types already declared it, which broke the api build.
+  it('includes templates.manage', () => {
+    expect(ALL_PERMISSION_ACTIONS).toContain('templates.manage');
+  });
 });

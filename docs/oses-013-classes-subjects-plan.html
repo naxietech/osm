@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OSES — Classes &amp; Subjects Build Plan</title>
+  <style>
+    /* ─── Reset & Base ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:       #1B3A6B;
+      --navy-dark:  #152E55;
+      --navy-light: #EFF6FF;
+      --teal:       #0E7490;
+      --teal-light: #F0FDFA;
+      --gold:       #B45309;
+      --gold-light: #FFFBEB;
+      --red:        #DC2626;
+      --green:      #16A34A;
+      --bg:         #F8FAFC;
+      --surface:    #FFFFFF;
+      --border:     #E2E8F0;
+      --text:       #1E293B;
+      --text-muted: #64748B;
+      --text-faint: #94A3B8;
+      --code-bg:    #0F172A;
+      --code-text:  #E2E8F0;
+      --radius:     8px;
+      --shadow:     0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+      --shadow-md:  0 4px 6px rgba(0,0,0,.07), 0 2px 4px rgba(0,0,0,.06);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-size: 15px;
+      line-height: 1.65;
+      color: var(--text);
+      background: var(--bg);
+      min-height: 100vh;
+    }
+
+    .shell { display: flex; flex-direction: column; min-height: 100vh; }
+
+    /* ─── Top Bar ───────────────────────────────────────────────── */
+    .topbar {
+      background: var(--navy);
+      color: #fff;
+      padding: 0 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      height: 60px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    }
+
+    .topbar-logo {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: .5px;
+      color: #fff;
+      white-space: nowrap;
+    }
+
+    .topbar-subtitle {
+      font-size: 13px;
+      color: #93C5FD;
+      border-left: 1px solid rgba(255,255,255,.2);
+      padding-left: 16px;
+      white-space: nowrap;
+    }
+
+    .topbar-badge {
+      margin-left: auto;
+      font-size: 11px;
+      background: rgba(255,255,255,.12);
+      color: #BAE6FD;
+      border: 1px solid rgba(255,255,255,.15);
+      padding: 3px 10px;
+      border-radius: 20px;
+      letter-spacing: .3px;
+      white-space: nowrap;
+    }
+
+    /* ─── Content Area ──────────────────────────────────────────── */
+    .content {
+      flex: 1;
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 40px 32px 80px;
+      width: 100%;
+    }
+
+    /* ─── Typography ────────────────────────────────────────────── */
+    h1 { font-size: 28px; font-weight: 800; color: var(--navy); margin-bottom: 8px; }
+    h2 { font-size: 20px; font-weight: 700; color: var(--navy); margin: 40px 0 12px; padding-bottom: 8px; border-bottom: 2px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; color: var(--navy-dark); margin: 28px 0 10px; }
+    h4 { font-size: 14px; font-weight: 700; color: var(--text); margin: 20px 0 8px; text-transform: uppercase; letter-spacing: .5px; }
+    p  { margin-bottom: 14px; color: var(--text); }
+    ul, ol { padding-left: 22px; margin-bottom: 14px; }
+    li { margin-bottom: 6px; }
+    strong { font-weight: 700; color: var(--navy-dark); }
+
+    .page-lead {
+      font-size: 16px;
+      color: var(--text-muted);
+      margin-bottom: 32px;
+      line-height: 1.7;
+    }
+
+    /* ─── Cards ─────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .card-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 12px;
+    }
+
+    .card-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: var(--navy-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .card-icon.teal { background: var(--teal-light); }
+    .card-icon.gold { background: var(--gold-light); }
+
+    .card p:last-child { margin-bottom: 0; }
+
+    /* ─── Decision Grid ─────────────────────────────────────────── */
+    .stack-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+      margin-bottom: 8px;
+    }
+
+    .stack-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .stack-badge {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      align-self: flex-start;
+    }
+
+    .badge-frontend { background: #DBEAFE; color: #1D4ED8; }
+    .badge-backend  { background: #D1FAE5; color: #065F46; }
+    .badge-tooling  { background: #FEF3C7; color: #92400E; }
+    .badge-quality  { background: #EDE9FE; color: #6D28D9; }
+    .badge-shared   { background: #F1F5F9; color: #475569; }
+
+    .stack-name { font-size: 16px; font-weight: 700; color: var(--navy); }
+
+    .stack-why {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .stack-why strong { color: var(--navy-dark); font-weight: 600; }
+
+    /* ─── Code Blocks ───────────────────────────────────────────── */
+    pre {
+      background: var(--code-bg);
+      color: var(--code-text);
+      border-radius: var(--radius);
+      padding: 20px;
+      overflow-x: auto;
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: 13px;
+      line-height: 1.7;
+      margin: 14px 0 20px;
+      border: 1px solid rgba(255,255,255,.06);
+      white-space: pre;
+    }
+
+    code {
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: 13px;
+      background: var(--border);
+      color: var(--navy-dark);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    pre code { background: transparent; color: inherit; padding: 0; font-size: inherit; }
+
+    /* Syntax colours */
+    .c-comment { color: #64748B; }
+    .c-keyword { color: #93C5FD; }
+    .c-string  { color: #6EE7B7; }
+    .c-type    { color: #FCD34D; }
+    .c-prop    { color: #7DD3FC; }
+    .c-path    { color: #A5B4FC; }
+
+    /* ─── Tables ────────────────────────────────────────────────── */
+    .table-wrap {
+      overflow-x: auto;
+      margin: 14px 0 24px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+
+    table { width: 100%; border-collapse: collapse; background: var(--surface); }
+    thead { background: var(--navy); color: #fff; }
+    th { padding: 12px 16px; text-align: left; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; white-space: nowrap; }
+    td { padding: 12px 16px; border-top: 1px solid var(--border); font-size: 14px; vertical-align: top; }
+    tr:hover td { background: var(--bg); }
+
+    td .mono, .method {
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: 12.5px;
+    }
+
+    .method { font-weight: 700; color: var(--teal); letter-spacing: .4px; }
+
+    .correct { color: var(--green); font-weight: 700; }
+    .wrong   { color: var(--red);   font-weight: 700; }
+
+    /* ─── Steps (phases) ────────────────────────────────────────── */
+    .steps { display: flex; flex-direction: column; gap: 0; }
+
+    .step { display: flex; gap: 20px; position: relative; }
+
+    .step:not(:last-child)::before {
+      content: '';
+      position: absolute;
+      left: 19px;
+      top: 44px;
+      bottom: 0;
+      width: 2px;
+      background: var(--border);
+    }
+
+    .step-num {
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--navy);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 2px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .step.is-blocker .step-num { background: var(--red); }
+
+    .step-body { flex: 1; padding-bottom: 32px; min-width: 0; }
+    .step-body h3 { margin-top: 4px; }
+
+    .step-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    /* ─── Pills / Tags ──────────────────────────────────────────── */
+    .tag {
+      display: inline-block;
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 2px 10px;
+      border-radius: 20px;
+      background: #F1F5F9;
+      color: #475569;
+      white-space: nowrap;
+    }
+
+    .tag-risk-high { background: #FEE2E2; color: #B91C1C; }
+    .tag-risk-med  { background: #FEF3C7; color: #92400E; }
+    .tag-risk-low  { background: #D1FAE5; color: #065F46; }
+
+    /* ─── Callouts ──────────────────────────────────────────────── */
+    .callout {
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      margin: 16px 0;
+      display: flex;
+      gap: 14px;
+      font-size: 14px;
+    }
+
+    .callout-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+    .callout-body { flex: 1; min-width: 0; }
+    .callout-body p:last-child { margin-bottom: 0; }
+
+    .callout.info    { background: var(--navy-light); border-left: 4px solid var(--navy); }
+    .callout.tip     { background: var(--teal-light);  border-left: 4px solid var(--teal); }
+    .callout.warning { background: var(--gold-light);  border-left: 4px solid var(--gold); }
+    .callout.danger  { background: #FEF2F2; border-left: 4px solid var(--red); }
+
+    /* ─── Gate line ─────────────────────────────────────────────── */
+    .gate {
+      background: var(--teal-light);
+      border-left: 4px solid var(--teal);
+      border-radius: var(--radius);
+      padding: 12px 18px;
+      margin: 16px 0 0;
+      font-size: 13.5px;
+      color: var(--text);
+    }
+
+    .gate-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      color: var(--teal);
+      margin-bottom: 3px;
+    }
+
+    /* ─── Footer ────────────────────────────────────────────────── */
+    .doc-footer {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 24px 32px 48px;
+      width: 100%;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 24px;
+      font-size: 12.5px;
+      color: var(--text-faint);
+    }
+
+    /* ─── Responsive ────────────────────────────────────────────── */
+    @media (max-width: 640px) {
+      .topbar { padding: 0 18px; gap: 12px; }
+      .topbar-subtitle { display: none; }
+      .content { padding: 28px 18px 60px; }
+      .doc-footer { padding: 20px 18px 40px; }
+      .step { gap: 14px; }
+      .step:not(:last-child)::before { left: 15px; }
+      .step-num { width: 32px; height: 32px; font-size: 12px; }
+    }
+
+    :focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="topbar">
+    <div class="topbar-logo">OSES</div>
+    <div class="topbar-subtitle">Classes &amp; Subjects — Build Plan</div>
+    <div class="topbar-badge">Module 2 · Planning</div>
+  </header>
+
+  <main class="content">
+
+    <h1>Building classes and subjects, end to end</h1>
+    <p class="page-lead">
+      Seven phases taking two reference-data screens from mock arrays to a live PostgreSQL
+      backend and back into the browser — following the module pattern the auth work
+      already established.
+    </p>
+
+    <!-- ============ LOCKED DECISIONS ============ -->
+
+    <h2>Settled before writing code</h2>
+    <p>Four questions that changed the database shape. These are now fixed.</p>
+
+    <div class="stack-grid">
+      <div class="stack-card">
+        <span class="stack-badge badge-backend">Group model</span>
+        <div class="stack-name">Each class owns its groups</div>
+        <div class="stack-why">
+          Class 9's “Science” and Class 10's “Science” are separate rows. The global groups
+          list goes away — it was already drifting from what the Class screen writes.
+        </div>
+      </div>
+
+      <div class="stack-card">
+        <span class="stack-badge badge-shared">Tenancy</span>
+        <div class="stack-name">One shared list</div>
+        <div class="stack-why">
+          No <code>client_id</code> anywhere. Every client teaches the same curriculum, so
+          classes and subjects are national reference data.
+        </div>
+      </div>
+
+      <div class="stack-card">
+        <span class="stack-badge badge-tooling">“In use by” count</span>
+        <div class="stack-name">Left out for now</div>
+        <div class="stack-why">
+          Students and exams have no tables yet. Returning a fake zero would invite someone
+          to deactivate a class that is genuinely in use.
+        </div>
+      </div>
+
+      <div class="stack-card">
+        <span class="stack-badge badge-quality">Scope</span>
+        <div class="stack-name">No curriculum</div>
+        <div class="stack-why">
+          Three tables instead of four. Worth knowing: until curriculum exists, nothing
+          connects a subject to a class.
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ THE BLOCKER ============ -->
+
+    <h2>Blocker found while planning</h2>
+
+    <div class="card">
+      <div class="card-title">
+        <div class="card-icon" style="background:#FEF2F2;">🚧</div>
+        The web app cannot log into your API
+      </div>
+      <p>
+        Wiring any screen quietly contains “rebuild the web auth layer first”. The browser
+        keeps a token in <code>localStorage</code> and sends it as a Bearer header. The API
+        moved to HttpOnly cookies, which JavaScript is not allowed to read — and its login
+        response carries no token at all.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>&nbsp;</th>
+              <th>Web app expects</th>
+              <th>API actually does</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Where the token lives</td>
+              <td><span class="mono">localStorage</span>, readable by JS</td>
+              <td>HttpOnly cookie — JS <span class="wrong">cannot</span> read it</td>
+            </tr>
+            <tr>
+              <td>How it travels</td>
+              <td><span class="mono">Authorization: Bearer …</span></td>
+              <td><span class="mono">Cookie:</span>, sent automatically</td>
+            </tr>
+            <tr>
+              <td>What login returns</td>
+              <td><span class="mono">{ user, token }</span></td>
+              <td><span class="mono">{ user }</span> — no token</td>
+            </tr>
+            <tr>
+              <td>Cross-origin credentials</td>
+              <td>not enabled</td>
+              <td>required</td>
+            </tr>
+            <tr>
+              <td>Response shape</td>
+              <td>uses the JSON as-is</td>
+              <td>wrapped in <span class="mono">{ success, data, message, timestamp }</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-icon">✅</div>
+        <div class="callout-body">
+          <p>
+            The one piece of luck: CORS already allows <code>localhost:5173</code> with
+            credentials on, and all four auth routes work today. So Phase 0 is buildable and
+            testable right now, against the backend already running.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ PHASES ============ -->
+
+    <h2>The seven phases</h2>
+    <p>
+      Each phase runs the project's own gates before the next begins — not all saved for the
+      end. The numbering is a real dependency order: <strong>Phase 0 gates everything after it.</strong>
+    </p>
+
+    <div class="steps">
+
+      <!-- PHASE 0 -->
+      <div class="step is-blocker">
+        <div class="step-num">00</div>
+        <div class="step-body">
+          <h3>Auth bridge</h3>
+          <div class="step-meta">
+            <span class="tag">Size · Medium</span>
+            <span class="tag tag-risk-high">Risk · High</span>
+            <span class="tag">Blocks 1–6</span>
+          </div>
+          <p>
+            Rebuild the browser's half of authentication around cookies. Touches shared
+            files, so it lands alone and lands first.
+          </p>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>File</th><th>What changes</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="mono">services/api-client.ts</span></td>
+                  <td>
+                    Add <span class="mono">credentials: 'include'</span>. Drop the localStorage
+                    token and Bearer header. Unwrap <span class="mono">.data</span> from the
+                    response envelope. On a 401, call <span class="mono">/auth/refresh</span>
+                    once and retry — if that fails, log out.
+                  </td>
+                </tr>
+                <tr>
+                  <td><span class="mono">hooks/use-auth.tsx</span></td>
+                  <td>
+                    Remove <span class="mono">token</span> entirely. Signed-in becomes
+                    “<span class="mono">/auth/me</span> answered”. Call it once on startup —
+                    which is what <span class="mono">isLoading</span> finally means.
+                  </td>
+                </tr>
+                <tr>
+                  <td><span class="mono">pages/auth/login.page.tsx</span></td>
+                  <td>Point at the real <span class="mono">POST /auth/login</span>.</td>
+                </tr>
+                <tr>
+                  <td><span class="mono">apps/web/.env</span></td>
+                  <td>
+                    <span class="mono">VITE_API_BASE_URL=http://localhost:3001/api/v1</span> —
+                    read by <span class="mono">API_BASE_URL</span>, not set anywhere today.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p>
+            <strong>Standards:</strong> services and hooks only, no design-system files.
+            <code>use-auth.test.tsx</code> and <code>auth.service.test.ts</code> both exist and
+            both need rewriting.
+          </p>
+
+          <div class="gate">
+            <span class="gate-label">Done when</span>
+            You log in through the browser, refresh the page and stay logged in, and keep
+            working past the 15-minute token expiry without noticing.
+          </div>
+        </div>
+      </div>
+
+      <!-- PHASE 1 -->
+      <div class="step">
+        <div class="step-num">01</div>
+        <div class="step-body">
+          <h3>Migration 002 + subjects API</h3>
+          <div class="step-meta">
+            <span class="tag">Size · Medium</span>
+            <span class="tag tag-risk-low">Risk · Low</span>
+            <span class="tag">Backend</span>
+          </div>
+          <p>
+            One migration creates all four tables together, plus a seed of the existing sample
+            data. Then subjects end to end, setting the pattern everything after copies.
+          </p>
+
+<pre><span class="c-type">subjects</span>
+  id            uuid, auto-generated
+  code          <span class="c-keyword">citext, unique</span>      <span class="c-comment">← PHY and phy cannot both exist</span>
+  name          text
+  credit_hours  integer, optional
+  is_active     boolean, default true
+  created_by  → users.id
+  created_at, updated_at
+
+<span class="c-type">levels</span>                            <span class="c-comment"># "classes" in the UI</span>
+  id            uuid
+  kind          text, default <span class="c-string">'school'</span>
+  name          text
+  ordinal       integer            <span class="c-comment"># sort order, duplicates allowed</span>
+  description   text, optional
+  is_active     boolean, default true
+  created_by  → users.id
+  <span class="c-keyword">unique (kind, name)</span>
+
+<span class="c-type">class_groups</span>
+  id          uuid
+  level_id  → levels.id
+  name        text
+  code        text, optional     <span class="c-comment"># column exists, not in the API yet</span>
+  sort_order  integer
+  is_active   boolean, default true
+  <span class="c-keyword">unique (level_id, name)</span> <span class="c-comment">— case-insensitive</span>
+
+<span class="c-type">subgroups</span>
+  id                uuid
+  class_group_id  → class_groups.id
+  name              text
+  code              text, optional
+  sort_order        integer
+  is_active         boolean, default true
+  <span class="c-keyword">unique (class_group_id, name)</span> <span class="c-comment">— case-insensitive</span></pre>
+
+          <p>
+            Those two unique rules already exist in the browser form. Putting them in the
+            database too means they hold even when someone calls the API directly.
+          </p>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Route</th><th>Permission</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><span class="method">GET</span> <span class="mono">/subjects</span></td><td><span class="mono">subjects.manage</span></td></tr>
+                <tr><td><span class="method">POST</span> <span class="mono">/subjects</span></td><td><span class="mono">subjects.manage</span></td></tr>
+                <tr><td><span class="method">PATCH</span> <span class="mono">/subjects/:id</span></td><td><span class="mono">subjects.manage</span></td></tr>
+                <tr><td><span class="method">PATCH</span> <span class="mono">/subjects/:id/status</span></td><td><span class="mono">subjects.manage</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout warning">
+            <div class="callout-icon">⚠️</div>
+            <div class="callout-body">
+              <p>
+                <strong>Also in this phase:</strong> a small shared helper turning a Postgres
+                duplicate-key error into a proper 409. Subject codes are unique, so this module
+                hits the same bug the user-email endpoint has — it returns 500 instead of 409
+                when two requests race. Better fixed once, in one place, than twice.
+              </p>
+            </div>
+          </div>
+
+          <p>
+            <strong>Standards:</strong> DTO shapes come from Zod via <code>z.infer</code>, never
+            declared twice. Controllers return plain data and let
+            <code>TransformInterceptor</code> wrap it. Every route carries
+            <code>@RequirePermissions</code> and Swagger decorators. A barrel
+            <code>index.ts</code> in every folder.
+          </p>
+
+          <div class="gate">
+            <span class="gate-label">Done when</span>
+            Postman lists, creates, edits and deactivates subjects; an evaluator gets 403;
+            a duplicate code gets 409, not 500.
+          </div>
+        </div>
+      </div>
+
+      <!-- PHASE 2 -->
+      <div class="step">
+        <div class="step-num">02</div>
+        <div class="step-body">
+          <h3>Classes API — the flat part</h3>
+          <div class="step-meta">
+            <span class="tag">Size · Small</span>
+            <span class="tag tag-risk-low">Risk · Low</span>
+            <span class="tag">Backend</span>
+          </div>
+          <p>
+            Name, order, description, activate and deactivate. Same layer structure as
+            Phase 1: ports interface, Kysely repository, service, controller, Zod DTOs.
+          </p>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Route</th><th>Notes</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><span class="method">GET</span> <span class="mono">/classes</span></td><td>Ordered by <span class="mono">ordinal</span></td></tr>
+                <tr><td><span class="method">GET</span> <span class="mono">/classes/:id</span></td><td>Groups and subgroups nested inside — the exact shape the form needs to fill itself in</td></tr>
+                <tr><td><span class="method">POST</span> <span class="mono">/classes</span></td><td>&nbsp;</td></tr>
+                <tr><td><span class="method">PATCH</span> <span class="mono">/classes/:id</span></td><td>&nbsp;</td></tr>
+                <tr><td><span class="method">PATCH</span> <span class="mono">/classes/:id/status</span></td><td>&nbsp;</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p>
+            All routes gated by <code>levels.manage</code>. Both permissions this module needs
+            already exist in the catalogue — nothing to add.
+          </p>
+
+          <div class="gate">
+            <span class="gate-label">Done when</span>
+            Classes list and edit through Postman, in the right order.
+          </div>
+        </div>
+      </div>
+
+      <!-- PHASE 3 -->
+      <div class="step">
+        <div class="step-num">03</div>
+        <div class="step-body">
+          <h3>The group tree endpoint</h3>
+          <div class="step-meta">
+            <span class="tag">Size · Medium</span>
+            <span class="tag tag-risk-med">Risk · Medium</span>
+            <span class="tag">Backend</span>
+          </div>
+          <p>
+            <code>PUT /classes/:id/groups</code> — the only genuinely tricky piece, and the
+            reason it gets its own phase.
+          </p>
+          <ul>
+            <li>One transaction. Either the whole tree saves or none of it does.</li>
+            <li>Rows arriving with an id get updated; rows without one get created.</li>
+            <li>
+              Rows that vanished get <strong>deactivated, never deleted</strong> — so nothing
+              pointing at them is ever orphaned. The mock deletes them, which is harmless today
+              and breaks the day a student references a group.
+            </li>
+            <li>Names unique inside their parent, enforced in the database as well as the browser.</li>
+          </ul>
+
+          <p>
+            <strong>Standards:</strong> this logic lives in the service, not the controller.
+            Real unit tests — a rename, an add, a remove, a reorder, and a rejected duplicate.
+          </p>
+
+          <div class="gate">
+            <span class="gate-label">Done when</span>
+            You build a three-level tree through Postman, edit it, and confirm the ids of
+            untouched rows never change.
+          </div>
+        </div>
+      </div>
+
+      <!-- PHASE 4 -->
+      <div class="step">
+        <div class="step-num">04</div>
+        <div class="step-body">
+          <h3>Wire subjects to the browser</h3>
+          <div class="step-meta">
+            <span class="tag">Size · Medium</span>
+            <span class="tag tag-risk-med">Risk · Medium</span>
+            <span class="tag">Frontend</span>
+          </div>
+          <p>
+            Replace the subject half of <code>academic.service.ts</code> with real API calls
+            behind React Query hooks.
+          </p>
+
+          <div class="callout warning">
+            <div class="callout-icon">🔗</div>
+            <div class="callout-body">
+              <p>
+                <strong>The real work is a ripple, not the calls.</strong>
+                <code>ReferenceCrud</code> is shared — both <code>subjects.page.tsx</code> and
+                <code>institute-categories.page.tsx</code> use it. Making it async touches both,
+                and institute categories has no backend. So <code>ReferenceCrud</code> has to
+                carry a mock-backed page and an API-backed page side by side.
+              </p>
+            </div>
+          </div>
+
+          <p>
+            <strong>Standards:</strong> React Query for all server state — no
+            <code>useEffect</code> fetch-and-set. Pages stay thin. Loading and error states
+            reuse existing design-system pieces; no new one-off spinners.
+          </p>
+
+          <div class="gate">
+            <span class="gate-label">Done when</span>
+            The Subjects screen creates a subject, you refresh the browser, and it is still there.
+          </div>
+        </div>
+      </div>
+
+      <!-- PHASE 5 -->
+      <div class="step">
+        <div class="step-num">05</div>
+        <div class="step-body">
+          <h3>Wire classes to the browser</h3>
+          <div class="step-meta">
+            <span class="tag">Size · Small</span>
+            <span class="tag tag-risk-low">Risk · Low</span>
+            <span class="tag">Frontend</span>
+          </div>
+          <p>
+            The form already emits exactly the shape <code>PUT /classes/:id/groups</code>
+            wants, so <code>handleSave</code> collapses from two mock calls into one mutation.
+          </p>
+          <p>Two things to drop while in here:</p>
+          <ul>
+            <li>The <strong>“In use by”</strong> column — no student or exam tables yet.</li>
+            <li>
+              The <code>setTick</code> re-render hack in <code>classes.page.tsx</code>, which
+              React Query's cache invalidation replaces properly.
+            </li>
+          </ul>
+
+          <div class="gate">
+            <span class="gate-label">Done when</span>
+            You build a class with groups and subgroups, refresh, and the tree is intact.
+          </div>
+        </div>
+      </div>
+
+      <!-- PHASE 6 -->
+      <div class="step">
+        <div class="step-num">06</div>
+        <div class="step-body">
+          <h3>Clean up and run the full gates</h3>
+          <div class="step-meta">
+            <span class="tag">Size · Small</span>
+            <span class="tag tag-risk-low">Risk · Low</span>
+            <span class="tag">Both apps</span>
+          </div>
+          <p>
+            Delete the dead mock code. The global <code>groups[]</code> array goes, since groups
+            are now class-owned, along with everything still pointing at it. Then both apps,
+            top to bottom:
+          </p>
+
+<pre><span class="c-path">cd apps/api</span> &amp;&amp; npx tsc --noEmit &amp;&amp; npx eslint src --ext .ts &amp;&amp; npx jest
+
+<span class="c-path">cd apps/web</span> &amp;&amp; npx tsc --noEmit &amp;&amp; npx eslint src --ext .ts,.tsx \
+  &amp;&amp; npx vitest run &amp;&amp; npx vite build</pre>
+
+          <div class="gate">
+            <span class="gate-label">Done when</span>
+            Every gate green on both apps, and no mock left that nothing reads.
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ============ OUT OF SCOPE ============ -->
+
+    <h2>Deliberately not in this branch</h2>
+    <p>Both are real. Both are someone else's job.</p>
+
+    <div class="card">
+      <div class="card-title">
+        <div class="card-icon gold">🔑</div>
+        The suspended-user gap — carried over from auth
+      </div>
+      <p>
+        A suspended super admin keeps working for up to 15 minutes, and that applies to every
+        endpoint built here. It is an auth fix, not a classes fix — folding it in would mix two
+        unrelated changes in one branch. Worth its own small job right after.
+      </p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <div class="card-icon teal">📚</div>
+        Curriculum — agreed scope
+      </div>
+      <p>
+        Classes and subjects only. The honest consequence: until curriculum exists, nothing
+        links a subject to a class. The Subjects screen will work perfectly and do nothing
+        useful yet. Fine as a step — just not a surprise.
+      </p>
+    </div>
+
+  </main>
+
+  <footer class="doc-footer">
+    <span>Branch <code>osm-012-auth-persistence-seed</code> → next module branch</span>
+    <span>Blocked on: Phase 0</span>
+    <span>Prepared 29 July 2026</span>
+  </footer>
+
+</div>
+</body>
+</html>

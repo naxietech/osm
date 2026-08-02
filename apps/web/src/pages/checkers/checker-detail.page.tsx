@@ -19,7 +19,7 @@ import { CheckerProfile } from '@/design-system/organisms/checker-profile';
 import { usePermissions } from '@/hooks';
 import { levelNames, subjectNames } from '@/services/academic.service';
 import { approveChecker, getChecker, rejectChecker } from '@/services/checker.service';
-import { instituteName } from '@/services/users.service';
+import { instituteName } from '@/services/institute.service';
 
 type PendingAction = 'approve' | 'reject';
 
