@@ -114,9 +114,10 @@ describe('RouterConfig module composition', () => {
 
   /**
    * There is no `GET /users/:id`, so there is no detail page to open. The route used to
-   * exist and pointed at UserDetailPage — which reads no `:id` — so an existing user's URL
-   * rendered a blank **Add User** form, and submitting it created a second account. 404 is
-   * the honest answer until the read endpoint exists.
+   * exist and pointed at the create form (then misleadingly filed as `user-detail.page`),
+   * which reads no `:id` — so an existing user's URL rendered a blank **Add User** form,
+   * and submitting it created a second account. 404 is the honest answer until the read
+   * endpoint exists.
    */
   it('has no user detail route — an id must not open the create form', async () => {
     seed(UserRole.SUPER_ADMIN);

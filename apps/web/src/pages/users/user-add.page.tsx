@@ -19,7 +19,7 @@ import { apiErrorMessage } from '@/services/api-client';
 import { INSTITUTE_OPTIONS } from '@/services/institute.service';
 import { usersService } from '@/services/users.service';
 
-export function UserDetailPage(): React.ReactElement {
+export function UserAddPage(): React.ReactElement {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const backToList = (): void => void navigate(ROUTES.admin.users);
@@ -72,4 +72,4 @@ export function UserDetailPage(): React.ReactElement {
   );
 }
 
-export default UserDetailPage;
+export default UserAddPage;

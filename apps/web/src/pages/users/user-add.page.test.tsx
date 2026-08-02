@@ -9,7 +9,7 @@ import { UserRole } from '@oses/types';
 
 import { AuthProvider } from '@/hooks/use-auth';
 
-import { UserDetailPage } from './user-detail.page';
+import { UserAddPage } from './user-add.page';
 
 /** Whoever is signed in while these tests run — the role catalogue only loads for a session. */
 const SIGNED_IN = {
@@ -91,7 +91,7 @@ function renderPage(
       <MemoryRouter initialEntries={['/admin/users/new']}>
         <AuthProvider>
           <Routes>
-            <Route path="/admin/users/new" element={<UserDetailPage />} />
+            <Route path="/admin/users/new" element={<UserAddPage />} />
             <Route path="/admin/users" element={<div>Users List</div>} />
           </Routes>
         </AuthProvider>
@@ -126,7 +126,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('UserDetailPage', () => {
+describe('UserAddPage', () => {
   it('creates the user and returns to the list', async () => {
     const fetchMock = mockApi();
     renderPage();
