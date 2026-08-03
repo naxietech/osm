@@ -209,19 +209,10 @@ describeDb('Subjects (e2e)', () => {
     });
   });
 
-  describe('read one', () => {
-    it('returns the subject', async () => {
-      const phy = await createSubject('PHY', 'Physics');
+  it('has no single-subject read — the list already carries every field', async () => {
+    const phy = await createSubject('PHY', 'Physics');
 
-      const res = await asSuper('get', `/subjects/${phy.id}`).expect(200);
-
-      expect((res.body as Envelope<SubjectBody>).data.code).toBe('PHY');
-    });
-
-    it('404s for an unknown id and 400s for a non-uuid', async () => {
-      await asSuper('get', `/subjects/${UNKNOWN_ID}`).expect(404);
-      await asSuper('get', '/subjects/not-a-uuid').expect(400);
-    });
+    await asSuper('get', `/subjects/${phy.id}`).expect(404);
   });
 
   describe('update', () => {

@@ -41,12 +41,6 @@ export class SubjectsService {
     return records.map(toSubject);
   }
 
-  async findOne(id: string): Promise<Subject> {
-    const record = await this.subjects.findById(id);
-    if (!record) throw new NotFoundException(NOT_FOUND);
-    return toSubject(record);
-  }
-
   async create(dto: CreateSubjectRequestDto, actorId: string): Promise<Subject> {
     try {
       const created = await this.subjects.create({

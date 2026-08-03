@@ -60,23 +60,6 @@ describe('SubjectsService', () => {
 
       expect(repo.list).toHaveBeenCalledWith({ activeOnly: true });
     });
-
-    it('returns one subject by id', async () => {
-      repo.findById.mockResolvedValue(record({ code: 'BIO', name: 'Biology' }));
-
-      await expect(service.findOne(SUBJECT_ID)).resolves.toEqual({
-        id: SUBJECT_ID,
-        code: 'BIO',
-        name: 'Biology',
-        isActive: true,
-      });
-    });
-
-    it('404s for an id that does not exist', async () => {
-      repo.findById.mockResolvedValue(null);
-
-      await expect(service.findOne(SUBJECT_ID)).rejects.toBeInstanceOf(NotFoundException);
-    });
   });
 
   describe('create', () => {

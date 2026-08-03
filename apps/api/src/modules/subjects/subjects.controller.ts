@@ -39,6 +39,10 @@ import { SubjectsService } from './subjects.service';
  *
  * There is no delete route on purpose: a subject is withdrawn with `PATCH :id/status`, so nothing
  * that references it can be orphaned.
+ *
+ * There is no single-subject read either. A subject is three fields, all of them already on the
+ * list, so `GET /subjects/:id` would answer nothing a caller does not have — and an endpoint
+ * nobody calls is one more thing to keep guarded, documented and tested for no return.
  */
 @ApiTags('subjects')
 @ApiCookieAuth()
@@ -62,15 +66,6 @@ export class SubjectsController {
     @Query(new ZodValidationPipe(ListSubjectsQuerySchema)) query: ListSubjectsQueryDto,
   ): Promise<Subject[]> {
     return this.subjects.list(query.activeOnly);
-  }
-
-  @Get(':id')
-  @RequirePermissions('subjects.manage')
-  @ApiOperation({ summary: 'Get one subject' })
-  @ApiResponse({ status: 200, description: 'Subject' })
-  @ApiResponse({ status: 404, description: 'Subject not found' })
-  find(@Param('id', ParseUUIDPipe) id: string): Promise<Subject> {
-    return this.subjects.findOne(id);
   }
 
   @Post()

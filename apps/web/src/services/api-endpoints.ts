@@ -31,7 +31,9 @@ export const API_ENDPOINTS = {
   subjects: {
     list: '/subjects',
     create: '/subjects',
-    detail: (id: string) => `/subjects/${id}`,
+    // Update only — there is no single-subject GET. The list already carries every field a
+    // detail view would show, so one was never worth guarding, documenting and testing.
+    byId: (id: string) => `/subjects/${id}`,
     status: (id: string) => `/subjects/${id}/status`,
   },
 } as const;

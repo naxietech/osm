@@ -28,10 +28,6 @@ function listSubjects(options: { activeOnly?: boolean } = {}): Promise<Subject[]
   return apiRequest<Subject[]>(`${subjects.list}${query}`);
 }
 
-function getSubject(id: string): Promise<Subject> {
-  return apiRequest<Subject>(subjects.detail(id));
-}
-
 /** Create a subject. A duplicate code — case-insensitively — comes back as a 409. */
 function createSubject(input: CreateSubjectDto): Promise<Subject> {
   return apiRequest<Subject>(subjects.create, { method: 'POST', body: input });
@@ -42,7 +38,7 @@ function createSubject(input: CreateSubjectDto): Promise<Subject> {
  * Moving onto a taken code is a 409.
  */
 function updateSubject(id: string, input: UpdateSubjectDto): Promise<Subject> {
-  return apiRequest<Subject>(subjects.detail(id), { method: 'PATCH', body: input });
+  return apiRequest<Subject>(subjects.byId(id), { method: 'PATCH', body: input });
 }
 
 /** An explicit target state rather than a toggle, so a double click cannot flip it back. */
@@ -52,7 +48,6 @@ function setSubjectStatus(id: string, isActive: boolean): Promise<Subject> {
 
 export const subjectsService = {
   listSubjects,
-  getSubject,
   createSubject,
   updateSubject,
   setSubjectStatus,

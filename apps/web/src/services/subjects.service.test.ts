@@ -71,14 +71,6 @@ describe('subjectsService.listSubjects', () => {
   });
 });
 
-describe('subjectsService.getSubject', () => {
-  it('reads one subject by id', async () => {
-    fetchMock.mockResolvedValueOnce(envelope(PHYSICS));
-    await expect(subjectsService.getSubject('sub-uuid-1')).resolves.toEqual(PHYSICS);
-    expect(lastCall()[0]).toContain('/subjects/sub-uuid-1');
-  });
-});
-
 describe('subjectsService.createSubject', () => {
   it('posts the code and name', async () => {
     fetchMock.mockResolvedValueOnce(envelope(PHYSICS));
