@@ -12,43 +12,22 @@
 import React, { useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useFormik } from 'formik';
-import * as Yup from 'yup';
 
 import type { Subject } from '@oses/types';
 
 import { PageHeader } from '@/components/widgets';
 import { Button } from '@/design-system/atoms/button';
+import { Ban, Check, Pencil } from '@/design-system/atoms/icon';
+import { IconButton } from '@/design-system/atoms/icon-button';
 import { Input } from '@/design-system/atoms/input';
 import { Alert } from '@/design-system/molecules/alert';
-import { FormField } from '@/design-system/molecules/form-field';
-import { ConfirmDialog, Modal } from '@/design-system/molecules/modal';
+import { ConfirmDialog } from '@/design-system/molecules/modal';
 import { ActiveBadge } from '@/design-system/molecules/status-badge';
 import { type ColumnDef, DataTable } from '@/design-system/organisms/data-table';
+import { SubjectForm, type SubjectFormValue } from '@/design-system/organisms/subject-form';
 import { SUBJECTS_KEY, useSubjects } from '@/hooks/use-subjects';
 import { apiErrorMessage } from '@/services/api-client';
 import { subjectsService } from '@/services/subjects.service';
-
-/**
- * Mirrors the API's own limits (`subjects_code_chk` / `subjects_name_chk` and the Zod DTO), so
- * an obviously bad value fails before the round trip. The server still decides — this only
- * saves a request, it is not the guarantee.
- */
-const subjectSchema = Yup.object({
-  code: Yup.string()
-    .trim()
-    .max(20, 'At most 20 characters')
-    .matches(/^[A-Za-z0-9_-]*$/, 'Letters, numbers, dashes and underscores only')
-    .required('A code is required'),
-  name: Yup.string().trim().max(100, 'At most 100 characters').required('A name is required'),
-});
-
-interface SubjectFormValues {
-  code: string;
-  name: string;
-}
-
-const EMPTY_FORM: SubjectFormValues = { code: '', name: '' };
 
 export function SubjectsPage(): React.ReactElement {
   const queryClient = useQueryClient();
@@ -70,11 +49,31 @@ export function SubjectsPage(): React.ReactElement {
    */
   const [busyRowIds, setBusyRowIds] = useState<ReadonlySet<string>>(new Set());
 
+  /**
+   * A failed row action, kept against the row it belongs to rather than in the page-level
+   * banner. Two rows can have a request in flight at once — that is what `busyRowIds` exists
+   * for — and a single shared slot meant a later success wiped an earlier failure, leaving the
+   * admin believing both worked. Attributing the message to its row is what makes concurrent
+   * actions honest.
+   */
+  const [rowErrors, setRowErrors] = useState<ReadonlyMap<string, string>>(new Map());
+
   const markRowBusy = (id: string): void => setBusyRowIds((prev) => new Set(prev).add(id));
 
   const markRowIdle = (id: string): void =>
     setBusyRowIds((prev) => {
       const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+
+  const setRowError = (id: string, message: string): void =>
+    setRowErrors((prev) => new Map(prev).set(id, message));
+
+  const clearRowError = (id: string): void =>
+    setRowErrors((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Map(prev);
       next.delete(id);
       return next;
     });
@@ -89,7 +88,7 @@ export function SubjectsPage(): React.ReactElement {
     queryClient.invalidateQueries({ queryKey: SUBJECTS_KEY });
 
   const saveMutation = useMutation({
-    mutationFn: (values: SubjectFormValues) =>
+    mutationFn: (values: SubjectFormValue) =>
       editing && editing !== 'new'
         ? subjectsService.updateSubject(editing.id, values)
         : subjectsService.createSubject(values),
@@ -109,45 +108,38 @@ export function SubjectsPage(): React.ReactElement {
   const statusMutation = useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
       subjectsService.setSubjectStatus(id, isActive),
-    onMutate: ({ id }) => markRowBusy(id),
-    onSuccess: async (saved) => {
-      setActionError(null);
+    onMutate: ({ id }) => {
+      markRowBusy(id);
+      // A retry clears the previous attempt's message, so a stale error can't outlive it.
+      clearRowError(id);
+    },
+    onSuccess: async (saved, variables) => {
+      clearRowError(variables.id);
       setNotice(saved.isActive ? `${saved.name} reactivated.` : `${saved.name} deactivated.`);
       setPendingDeactivate(null);
       await refreshList();
     },
-    onError: (err: unknown) => {
-      setNotice(null);
-      setActionError(apiErrorMessage(err));
+    // Deliberately NOT the page-level banner: a second row succeeding would overwrite it and
+    // report success for a request that failed. The message stays on its own row instead.
+    onError: (err: unknown, variables) => {
+      setRowError(variables.id, apiErrorMessage(err));
       setPendingDeactivate(null);
     },
     onSettled: (_result, _err, variables) => markRowIdle(variables.id),
   });
 
-  const form = useFormik<SubjectFormValues>({
-    initialValues: EMPTY_FORM,
-    validationSchema: subjectSchema,
-    // The dialog is reused for add and edit, so the values must follow whichever row opened it.
-    enableReinitialize: true,
-    onSubmit: (values) =>
-      saveMutation.mutate({ code: values.code.trim(), name: values.name.trim() }),
-  });
-
   function openCreate(): void {
     clearMessages();
     setEditing('new');
-    form.resetForm({ values: EMPTY_FORM });
   }
 
   function openEdit(subject: Subject): void {
     clearMessages();
     setEditing(subject);
-    form.resetForm({ values: { code: subject.code, name: subject.name } });
   }
 
   function closeForm(): void {
     setEditing(null);
-    form.resetForm({ values: EMPTY_FORM });
   }
 
   /** Deactivating is the destructive direction; reactivating needs no confirmation. */
@@ -177,7 +169,21 @@ export function SubjectsPage(): React.ReactElement {
     {
       key: 'name',
       header: 'Name',
-      render: (row) => <span className="font-medium">{row.name}</span>,
+      // The row's own failure sits under its name, where there is width for a sentence and
+      // where it cannot be mistaken for a different row's problem.
+      render: (row) => {
+        const rowError = rowErrors.get(row.id);
+        return (
+          <div className="flex flex-col gap-0.5">
+            <span className="font-medium">{row.name}</span>
+            {rowError && (
+              <span role="alert" className="text-xs font-normal text-danger-foreground">
+                {rowError}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'status',
@@ -188,30 +194,48 @@ export function SubjectsPage(): React.ReactElement {
     {
       key: 'actions',
       header: 'Actions',
-      width: '180px',
+      width: '110px',
+      /**
+       * Icon buttons, not word buttons — the same reasoning as the users list. Two labelled
+       * buttons per row took more width than the code and name they belonged to. Each carries
+       * its words in `label`, which is both the tooltip and what a screen reader announces, so
+       * nothing is lost by dropping the visible text and the row reads as data again.
+       */
       render: (row) => (
-        <div className="flex justify-end gap-1">
-          <Button
-            variant="ghost"
+        <div className="flex justify-end gap-1.5">
+          <IconButton
+            icon={<Pencil size={15} aria-hidden />}
+            label="Edit subject"
             size="sm"
             onClick={(e) => {
               e.stopPropagation();
               openEdit(row);
             }}
-          >
-            Edit
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            isLoading={busyRowIds.has(row.id)}
-            onClick={(e) => {
-              e.stopPropagation();
-              requestStatusChange(row);
-            }}
-          >
-            {row.isActive ? 'Deactivate' : 'Activate'}
-          </Button>
+          />
+          {row.isActive ? (
+            <IconButton
+              icon={<Ban size={15} aria-hidden />}
+              label="Deactivate subject"
+              tone="danger"
+              size="sm"
+              isLoading={busyRowIds.has(row.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                requestStatusChange(row);
+              }}
+            />
+          ) : (
+            <IconButton
+              icon={<Check size={15} aria-hidden />}
+              label="Activate subject"
+              size="sm"
+              isLoading={busyRowIds.has(row.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                requestStatusChange(row);
+              }}
+            />
+          )}
         </div>
       ),
     },
@@ -232,9 +256,15 @@ export function SubjectsPage(): React.ReactElement {
         }
       />
 
-      {(listError ?? actionError) && (
+      {/*
+       * The action error wins. A failed list read is background noise the user did not ask for,
+       * and nothing here refetches the list after a failed mutation — so letting it take
+       * precedence would leave a 409 "that code is taken" permanently hidden behind a stale
+       * "server is not responding" while the user retries the same duplicate code.
+       */}
+      {(actionError ?? listError) && (
         <Alert tone="danger" className="mb-4">
-          {listError ?? actionError}
+          {actionError ?? listError}
         </Alert>
       )}
 
@@ -265,50 +295,20 @@ export function SubjectsPage(): React.ReactElement {
         />
       </div>
 
-      <Modal
+      {/*
+       * Keyed by the row being edited, so switching targets remounts the form with fresh
+       * initial values. That is the organism's documented reset mechanism — cheaper and
+       * harder to get wrong than reaching in to reset it from here.
+       */}
+      <SubjectForm
+        key={editing === null ? 'closed' : editing === 'new' ? 'new' : editing.id}
         open={editing !== null}
-        onClose={closeForm}
-        title={isEditing ? 'Edit Subject' : 'Add Subject'}
-        busy={saveMutation.isPending}
-        footer={
-          <>
-            <Button variant="ghost" onClick={closeForm} disabled={saveMutation.isPending}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              onClick={() => void form.submitForm()}
-              isLoading={saveMutation.isPending}
-              disabled={!form.isValid}
-            >
-              {isEditing ? 'Save Changes' : 'Add Subject'}
-            </Button>
-          </>
-        }
-      >
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField
-            id="code"
-            name="code"
-            label="Code"
-            value={form.values.code}
-            onChange={form.handleChange}
-            onBlur={form.handleBlur}
-            error={form.touched.code ? form.errors.code : undefined}
-            required
-          />
-          <FormField
-            id="name"
-            name="name"
-            label="Name"
-            value={form.values.name}
-            onChange={form.handleChange}
-            onBlur={form.handleBlur}
-            error={form.touched.name ? form.errors.name : undefined}
-            required
-          />
-        </div>
-      </Modal>
+        mode={isEditing ? 'edit' : 'create'}
+        {...(isEditing ? { initialValue: { code: editing.code, name: editing.name } } : {})}
+        isSaving={saveMutation.isPending}
+        onSave={(values) => saveMutation.mutate(values)}
+        onCancel={closeForm}
+      />
 
       <ConfirmDialog
         open={pendingDeactivate !== null}
@@ -317,11 +317,22 @@ export function SubjectsPage(): React.ReactElement {
           pendingDeactivate && statusMutation.mutate({ id: pendingDeactivate.id, isActive: false })
         }
         title={`Deactivate ${pendingDeactivate?.name ?? 'this subject'}?`}
-        description="It stays on this list and can be reactivated at any time, but it will no longer be offered when building curriculum, SLOs or exam papers."
+        description="Anything already using it keeps working and keeps its marks. It stays on this list and can be reactivated at any time — but it will not be offered when building new curriculum, SLOs or exam papers."
         confirmLabel="Deactivate"
         tone="danger"
         busy={statusMutation.isPending}
-      />
+      >
+        {/*
+         * A warning rather than a count. Nothing in the database references a subject yet, so
+         * any usage figure shown here would be a hard zero — and a confident "0 in use" is more
+         * dangerous than no number at all, because it reads as a check that was actually
+         * performed. When curriculum lands, this becomes a real count (backlog item 3).
+         */}
+        <Alert tone="danger">
+          This system cannot yet check whether a subject is in use. Confirm it is not needed for a
+          current or upcoming exam cycle before withdrawing it.
+        </Alert>
+      </ConfirmDialog>
     </>
   );
 }

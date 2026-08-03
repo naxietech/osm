@@ -7,26 +7,15 @@
  * There is no delete: a subject is deactivated, never removed, so the curriculum, SLOs and
  * exams that reference one keep resolving to something real.
  *
- * NOTE: `academic.service.ts` still exports a mock `subjects` array that six other screens
+ * NOTE: `academic.service.ts` still exports a mock `subjects` array that seven other screens
  * read. That array is NOT this list and does not track it — see the comment there.
  */
-import type { Subject } from '@oses/types';
+import type { CreateSubjectDto, Subject, UpdateSubjectDto } from '@oses/types';
 
 import { apiRequest } from './api-client';
 import { API_ENDPOINTS } from './api-endpoints';
 
 const { subjects } = API_ENDPOINTS;
-
-export interface CreateSubjectInput {
-  code: string;
-  name: string;
-}
-
-/** Send whichever field changed. Sending neither is a 400 — the API says so. */
-export interface UpdateSubjectInput {
-  code?: string;
-  name?: string;
-}
 
 /**
  * Every subject, ordered by name, deactivated ones included.
@@ -44,12 +33,15 @@ function getSubject(id: string): Promise<Subject> {
 }
 
 /** Create a subject. A duplicate code — case-insensitively — comes back as a 409. */
-function createSubject(input: CreateSubjectInput): Promise<Subject> {
+function createSubject(input: CreateSubjectDto): Promise<Subject> {
   return apiRequest<Subject>(subjects.create, { method: 'POST', body: input });
 }
 
-/** Rename a subject or change its code. Moving onto a taken code is a 409. */
-function updateSubject(id: string, input: UpdateSubjectInput): Promise<Subject> {
+/**
+ * Rename a subject or change its code. Send whichever field changed; sending neither is a 400.
+ * Moving onto a taken code is a 409.
+ */
+function updateSubject(id: string, input: UpdateSubjectDto): Promise<Subject> {
   return apiRequest<Subject>(subjects.detail(id), { method: 'PATCH', body: input });
 }
 

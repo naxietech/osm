@@ -71,6 +71,19 @@ export interface Subject {
   isActive: boolean;
 }
 
+/**
+ * Request bodies for `POST /subjects` and `PATCH /subjects/:id`, shared so the web client and
+ * the API's Zod schema cannot drift into two different ideas of the same request. The schema
+ * stays the source of truth for the *rules* (lengths, allowed characters); these types only fix
+ * which fields exist.
+ *
+ * `creditHours` is deliberately excluded — there is no column for it yet, so accepting one would
+ * be a field the API silently discards. `isActive` is excluded too: status is its own route
+ * (`PATCH /subjects/:id/status`) rather than a field on the update body.
+ */
+export type CreateSubjectDto = Pick<Subject, 'code' | 'name'>;
+export type UpdateSubjectDto = Partial<CreateSubjectDto>;
+
 export type SubjectType = 'compulsory' | 'elective';
 
 /** Curriculum row: which subject a Level + Group sits, and how. */

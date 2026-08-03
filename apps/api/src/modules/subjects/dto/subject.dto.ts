@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import type { CreateSubjectDto, UpdateSubjectDto } from '@oses/types';
+
 /**
  * Rejects control characters, which have no legitimate place in a label but survive trimming.
  * Written as a character-code scan rather than a regex so the control range is stated in
@@ -32,7 +34,14 @@ const nameField = z
   .max(100, 'Name must be at most 100 characters')
   .refine(printable, 'Name contains invalid characters');
 
-export const CreateSubjectSchema = z.object({ code: codeField, name: nameField }).strict();
+/**
+ * The shape lives in `@oses/types` as `CreateSubjectDto`; the `satisfies` ties this schema to it,
+ * so a field added on one side without the other fails the build instead of drifting quietly.
+ * Zod stays the source of truth for the *rules* — the shared type only fixes which fields exist.
+ */
+export const CreateSubjectSchema = z
+  .object({ code: codeField, name: nameField })
+  .strict() satisfies z.ZodType<CreateSubjectDto>;
 export type CreateSubjectRequestDto = z.infer<typeof CreateSubjectSchema>;
 
 /**
@@ -49,7 +58,7 @@ export const UpdateSubjectSchema = z
   .refine(
     (patch) => patch.code !== undefined || patch.name !== undefined,
     'Send at least one of code or name',
-  );
+  ) satisfies z.ZodType<UpdateSubjectDto>;
 export type UpdateSubjectRequestDto = z.infer<typeof UpdateSubjectSchema>;
 
 /** An explicit target state rather than a blind toggle, so a double submit is idempotent. */

@@ -49,6 +49,8 @@ interface MockOptions {
   updateResponse?: Response;
   /** What PATCH /subjects/:id/status answers with. */
   statusResponse?: Response;
+  /** Per-subject-id status answers, for testing two rows behaving differently. */
+  statusResponseById?: Record<string, Response>;
 }
 
 function mockApi(options: MockOptions = {}): ReturnType<typeof vi.fn> {
@@ -59,6 +61,10 @@ function mockApi(options: MockOptions = {}): ReturnType<typeof vi.fn> {
     if (url.includes('/auth/permissions')) return Promise.resolve(envelope([]));
 
     if (url.includes('/status') && init?.method === 'PATCH') {
+      // `/subjects/<id>/status` — lets a test answer differently per row.
+      const id = url.split('/subjects/')[1]?.split('/')[0] ?? '';
+      const perRow = options.statusResponseById?.[id];
+      if (perRow) return Promise.resolve(perRow);
       return Promise.resolve(options.statusResponse ?? envelope({ ...PHYSICS, isActive: false }));
     }
     if (init?.method === 'PATCH') {
@@ -146,10 +152,10 @@ describe('SubjectsPage', () => {
     renderPage();
 
     expect(
-      within(await rowFor('Physics')).getByRole('button', { name: 'Deactivate' }),
+      within(await rowFor('Physics')).getByRole('button', { name: 'Deactivate subject' }),
     ).toBeInTheDocument();
     expect(
-      within(await rowFor('Latin')).getByRole('button', { name: 'Activate' }),
+      within(await rowFor('Latin')).getByRole('button', { name: 'Activate subject' }),
     ).toBeInTheDocument();
   });
 
@@ -186,6 +192,34 @@ describe('SubjectsPage', () => {
     );
   });
 
+  it('does not offer to save a blank Add form, or an Edit with nothing changed', async () => {
+    // Formik reports a freshly-opened form as valid because validation has not run yet, so
+    // gating on isValid alone left the button looking actionable when it would do nothing.
+    mockApi();
+    renderPage();
+    await rowFor('Physics');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add Subject' }));
+    const addDialog = screen.getByRole('dialog');
+    expect(within(addDialog).getByRole('button', { name: 'Add Subject' })).toBeDisabled();
+
+    await userEvent.type(await screen.findByLabelText(/code/i), 'CHEM');
+    await userEvent.type(screen.getByLabelText(/name/i), 'Chemistry');
+    expect(within(addDialog).getByRole('button', { name: 'Add Subject' })).toBeEnabled();
+
+    await userEvent.click(within(addDialog).getByRole('button', { name: 'Cancel' }));
+
+    // Edit opens pre-filled, so there is nothing to save until something actually changes.
+    await userEvent.click(
+      within(await rowFor('Physics')).getByRole('button', { name: 'Edit subject' }),
+    );
+    const editDialog = await screen.findByRole('dialog');
+    expect(within(editDialog).getByRole('button', { name: 'Save Changes' })).toBeDisabled();
+
+    await userEvent.type(screen.getByLabelText(/name/i), ' (Higher)');
+    expect(within(editDialog).getByRole('button', { name: 'Save Changes' })).toBeEnabled();
+  });
+
   it("shows the server's own words when the code is taken", async () => {
     // The 409 wording is the API's. Restating the rule here is how the two copies drift.
     const fetchMock = mockApi({
@@ -209,7 +243,9 @@ describe('SubjectsPage', () => {
     const fetchMock = mockApi();
     renderPage();
 
-    await userEvent.click(within(await rowFor('Physics')).getByRole('button', { name: 'Edit' }));
+    await userEvent.click(
+      within(await rowFor('Physics')).getByRole('button', { name: 'Edit subject' }),
+    );
 
     const name = await screen.findByLabelText(/name/i);
     await userEvent.clear(name);
@@ -229,7 +265,7 @@ describe('SubjectsPage', () => {
     renderPage();
 
     await userEvent.click(
-      within(await rowFor('Physics')).getByRole('button', { name: 'Deactivate' }),
+      within(await rowFor('Physics')).getByRole('button', { name: 'Deactivate subject' }),
     );
 
     // Nothing is sent until the question is answered.
@@ -252,11 +288,96 @@ describe('SubjectsPage', () => {
     });
     renderPage();
 
-    await userEvent.click(within(await rowFor('Latin')).getByRole('button', { name: 'Activate' }));
+    await userEvent.click(
+      within(await rowFor('Latin')).getByRole('button', { name: 'Activate subject' }),
+    );
 
     await waitFor(() => expect(callsTo(fetchMock, '/status', 'PATCH')).toHaveLength(1));
     const [, init] = callsTo(fetchMock, '/status', 'PATCH')[0] as [unknown, RequestInit];
     expect(JSON.parse(String(init.body))).toEqual({ isActive: true });
+  });
+
+  it('warns that usage cannot be checked before deactivating, without claiming a count', async () => {
+    // Nothing references a subject yet, so a usage figure would be a hard zero — and a
+    // confident "0 in use" reads as a check that was performed. The warning says so instead.
+    mockApi();
+    renderPage();
+
+    await userEvent.click(
+      within(await rowFor('Physics')).getByRole('button', { name: 'Deactivate subject' }),
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/cannot yet check whether a subject is in use/i)).toBeVisible();
+    expect(within(dialog).getByText(/keeps working and keeps its marks/i)).toBeVisible();
+    // No fabricated number anywhere in the dialog.
+    expect(within(dialog).queryByText(/\b0\b|in use by/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps a failed row's message when a different row then succeeds", async () => {
+    // One shared message slot used to mean the second row's success wiped the first row's
+    // failure, and the admin was left believing both had worked.
+    mockApi({
+      statusResponseById: {
+        'sub-1': failure(500, 'Physics could not be deactivated.'),
+        'sub-2': envelope({ ...BIOLOGY, isActive: false }),
+      },
+    });
+    renderPage();
+
+    // Physics fails.
+    await userEvent.click(
+      within(await rowFor('Physics')).getByRole('button', { name: 'Deactivate subject' }),
+    );
+    await userEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Deactivate' }),
+    );
+    const physicsRow = await rowFor('Physics');
+    await waitFor(() =>
+      expect(within(physicsRow).getByRole('alert')).toHaveTextContent(
+        /could not be deactivated|not responding/i,
+      ),
+    );
+
+    // Biology then succeeds.
+    await userEvent.click(
+      within(await rowFor('Biology')).getByRole('button', { name: 'Deactivate subject' }),
+    );
+    await userEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Deactivate' }),
+    );
+    expect(await screen.findByText('Biology deactivated.')).toBeInTheDocument();
+
+    // Physics's failure is still on its own row, not silently replaced.
+    expect(within(await rowFor('Physics')).getByRole('alert')).toBeInTheDocument();
+  });
+
+  it('clears a row error when that row is retried', async () => {
+    mockApi({ statusResponseById: { 'sub-1': failure(500, 'Nope.') } });
+    renderPage();
+
+    await userEvent.click(
+      within(await rowFor('Physics')).getByRole('button', { name: 'Deactivate subject' }),
+    );
+    await userEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Deactivate' }),
+    );
+    await waitFor(() =>
+      expect(within(screen.getByRole('row', { name: /Physics/ })).getByRole('alert')).toBeVisible(),
+    );
+
+    // Retrying the same row drops the stale message rather than stacking a second one.
+    await userEvent.click(
+      within(await rowFor('Physics')).getByRole('button', { name: 'Deactivate subject' }),
+    );
+    await userEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Deactivate' }),
+    );
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole('row', { name: /Physics/ })).getAllByRole('alert'),
+      ).toHaveLength(1),
+    );
   });
 
   it('shows a readable message when the list itself fails', async () => {
