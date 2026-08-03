@@ -178,9 +178,7 @@ describe('SubjectsPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Add Subject' }));
     await userEvent.type(await screen.findByLabelText(/code/i), 'CHEM');
     await userEvent.type(screen.getByLabelText(/name/i), 'Chemistry');
-    await userEvent.click(
-      within(screen.getByRole('dialog')).getByRole('button', { name: 'Add Subject' }),
-    );
+    await userEvent.click(screen.getByRole('button', { name: 'Add Subject' }));
 
     await waitFor(() => expect(callsTo(fetchMock, '/subjects', 'POST')).toHaveLength(1));
     const [, init] = callsTo(fetchMock, '/subjects', 'POST')[0] as [unknown, RequestInit];
@@ -199,25 +197,25 @@ describe('SubjectsPage', () => {
     renderPage();
     await rowFor('Physics');
 
+    // The header's Add button hides while the panel is open, so the only "Add Subject" button
+    // left on screen is the panel's own submit.
     await userEvent.click(screen.getByRole('button', { name: 'Add Subject' }));
-    const addDialog = screen.getByRole('dialog');
-    expect(within(addDialog).getByRole('button', { name: 'Add Subject' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Add Subject' })).toBeDisabled();
 
     await userEvent.type(await screen.findByLabelText(/code/i), 'CHEM');
     await userEvent.type(screen.getByLabelText(/name/i), 'Chemistry');
-    expect(within(addDialog).getByRole('button', { name: 'Add Subject' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Add Subject' })).toBeEnabled();
 
-    await userEvent.click(within(addDialog).getByRole('button', { name: 'Cancel' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     // Edit opens pre-filled, so there is nothing to save until something actually changes.
     await userEvent.click(
       within(await rowFor('Physics')).getByRole('button', { name: 'Edit subject' }),
     );
-    const editDialog = await screen.findByRole('dialog');
-    expect(within(editDialog).getByRole('button', { name: 'Save Changes' })).toBeDisabled();
+    expect(await screen.findByRole('button', { name: 'Save Changes' })).toBeDisabled();
 
     await userEvent.type(screen.getByLabelText(/name/i), ' (Higher)');
-    expect(within(editDialog).getByRole('button', { name: 'Save Changes' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Save Changes' })).toBeEnabled();
   });
 
   it("shows the server's own words when the code is taken", async () => {
@@ -231,9 +229,7 @@ describe('SubjectsPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Add Subject' }));
     await userEvent.type(await screen.findByLabelText(/code/i), 'PHY');
     await userEvent.type(screen.getByLabelText(/name/i), 'Physics Again');
-    await userEvent.click(
-      within(screen.getByRole('dialog')).getByRole('button', { name: 'Add Subject' }),
-    );
+    await userEvent.click(screen.getByRole('button', { name: 'Add Subject' }));
 
     expect(await screen.findByText('A subject with code "PHY" already exists')).toBeInTheDocument();
     expect(callsTo(fetchMock, '/subjects', 'POST')).toHaveLength(1);
@@ -250,9 +246,7 @@ describe('SubjectsPage', () => {
     const name = await screen.findByLabelText(/name/i);
     await userEvent.clear(name);
     await userEvent.type(name, 'Physics (Higher)');
-    await userEvent.click(
-      within(screen.getByRole('dialog')).getByRole('button', { name: 'Save Changes' }),
-    );
+    await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
 
     await waitFor(() => expect(callsTo(fetchMock, '/subjects/sub-1', 'PATCH')).toHaveLength(1));
     const [, init] = callsTo(fetchMock, '/subjects/sub-1', 'PATCH')[0] as [unknown, RequestInit];
@@ -279,6 +273,35 @@ describe('SubjectsPage', () => {
     await waitFor(() => expect(callsTo(fetchMock, '/status', 'PATCH')).toHaveLength(1));
     const [, init] = callsTo(fetchMock, '/status', 'PATCH')[0] as [unknown, RequestInit];
     expect(JSON.parse(String(init.body))).toEqual({ isActive: false });
+  });
+
+  it('lets a success confirmation be dismissed, and never auto-dismisses a failure', async () => {
+    mockApi({
+      subjects: [PHYSICS, RETIRED],
+      statusResponseById: {
+        'sub-3': envelope({ ...RETIRED, isActive: true }),
+        'sub-1': failure(500, 'Physics could not be deactivated.'),
+      },
+    });
+    renderPage();
+
+    // Reactivating Latin succeeds — the confirmation can be closed by hand.
+    await userEvent.click(
+      within(await rowFor('Latin')).getByRole('button', { name: 'Activate subject' }),
+    );
+    const notice = await screen.findByRole('status');
+    await userEvent.click(within(notice).getByRole('button', { name: /dismiss/i }));
+    await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
+
+    // A failure gets a close button too, but no timer — see the Alert's own tests.
+    await userEvent.click(
+      within(await rowFor('Physics')).getByRole('button', { name: 'Deactivate subject' }),
+    );
+    await userEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Deactivate' }),
+    );
+    const rowError = await within(await rowFor('Physics')).findByRole('alert');
+    expect(rowError).toBeVisible();
   });
 
   it('reactivates without asking — it is not the destructive direction', async () => {

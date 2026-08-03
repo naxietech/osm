@@ -29,6 +29,12 @@ import { SUBJECTS_KEY, useSubjects } from '@/hooks/use-subjects';
 import { apiErrorMessage } from '@/services/api-client';
 import { subjectsService } from '@/services/subjects.service';
 
+/**
+ * How long a success confirmation stays before fading. Long enough to read a sentence without
+ * hurrying; short enough that it is gone before the next action. Failures are never on a timer.
+ */
+const NOTICE_TIMEOUT_MS = 5000;
+
 export function SubjectsPage(): React.ReactElement {
   const queryClient = useQueryClient();
   const { subjects, isLoading, isError, error } = useSubjects();
@@ -250,9 +256,13 @@ export function SubjectsPage(): React.ReactElement {
         title="Subjects"
         subtitle="Manage the subjects and courses used across the curriculum"
         actions={
-          <Button variant="primary" onClick={openCreate}>
-            Add Subject
-          </Button>
+          // Hidden while the panel is open, so there is one obvious way out of the form —
+          // the same as every other setup screen.
+          editing === null && (
+            <Button variant="primary" onClick={openCreate}>
+              Add Subject
+            </Button>
+          )
         }
       />
 
@@ -263,15 +273,51 @@ export function SubjectsPage(): React.ReactElement {
        * "server is not responding" while the user retries the same duplicate code.
        */}
       {(actionError ?? listError) && (
-        <Alert tone="danger" className="mb-4">
+        <Alert
+          tone="danger"
+          className="mb-4"
+          // Only an action failure is dismissible. A failed list read is a standing condition,
+          // not an event: hiding it would leave an empty table with no explanation, and it
+          // clears itself the moment the list loads.
+          {...(actionError ? { onDismiss: () => setActionError(null) } : {})}
+        >
           {actionError ?? listError}
         </Alert>
       )}
 
       {notice && !listError && !actionError && (
-        <Alert tone="success" className="mb-4">
+        <Alert
+          // Keyed on the message so a second confirmation restarts the countdown rather than
+          // inheriting what was left of the first one's.
+          key={notice}
+          tone="success"
+          className="mb-4"
+          onDismiss={() => setNotice(null)}
+          autoDismissMs={NOTICE_TIMEOUT_MS}
+        >
           {notice}
         </Alert>
+      )}
+
+      {/*
+       * Keyed by the row being edited, so switching targets remounts the form with fresh
+       * initial values. That is the organism's documented reset mechanism — cheaper and
+       * harder to get wrong than reaching in to reset it from here.
+       */}
+      {editing !== null && (
+        <div className="mb-6 rounded-lg border border-border bg-card p-6 shadow-sm">
+          <h2 className="mb-4 text-sm font-semibold text-foreground">
+            {isEditing ? 'Edit Subject' : 'Add Subject'}
+          </h2>
+          <SubjectForm
+            key={editing === 'new' ? 'new' : editing.id}
+            mode={isEditing ? 'edit' : 'create'}
+            {...(isEditing ? { initialValue: { code: editing.code, name: editing.name } } : {})}
+            isSaving={saveMutation.isPending}
+            onSave={(values) => saveMutation.mutate(values)}
+            onCancel={closeForm}
+          />
+        </div>
       )}
 
       {subjects.length > 0 && (
@@ -294,21 +340,6 @@ export function SubjectsPage(): React.ReactElement {
           emptyMessage="No subjects yet"
         />
       </div>
-
-      {/*
-       * Keyed by the row being edited, so switching targets remounts the form with fresh
-       * initial values. That is the organism's documented reset mechanism — cheaper and
-       * harder to get wrong than reaching in to reset it from here.
-       */}
-      <SubjectForm
-        key={editing === null ? 'closed' : editing === 'new' ? 'new' : editing.id}
-        open={editing !== null}
-        mode={isEditing ? 'edit' : 'create'}
-        {...(isEditing ? { initialValue: { code: editing.code, name: editing.name } } : {})}
-        isSaving={saveMutation.isPending}
-        onSave={(values) => saveMutation.mutate(values)}
-        onCancel={closeForm}
-      />
 
       <ConfirmDialog
         open={pendingDeactivate !== null}

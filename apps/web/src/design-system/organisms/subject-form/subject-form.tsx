@@ -1,13 +1,13 @@
 /**
- * SubjectForm (organism) — the create/edit dialog for a subject.
+ * SubjectForm (organism) — the create/edit form for a subject.
  *
  * Self-contained and presentational: Formik + Yup own the draft and the validation, and
- * `onSave` receives trimmed values. The parent page owns the service calls (create vs update)
- * and the list — mirroring InstituteCategoryForm.
+ * `onSave` receives trimmed values. The parent page owns the service calls (create vs update),
+ * the list, and the panel this sits in — mirroring InstituteCategoryForm.
  *
- * The dialog is owned here rather than by the page because the footer buttons need the form's
- * own state (`isValid`, `dirty`, submit) to decide whether saving is offered. Handing that back
- * up to the page would put Formik in the page again, which is the thing this extraction removes.
+ * Rendered inline by the page, not in a dialog: every setup screen (categories, classes, SLOs)
+ * opens its form as a panel above the list, and the Subjects screen did too before it was
+ * rebuilt. A modal here would be the odd one out.
  *
  * Remount it (via a React `key`) to switch edit targets — there is deliberately no
  * `enableReinitialize`, which would silently do nothing against constant initial values.
@@ -19,7 +19,6 @@ import * as Yup from 'yup';
 
 import { Button } from '@/design-system/atoms/button';
 import { FormField } from '@/design-system/molecules/form-field';
-import { Modal } from '@/design-system/molecules/modal';
 
 /** The value emitted on save — the parent maps this onto its create/update DTO. */
 export interface SubjectFormValue {
@@ -28,11 +27,10 @@ export interface SubjectFormValue {
 }
 
 export interface SubjectFormProps {
-  open: boolean;
   mode: 'create' | 'edit';
   /** Existing values when editing; omitted for the create flow. */
   initialValue?: SubjectFormValue;
-  /** A save is in flight: the dialog locks and the confirm button spins. */
+  /** A save is in flight: the buttons lock and the confirm button spins. */
   isSaving?: boolean;
   onSave: (value: SubjectFormValue) => void;
   onCancel: () => void;
@@ -55,7 +53,6 @@ const subjectSchema = Yup.object({
 });
 
 export function SubjectForm({
-  open,
   mode,
   initialValue,
   isSaving = false,
@@ -70,34 +67,8 @@ export function SubjectForm({
     onSubmit: (values) => onSave({ code: values.code.trim(), name: values.name.trim() }),
   });
 
-  const saveLabel = isEditing ? 'Save Changes' : 'Add Subject';
-
   return (
-    <Modal
-      open={open}
-      onClose={onCancel}
-      title={isEditing ? 'Edit Subject' : 'Add Subject'}
-      busy={isSaving}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onCancel} disabled={isSaving}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            onClick={() => void form.submitForm()}
-            isLoading={isSaving}
-            // `dirty` as well as `isValid`: Formik reports a freshly-opened form as valid
-            // because validation has not run yet, so `isValid` alone leaves the button
-            // offering to save a blank Add form. On Edit it also blocks a no-op save, which
-            // would otherwise spend a write bumping updated_at for no change.
-            disabled={!form.isValid || !form.dirty}
-          >
-            {saveLabel}
-          </Button>
-        </>
-      }
-    >
+    <form onSubmit={form.handleSubmit} noValidate>
       <div className="grid gap-4 sm:grid-cols-2">
         <FormField
           id="code"
@@ -120,7 +91,25 @@ export function SubjectForm({
           required
         />
       </div>
-    </Modal>
+
+      <div className="mt-6 flex justify-end gap-2">
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={isSaving}>
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          variant="primary"
+          isLoading={isSaving}
+          // `dirty` as well as `isValid`: Formik reports a freshly-opened form as valid because
+          // validation has not run yet, so `isValid` alone leaves the button offering to save a
+          // blank Add form. On Edit it also blocks a no-op save, which would otherwise spend a
+          // write bumping updated_at for no change.
+          disabled={!form.isValid || !form.dirty}
+        >
+          {isEditing ? 'Save Changes' : 'Add Subject'}
+        </Button>
+      </div>
+    </form>
   );
 }
 

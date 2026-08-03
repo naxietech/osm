@@ -14,7 +14,7 @@ interface RenderResult {
 function renderForm(props: Partial<ComponentProps<typeof SubjectForm>> = {}): RenderResult {
   const onSave = vi.fn();
   const onCancel = vi.fn();
-  render(<SubjectForm open mode="create" onSave={onSave} onCancel={onCancel} {...props} />);
+  render(<SubjectForm mode="create" onSave={onSave} onCancel={onCancel} {...props} />);
   return { onSave, onCancel };
 }
 
@@ -88,9 +88,16 @@ describe('SubjectForm', () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
-  it('locks the dialog while a save is in flight', () => {
+  it('locks the buttons while a save is in flight', () => {
     renderForm({ isSaving: true, initialValue: { code: 'PHY', name: 'Physics' }, mode: 'edit' });
 
+    // Cancelling mid-request would abandon a write that is already on its way.
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+  });
+
+  it('renders inline, not in a dialog — every setup screen opens its form as a panel', () => {
+    renderForm();
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });
