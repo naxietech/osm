@@ -11,8 +11,8 @@ import type { AuthPrincipal } from '../principal';
 
 /**
  * Re-checks the caller's LIVE account status against the database (Option C for the
- * suspend/reset propagation gap): a stateless access token is trusted for its full ~15-min
- * life, so on high-value routes we look the user up and reject a suspended or removed account
+ * deactivate/reset propagation gap): a stateless access token is trusted for its full ~15-min
+ * life, so on high-value routes we look the user up and reject a deactivated or removed account
  * before it can act. Costs one indexed lookup — applied only to the user-management
  * controllers, keeping ordinary read routes stateless. Runs after JwtAuthGuard (which
  * populates `request.user`).

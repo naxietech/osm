@@ -10,12 +10,17 @@
 #   docker compose down         # stop (keeps data)
 #   docker compose down -v      # stop and wipe data
 #
+# Postgres 18 — chosen for the built-in `uuidv7()`. v7 ids begin with a timestamp, so new
+# rows land at the end of an index instead of scattering across it; that keeps inserts cheap
+# once a table is large (students, sessions, marking). Upgrading from 16 needs a fresh volume:
+#   docker compose down -v && docker compose up -d
+#
 # The connection strings these settings produce (put in apps/api/.env):
 #   DATABASE_URL=postgres://oses:oses_dev_pw@localhost:5433/oses_dev
 #   DATABASE_URL_TEST=postgres://oses:oses_dev_pw@localhost:5433/oses_test
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     container_name: oses-postgres
     restart: unless-stopped
     environment:
@@ -27,7 +32,10 @@ services:
       # 5432; publishing on 5433 leaves the default free for another project's Postgres.
       - '5433:5432'
     volumes:
-      - oses-pgdata:/var/lib/postgresql/data
+      # Postgres 18 changed this: the volume mounts at /var/lib/postgresql (not .../data) and the
+      # image puts the cluster in a version subdirectory, so `pg_upgrade --link` can work without
+      # crossing a mount boundary. Mounting the old path makes 18 refuse to start.
+      - oses-pgdata:/var/lib/postgresql
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U oses -d oses_dev']

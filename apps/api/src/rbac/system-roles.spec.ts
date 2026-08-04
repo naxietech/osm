@@ -19,6 +19,26 @@ describe('SYSTEM_ROLES seed', () => {
     expect(SYSTEM_ROLES.map((r) => r.id).sort()).toEqual(Object.values(SYSTEM_ROLE_IDS).sort());
   });
 
+  /**
+   * The ids are pasted constants, so nothing at runtime would notice a hand-written placeholder
+   * creeping back in. These assertions are what keeps them genuine v7 keys: version nibble 7,
+   * RFC 9562 variant, and a timestamp prefix that is actually a time rather than zeros.
+   */
+  it('every system role id is a real uuid v7, not a hand-written placeholder', () => {
+    const V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+    for (const [name, id] of Object.entries(SYSTEM_ROLE_IDS)) {
+      expect(`${name}:${id}`).toMatch(new RegExp(`^${name}:${V7.source.slice(1, -1)}$`));
+      // The first 48 bits are a millisecond timestamp — a plausible one, not 1970.
+      const ms = parseInt(id.slice(0, 8) + id.slice(9, 13), 16);
+      expect(new Date(ms).getUTCFullYear()).toBeGreaterThanOrEqual(2020);
+    }
+  });
+
+  it('role ids sort in role order, so a v7 index keeps them contiguous', () => {
+    const ids = Object.values(SYSTEM_ROLE_IDS);
+    expect([...ids].sort()).toEqual(ids);
+  });
+
   it('Evaluator can only mark and view a dashboard — never PII (anonymity)', () => {
     expect(actionsOf(SYSTEM_ROLE_IDS.checker)).toEqual(['dashboard.view', 'marking.mark']);
     expect(actionsOf(SYSTEM_ROLE_IDS.checker)).not.toContain('students.viewPII');

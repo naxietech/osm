@@ -16,6 +16,7 @@ export const CreateUserSchema = z.object({
   fullName: z.string().min(1, 'Full name is required').max(100),
   roleId: z.string().min(1, 'A role is required'),
   password: z.string().min(8, 'Temporary password must be at least 8 characters'),
+  /** Required for the Institute role, rejected for every other — enforced in the service. */
   instituteId: z.string().optional(),
 }) satisfies z.ZodType<CreateUserDto>;
 

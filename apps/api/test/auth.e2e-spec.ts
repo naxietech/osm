@@ -8,6 +8,7 @@ import { AppModule } from '../src/app.module';
 import { createDataSource } from '../src/persistence/typeorm/data-source';
 import { UserEntity } from '../src/persistence/typeorm/entities';
 import { seedDatabase } from '../src/persistence/typeorm/seed/seed';
+import { SYSTEM_ROLE_IDS } from '../src/rbac/system-roles';
 import { hashPassword } from '../src/shared/crypto';
 
 const TEST_URL = process.env['DATABASE_URL_TEST'] ?? process.env['DATABASE_URL'];
@@ -49,7 +50,7 @@ describeDb('Auth sessions (e2e)', () => {
       dataSource.getRepository(UserEntity).create({
         email: CHECKER.email,
         passwordHash: await hashPassword(CHECKER.password),
-        roleId: 'role_checker',
+        roleId: SYSTEM_ROLE_IDS.checker,
         fullName: 'Evaluator One',
         status: 'active',
       }),
@@ -85,7 +86,7 @@ describeDb('Auth sessions (e2e)', () => {
   it('logs in the Super Admin: sets HttpOnly cookies, returns the user, no tokens in body', async () => {
     const res = await login(SUPER).expect(200);
     expect(res.body.data.email).toBe(SUPER.email);
-    expect(res.body.data.roleId).toBe('role_super_admin');
+    expect(res.body.data.roleId).toBe(SYSTEM_ROLE_IDS.superAdmin);
     expect(res.body.data).not.toHaveProperty('tokens');
     const joined = ((res.headers['set-cookie'] ?? []) as unknown as string[]).join(' ; ');
     expect(joined).toMatch(/oses_access=/);
@@ -230,12 +231,12 @@ describeDb('Auth sessions (e2e)', () => {
         .send({
           email: STAFF.email,
           fullName: 'Staff Member',
-          roleId: 'role_admin',
+          roleId: SYSTEM_ROLE_IDS.admin,
           password: STAFF.password,
         })
         .expect(201);
       expect(res.body.data.email).toBe(STAFF.email);
-      expect(res.body.data.roleId).toBe('role_admin');
+      expect(res.body.data.roleId).toBe(SYSTEM_ROLE_IDS.admin);
       staffId = res.body.data.id as string;
     });
 
@@ -247,7 +248,7 @@ describeDb('Auth sessions (e2e)', () => {
         .send({
           email: 'nope@oses.pk',
           fullName: 'Nope',
-          roleId: 'role_admin',
+          roleId: SYSTEM_ROLE_IDS.admin,
           password: 'temp-pass-1234',
         })
         .expect(403);
@@ -283,7 +284,7 @@ describeDb('Auth sessions (e2e)', () => {
         .send({
           email: STAFF.email,
           fullName: 'Dupe',
-          roleId: 'role_admin',
+          roleId: SYSTEM_ROLE_IDS.admin,
           password: 'temp-pass-1234',
         })
         .expect(409);
@@ -319,12 +320,12 @@ describeDb('Auth sessions (e2e)', () => {
       await login({ email: STAFF.email, password: 'reset-pass-9999' }).expect(200);
     });
 
-    it('suspending the user blocks their login', async () => {
+    it('deactivating the user blocks their login', async () => {
       const access = await accessFor(SUPER);
       await request(server())
         .patch(`/api/v1/users/${staffId}/status`)
         .set('Cookie', `oses_access=${access}`)
-        .send({ status: 'suspended' })
+        .send({ status: 'deactivate' })
         .expect(200);
       await login({ email: STAFF.email, password: 'reset-pass-9999' }).expect(401);
     });
@@ -360,7 +361,7 @@ describeDb('Auth sessions (e2e)', () => {
         .expect(200);
       const roles = res.body.data as { id: string; grants: { action: string }[] }[];
       expect(roles).toHaveLength(5);
-      const evaluator = roles.find((r) => r.id === 'role_checker');
+      const evaluator = roles.find((r) => r.id === SYSTEM_ROLE_IDS.checker);
       expect(evaluator?.grants.map((g) => g.action).sort()).toEqual([
         'dashboard.view',
         'marking.mark',
@@ -372,5 +373,158 @@ describeDb('Auth sessions (e2e)', () => {
         .set('Cookie', `oses_access=${checkerAccess}`)
         .expect(403);
     });
+  });
+  // ---- edit / search / soft delete ----
+  describe('user administration (edit, search, delete)', () => {
+    const EDITABLE = { email: 'editable@oses.pk', password: 'editable-pass-1234' };
+    let editableId: string;
+    let superCookie: string;
+    let superId: string;
+
+    const asSuper = (method: 'get' | 'patch' | 'delete' | 'post', url: string): request.Test =>
+      request(server())[method](url).set('Cookie', superCookie);
+
+    beforeAll(async () => {
+      const res = await login(SUPER).expect(200);
+      superCookie = `oses_access=${cookieValue(res, 'oses_access')}`;
+      superId = res.body.data.id as string;
+
+      const created = await asSuper('post', '/api/v1/users')
+        .send({
+          email: EDITABLE.email,
+          fullName: 'Editable Person',
+          roleId: SYSTEM_ROLE_IDS.controller,
+          password: EDITABLE.password,
+        })
+        .expect(201);
+      editableId = created.body.data.id as string;
+    });
+
+    it('edits the name and email', async () => {
+      const res = await asSuper('patch', `/api/v1/users/${editableId}`)
+        .send({ fullName: 'Renamed Person', email: 'renamed@oses.pk' })
+        .expect(200);
+      expect(res.body.data.fullName).toBe('Renamed Person');
+      expect(res.body.data.email).toBe('renamed@oses.pk');
+    });
+
+    it('leaves untouched fields alone', async () => {
+      const res = await asSuper('patch', `/api/v1/users/${editableId}`)
+        .send({ fullName: 'Renamed Again' })
+        .expect(200);
+      expect(res.body.data.email).toBe('renamed@oses.pk');
+      expect(res.body.data.roleId).toBe(SYSTEM_ROLE_IDS.controller);
+    });
+
+    it('rejects an email that belongs to somebody else - 409', () =>
+      asSuper('patch', `/api/v1/users/${editableId}`).send({ email: SUPER.email }).expect(409));
+
+    it('rejects an unknown role - 400', () =>
+      asSuper('patch', `/api/v1/users/${editableId}`)
+        .send({ roleId: '00000000-0000-7000-8000-000000000099' })
+        .expect(400));
+
+    it('rejects an empty body - 400', () =>
+      asSuper('patch', `/api/v1/users/${editableId}`).send({}).expect(400));
+
+    it("changing the role revokes that user's sessions", async () => {
+      const theirLogin = await login({
+        email: 'renamed@oses.pk',
+        password: EDITABLE.password,
+      }).expect(200);
+      const theirRefresh = cookieValue(theirLogin, 'oses_refresh');
+
+      await asSuper('patch', `/api/v1/users/${editableId}`)
+        .send({ roleId: SYSTEM_ROLE_IDS.checker })
+        .expect(200);
+
+      // The refresh cookie they still hold can no longer renew - the session was revoked, so the
+      // new role takes effect now rather than whenever the old access token happened to expire.
+      await request(server())
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', `oses_refresh=${theirRefresh}`)
+        .expect(401);
+    });
+
+    it('refuses to change your own role - 400', () =>
+      asSuper('patch', `/api/v1/users/${superId}`)
+        .send({ roleId: SYSTEM_ROLE_IDS.admin })
+        .expect(400));
+
+    it('refuses to delete your own account - 400', () =>
+      asSuper('delete', `/api/v1/users/${superId}`).expect(400));
+
+    it('searches by email and by name', async () => {
+      const byEmail = await asSuper('get', '/api/v1/users?q=renamed').expect(200);
+      expect(byEmail.body.data.items.map((u: { id: string }) => u.id)).toContain(editableId);
+
+      const byName = await asSuper('get', '/api/v1/users?q=Renamed%20Again').expect(200);
+      expect(byName.body.data.items.map((u: { id: string }) => u.id)).toContain(editableId);
+
+      const miss = await asSuper('get', '/api/v1/users?q=zzz-no-such-person').expect(200);
+      expect(miss.body.data.items).toHaveLength(0);
+      expect(miss.body.data.total).toBe(0);
+    });
+
+    // By this point the editable user is a checker (the role-change test above moved them) and
+    // still active, so they are a usable probe for both filters.
+    const idsOf = (res: request.Response): string[] =>
+      res.body.data.items.map((u: { id: string }) => u.id);
+
+    it('filters by roleId', async () => {
+      const checkers = await asSuper(
+        'get',
+        `/api/v1/users?roleId=${SYSTEM_ROLE_IDS.checker}`,
+      ).expect(200);
+      expect(idsOf(checkers)).toContain(editableId);
+      expect(idsOf(checkers)).not.toContain(superId);
+    });
+
+    it('filters by status', async () => {
+      const active = await asSuper('get', '/api/v1/users?status=active').expect(200);
+      expect(idsOf(active)).toContain(editableId);
+
+      const locked = await asSuper('get', '/api/v1/users?status=locked').expect(200);
+      expect(locked.body.data.items).toHaveLength(0);
+      expect(locked.body.data.total).toBe(0);
+    });
+
+    it('combines filters with AND, not OR', async () => {
+      // The editable user matches the search but NOT the role, so an OR would wrongly return them.
+      const res = await asSuper(
+        'get',
+        `/api/v1/users?q=renamed&roleId=${SYSTEM_ROLE_IDS.admin}`,
+      ).expect(200);
+      expect(res.body.data.items).toHaveLength(0);
+    });
+
+    it('narrows total by the same filters as the page', async () => {
+      const all = await asSuper('get', '/api/v1/users?limit=200').expect(200);
+      const filtered = await asSuper(
+        'get',
+        `/api/v1/users?roleId=${SYSTEM_ROLE_IDS.checker}`,
+      ).expect(200);
+      expect(filtered.body.data.total).toBeLessThan(all.body.data.total);
+      expect(filtered.body.data.total).toBe(filtered.body.data.items.length);
+    });
+
+    it('rejects a status outside the allowed set - 400', () =>
+      asSuper('get', '/api/v1/users?status=deleted').expect(400));
+
+    it('rejects a roleId that is not a uuid - 400', () =>
+      asSuper('get', '/api/v1/users?roleId=role_checker').expect(400));
+
+    it('soft-deletes: gone from the list, and can no longer log in', async () => {
+      await asSuper('delete', `/api/v1/users/${editableId}`).expect(200);
+
+      const list = await asSuper('get', '/api/v1/users?limit=200').expect(200);
+      expect(list.body.data.items.map((u: { id: string }) => u.id)).not.toContain(editableId);
+
+      // The same uniform 401 an unknown account gets - a deleted user is simply not there.
+      await login({ email: 'renamed@oses.pk', password: EDITABLE.password }).expect(401);
+    });
+
+    it('a second delete reports 404', () =>
+      asSuper('delete', `/api/v1/users/${editableId}`).expect(404));
   });
 });

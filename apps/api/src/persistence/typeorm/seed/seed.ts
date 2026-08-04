@@ -46,12 +46,23 @@ export async function seedDatabase(
       .getRepository(RoleEntity)
       .createQueryBuilder()
       .insert()
-      .values(SYSTEM_ROLES.map((r) => ({ id: r.id, name: r.name, isSystem: true })))
+      .values(SYSTEM_ROLES.map((r) => ({ id: r.id, code: r.code, name: r.name, isSystem: true })))
       .orIgnore()
       .execute();
 
+    // Grants reference a permission by id now, so resolve action -> id from the rows just
+    // inserted. One query rather than a lookup per grant.
+    const permissions = await manager.getRepository(PermissionEntity).find();
+    const idByAction = new Map(permissions.map((p) => [p.action, p.id]));
+
     const grantRows = SYSTEM_ROLES.flatMap((r) =>
-      r.grants.map((g) => ({ roleId: r.id, action: g.action, scope: g.scope })),
+      r.grants.map((g) => {
+        const permissionId = idByAction.get(g.action);
+        if (!permissionId) {
+          throw new Error(`Permission "${g.action}" is missing from the catalogue`);
+        }
+        return { roleId: r.id, permissionId, scope: g.scope };
+      }),
     );
     await manager
       .getRepository(RoleGrantEntity)

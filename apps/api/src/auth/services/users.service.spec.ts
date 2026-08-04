@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 
+import { SYSTEM_ROLE_IDS } from '../../rbac/system-roles';
 import { hashPassword } from '../../shared/crypto';
 import {
   type AuthAuditRepository,
@@ -20,7 +21,7 @@ function makeUser(over: Partial<AuthUserRecord> = {}): AuthUserRecord {
     id: 'u-new',
     email: 'staff@oses.pk',
     passwordHash: '$argon2id$hash',
-    roleId: 'role_admin',
+    roleId: SYSTEM_ROLE_IDS.admin,
     instituteId: null,
     fullName: 'Staff Member',
     status: 'active',
@@ -40,6 +41,7 @@ describe('UsersService', () => {
     count: jest.Mock;
     countActiveByRole: jest.Mock;
     create: jest.Mock;
+    update: jest.Mock;
     updatePassword: jest.Mock;
     updateStatus: jest.Mock;
     clearLockout: jest.Mock;
@@ -56,6 +58,7 @@ describe('UsersService', () => {
       count: jest.fn(),
       countActiveByRole: jest.fn().mockResolvedValue(2),
       create: jest.fn().mockResolvedValue(makeUser()),
+      update: jest.fn().mockResolvedValue(makeUser()),
       updatePassword: jest.fn(),
       updateStatus: jest.fn(),
       clearLockout: jest.fn(),
@@ -73,11 +76,38 @@ describe('UsersService', () => {
   const dto = {
     email: 'staff@oses.pk',
     fullName: 'Staff Member',
-    roleId: 'role_admin',
+    roleId: SYSTEM_ROLE_IDS.admin,
     password: 'temp-pass-123',
   };
 
   describe('listUsers', () => {
+    it('passes every filter to BOTH the page and the count', async () => {
+      users.list.mockResolvedValue([]);
+      users.count.mockResolvedValue(0);
+      await service.listUsers({
+        limit: 20,
+        offset: 40,
+        q: 'ali',
+        status: 'deactivate',
+        roleId: SYSTEM_ROLE_IDS.checker,
+      });
+      const filters = { search: 'ali', status: 'deactivate', roleId: SYSTEM_ROLE_IDS.checker };
+      expect(users.list).toHaveBeenCalledWith({ ...filters, limit: 20, offset: 40 });
+      // If the count were unfiltered, a 4-result search would report "4 of 300".
+      expect(users.count).toHaveBeenCalledWith(filters);
+    });
+
+    it('leaves absent filters undefined rather than inventing defaults', async () => {
+      users.list.mockResolvedValue([]);
+      users.count.mockResolvedValue(0);
+      await service.listUsers({ limit: 50, offset: 0 });
+      expect(users.count).toHaveBeenCalledWith({
+        search: undefined,
+        status: undefined,
+        roleId: undefined,
+      });
+    });
+
     it('returns mapped SafeUsers + total, never leaking password_hash', async () => {
       users.list.mockResolvedValue([makeUser(), makeUser({ id: 'u2', email: 'b@oses.pk' })]);
       users.count.mockResolvedValue(2);
@@ -95,7 +125,7 @@ describe('UsersService', () => {
   describe('createUser', () => {
     it('rejects an unknown role', async () => {
       await expect(
-        service.createUser({ ...dto, roleId: 'role_wizard' }, 'admin'),
+        service.createUser({ ...dto, roleId: 'not-a-real-role-id' }, 'admin'),
       ).rejects.toBeInstanceOf(BadRequestException);
       expect(users.create).not.toHaveBeenCalled();
     });
@@ -143,7 +173,7 @@ describe('UsersService', () => {
       expect(users.create).toHaveBeenCalledWith(
         expect.objectContaining({
           email: 'staff@oses.pk',
-          roleId: 'role_admin',
+          roleId: SYSTEM_ROLE_IDS.admin,
           createdBy: 'admin',
         }),
       );
@@ -178,47 +208,146 @@ describe('UsersService', () => {
   });
 
   describe('setStatus', () => {
-    it('suspend revokes all sessions', async () => {
+    it('deactivate revokes all sessions', async () => {
       users.findById.mockResolvedValue(makeUser());
-      await service.setStatus('u-new', { status: 'suspended' }, 'admin');
-      expect(users.updateStatus).toHaveBeenCalledWith('u-new', 'suspended');
-      expect(sessions.revokeAllForUser).toHaveBeenCalledWith('u-new', 'suspended');
+      await service.setStatus('u-new', { status: 'deactivate' }, 'admin');
+      expect(users.updateStatus).toHaveBeenCalledWith('u-new', 'deactivate');
+      expect(sessions.revokeAllForUser).toHaveBeenCalledWith('u-new', 'deactivate');
     });
 
     it('reactivate does not revoke sessions but clears any lockout (#9)', async () => {
-      users.findById.mockResolvedValue(makeUser({ status: 'suspended' }));
+      users.findById.mockResolvedValue(makeUser({ status: 'deactivate' }));
       await service.setStatus('u-new', { status: 'active' }, 'admin');
       expect(users.updateStatus).toHaveBeenCalledWith('u-new', 'active');
       expect(sessions.revokeAllForUser).not.toHaveBeenCalled();
       expect(users.clearLockout).toHaveBeenCalledWith('u-new');
     });
 
-    it('blocks suspending your own account (#6)', async () => {
+    it('blocks deactivating your own account (#6)', async () => {
       users.findById.mockResolvedValue(makeUser({ id: 'me' }));
-      await expect(service.setStatus('me', { status: 'suspended' }, 'me')).rejects.toBeInstanceOf(
+      await expect(service.setStatus('me', { status: 'deactivate' }, 'me')).rejects.toBeInstanceOf(
         BadRequestException,
       );
       expect(users.updateStatus).not.toHaveBeenCalled();
     });
 
-    it('blocks suspending the last active Super Admin (#6)', async () => {
+    it('blocks deactivating the last active Super Admin (#6)', async () => {
       users.findById.mockResolvedValue(
-        makeUser({ id: 'sa', roleId: 'role_super_admin', status: 'active' }),
+        makeUser({ id: 'sa', roleId: SYSTEM_ROLE_IDS.superAdmin, status: 'active' }),
       );
       users.countActiveByRole.mockResolvedValue(1);
       await expect(
-        service.setStatus('sa', { status: 'suspended' }, 'admin'),
+        service.setStatus('sa', { status: 'deactivate' }, 'admin'),
       ).rejects.toBeInstanceOf(BadRequestException);
       expect(users.updateStatus).not.toHaveBeenCalled();
     });
 
-    it('allows suspending a Super Admin when others remain active (#6)', async () => {
+    it('allows deactivating a Super Admin when others remain active (#6)', async () => {
       users.findById.mockResolvedValue(
-        makeUser({ id: 'sa', roleId: 'role_super_admin', status: 'active' }),
+        makeUser({ id: 'sa', roleId: SYSTEM_ROLE_IDS.superAdmin, status: 'active' }),
       );
       users.countActiveByRole.mockResolvedValue(2);
-      await service.setStatus('sa', { status: 'suspended' }, 'admin');
-      expect(users.updateStatus).toHaveBeenCalledWith('sa', 'suspended');
+      await service.setStatus('sa', { status: 'deactivate' }, 'admin');
+      expect(users.updateStatus).toHaveBeenCalledWith('sa', 'deactivate');
+    });
+  });
+
+  /**
+   * Only an Institute account may carry an institute id, and it must carry one. Nothing in the
+   * schema enforces that, so every path that can set either half is covered here.
+   */
+  describe('role / institute pairing', () => {
+    const institute = SYSTEM_ROLE_IDS.institute;
+    const evaluator = SYSTEM_ROLE_IDS.checker;
+
+    describe('createUser', () => {
+      beforeEach(() => users.findByEmail.mockResolvedValue(null));
+
+      it('rejects an Institute account with no institute', async () => {
+        await expect(service.createUser({ ...dto, roleId: institute }, 'admin')).rejects.toThrow(
+          'An Institute account must be linked to an institute.',
+        );
+        expect(users.create).not.toHaveBeenCalled();
+      });
+
+      it('rejects an institute id on a role that cannot have one', async () => {
+        await expect(
+          service.createUser({ ...dto, roleId: evaluator, instituteId: 'inst-A' }, 'admin'),
+        ).rejects.toThrow('Only an Institute account can be linked to an institute.');
+        expect(users.create).not.toHaveBeenCalled();
+      });
+
+      it('creates an Institute account with its institute', async () => {
+        await service.createUser({ ...dto, roleId: institute, instituteId: 'inst-A' }, 'admin');
+        expect(users.create).toHaveBeenCalledWith(
+          expect.objectContaining({ roleId: institute, instituteId: 'inst-A' }),
+        );
+      });
+
+      it('stores null rather than undefined when the role takes no institute', async () => {
+        await service.createUser(dto, 'admin');
+        expect(users.create).toHaveBeenCalledWith(expect.objectContaining({ instituteId: null }));
+      });
+    });
+
+    describe('updateUser', () => {
+      it('clears the institute when the account moves off the Institute role', async () => {
+        users.findById.mockResolvedValue(makeUser({ roleId: institute, instituteId: 'inst-A' }));
+        await service.updateUser('u-new', { roleId: evaluator }, 'admin');
+        expect(users.update).toHaveBeenCalledWith('u-new', {
+          roleId: evaluator,
+          instituteId: null,
+        });
+      });
+
+      it('records the forced clearing in the audit entry — the caller never asked for it', async () => {
+        users.findById.mockResolvedValue(makeUser({ roleId: institute, instituteId: 'inst-A' }));
+        await service.updateUser('u-new', { roleId: evaluator }, 'admin');
+        expect(audit.record).toHaveBeenCalledWith(
+          expect.objectContaining({
+            metadata: expect.objectContaining({ instituteCleared: 'inst-A' }),
+          }),
+        );
+      });
+
+      it('refuses to move onto the Institute role without an institute', async () => {
+        users.findById.mockResolvedValue(makeUser({ roleId: evaluator }));
+        await expect(service.updateUser('u-new', { roleId: institute }, 'admin')).rejects.toThrow(
+          'An Institute account must be linked to an institute.',
+        );
+        expect(users.update).not.toHaveBeenCalled();
+      });
+
+      it('allows moving onto the Institute role when the institute comes with it', async () => {
+        users.findById.mockResolvedValue(makeUser({ roleId: evaluator }));
+        await service.updateUser('u-new', { roleId: institute, instituteId: 'inst-A' }, 'admin');
+        expect(users.update).toHaveBeenCalledWith('u-new', {
+          roleId: institute,
+          instituteId: 'inst-A',
+        });
+      });
+
+      it('rejects attaching an institute to a non-Institute account', async () => {
+        users.findById.mockResolvedValue(makeUser({ roleId: evaluator }));
+        await expect(
+          service.updateUser('u-new', { instituteId: 'inst-A' }, 'admin'),
+        ).rejects.toThrow('Only an Institute account can be linked to an institute.');
+        expect(users.update).not.toHaveBeenCalled();
+      });
+
+      it('refuses to unlink an account that stays on the Institute role', async () => {
+        users.findById.mockResolvedValue(makeUser({ roleId: institute, instituteId: 'inst-A' }));
+        await expect(service.updateUser('u-new', { instituteId: null }, 'admin')).rejects.toThrow(
+          'An Institute account must be linked to an institute.',
+        );
+        expect(users.update).not.toHaveBeenCalled();
+      });
+
+      it('leaves the institute alone on an edit that does not touch the pairing', async () => {
+        users.findById.mockResolvedValue(makeUser({ roleId: institute, instituteId: 'inst-A' }));
+        await service.updateUser('u-new', { fullName: 'New Name' }, 'admin');
+        expect(users.update).toHaveBeenCalledWith('u-new', { fullName: 'New Name' });
+      });
     });
   });
 });

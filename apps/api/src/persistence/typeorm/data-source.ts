@@ -3,6 +3,8 @@ import { DataSource, type DataSourceOptions } from 'typeorm';
 import { ALL_ENTITIES } from './entities';
 import { InitialAuthSchema1730000000000 } from './migrations/1730000000000-initial-auth-schema';
 import { InstituteCategories1754000000000 } from './migrations/1754000000000-institute-categories';
+import { RbacUuidKeys1756000000000 } from './migrations/1756000000000-rbac-uuid-keys';
+import { RenameSuspendedToDeactivate1757000000000 } from './migrations/1757000000000-rename-suspended-to-deactivate';
 
 /**
  * Migrations are listed explicitly (not a filesystem glob) so the set resolves identically
@@ -15,7 +17,12 @@ export function buildDataSourceOptions(url: string): DataSourceOptions {
     type: 'postgres',
     url,
     entities: ALL_ENTITIES,
-    migrations: [InitialAuthSchema1730000000000, InstituteCategories1754000000000],
+    migrations: [
+      InitialAuthSchema1730000000000,
+      InstituteCategories1754000000000,
+      RbacUuidKeys1756000000000,
+      RenameSuspendedToDeactivate1757000000000,
+    ],
     synchronize: false,
     logging: false,
   };

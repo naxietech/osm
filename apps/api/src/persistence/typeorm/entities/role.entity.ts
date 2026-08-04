@@ -1,13 +1,23 @@
 import { Column, Entity, PrimaryColumn } from 'typeorm';
 
 /**
- * `roles` — RBAC roles. `id` is a stable slug (e.g. 'role_super_admin') matching
- * @oses/types Role.id, so it is a natural (non-generated) primary key.
+ * `roles` — RBAC roles.
+ *
+ * `id` is a uuid; the five seeded system roles carry fixed ones (see `SYSTEM_ROLE_IDS`) so the
+ * guards can compare against a constant, while custom roles get `uuidv7()` from the database.
+ * `code` is the readable key that used to *be* the id (`super_admin`, `admin`, …) — still
+ * unique, and now free to be shown or renamed without rewriting every row that points at it.
+ *
+ * Not `@PrimaryGeneratedColumn('uuid')`: the seed supplies its own ids for the system roles, and
+ * the DB default (`uuidv7()`) covers everything else.
  */
 @Entity({ name: 'roles' })
 export class RoleEntity {
-  @PrimaryColumn({ type: 'text' })
+  @PrimaryColumn({ type: 'uuid' })
   id!: string;
+
+  @Column({ type: 'text' })
+  code!: string;
 
   @Column({ type: 'text' })
   name!: string;

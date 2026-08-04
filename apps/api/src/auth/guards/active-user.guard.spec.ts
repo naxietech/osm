@@ -24,8 +24,8 @@ describe('ActiveUserGuard', () => {
     expect(users.findById).toHaveBeenCalledWith('u1');
   });
 
-  it('rejects a suspended user even with a valid token (#2)', async () => {
-    users.findById.mockResolvedValue({ id: 'u1', status: 'suspended' });
+  it('rejects a deactivated user even with a valid token (#2)', async () => {
+    users.findById.mockResolvedValue({ id: 'u1', status: 'deactivate' });
     await expect(guard.canActivate(ctxFor({ sub: 'u1' }))).rejects.toBeInstanceOf(
       UnauthorizedException,
     );

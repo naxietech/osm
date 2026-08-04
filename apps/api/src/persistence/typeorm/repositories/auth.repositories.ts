@@ -1,8 +1,9 @@
 import { Injectable, Logger, type Provider } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, IsNull, Repository, type SelectQueryBuilder } from 'typeorm';
+import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 
-import type { PermissionAction, PermissionGrant } from '@oses/types';
+import type { PermissionAction, PermissionGrant, PermissionScope } from '@oses/types';
 
 import {
   AUTH_AUDIT_REPOSITORY,
@@ -22,10 +23,13 @@ import {
   type SessionRecord,
   type SessionRepository,
   USER_REPOSITORY,
+  type UpdateUserInput,
+  type UserFilters,
   type UserRepository,
 } from '../../../auth/ports';
 import {
   AuthAuditLogEntity,
+  PermissionEntity,
   RoleEntity,
   RoleGrantEntity,
   SessionEntity,
@@ -54,31 +58,58 @@ function toAuthUser(u: UserEntity): AuthUserRecord {
 export class TypeOrmUserRepository implements UserRepository {
   constructor(@InjectRepository(UserEntity) private readonly repo: Repository<UserEntity>) {}
 
+  // Every read below adds `deletedAt: IsNull()`. Filtering here rather than in the service is
+  // what makes the soft delete real: login goes through findByEmail and ActiveUserGuard through
+  // findById, so a deleted account cannot sign in or keep an existing session alive — without
+  // either of those call sites needing to know soft delete exists.
+
   async findByEmail(email: string): Promise<AuthUserRecord | null> {
-    const row = await this.repo.findOne({ where: { email } });
+    const row = await this.repo.findOne({ where: { email, deletedAt: IsNull() } });
     return row ? toAuthUser(row) : null;
   }
 
   async findById(userId: string): Promise<AuthUserRecord | null> {
-    const row = await this.repo.findOne({ where: { id: userId } });
+    const row = await this.repo.findOne({ where: { id: userId, deletedAt: IsNull() } });
     return row ? toAuthUser(row) : null;
   }
 
   async list(opts: ListUsersOptions): Promise<AuthUserRecord[]> {
-    const rows = await this.repo.find({
-      order: { createdAt: 'DESC' },
-      take: opts.limit,
-      skip: opts.offset,
-    });
+    const rows = await this.filteredQuery(opts)
+      .orderBy('user.created_at', 'DESC')
+      .take(opts.limit)
+      .skip(opts.offset)
+      .getMany();
     return rows.map(toAuthUser);
   }
 
-  count(): Promise<number> {
-    return this.repo.count();
+  count(opts: UserFilters = {}): Promise<number> {
+    return this.filteredQuery(opts).getCount();
   }
 
   countActiveByRole(roleId: string): Promise<number> {
-    return this.repo.count({ where: { roleId, status: 'active' } });
+    return this.repo.count({ where: { roleId, status: 'active', deletedAt: IsNull() } });
+  }
+
+  /**
+   * Live users, narrowed by any combination of free-text search, status and role. Shared by
+   * `list` and `count` so a page and its total can never disagree about what was filtered.
+   *
+   * `status` and `roleId` are exact matches on indexed columns and stay cheap at any size. The
+   * search is a leading-wildcard ILIKE, which cannot use a B-tree index and therefore scans —
+   * fine for a staff-sized table, and the reason the two are separate parameters rather than one
+   * catch-all box. Revisit with a trigram index if this table ever grows.
+   */
+  private filteredQuery(f: UserFilters): SelectQueryBuilder<UserEntity> {
+    const qb = this.repo.createQueryBuilder('user').where('user.deleted_at is null');
+    if (f.status) qb.andWhere('user.status = :status', { status: f.status });
+    if (f.roleId) qb.andWhere('user.role_id = :roleId', { roleId: f.roleId });
+    const term = f.search?.trim();
+    if (term) {
+      qb.andWhere('(user.email ilike :term or user.full_name ilike :term)', {
+        term: `%${term}%`,
+      });
+    }
+    return qb;
   }
 
   async create(input: CreateUserInput): Promise<AuthUserRecord> {
@@ -104,6 +135,44 @@ export class TypeOrmUserRepository implements UserRepository {
       if (isUniqueViolation(err)) throw new EmailAlreadyExistsError();
       throw err;
     }
+  }
+
+  async update(userId: string, input: UpdateUserInput): Promise<AuthUserRecord | null> {
+    const patch: QueryDeepPartialEntity<UserEntity> = { updatedAt: new Date() };
+    if (input.email !== undefined) patch.email = input.email;
+    if (input.fullName !== undefined) patch.fullName = input.fullName;
+    if (input.roleId !== undefined) patch.roleId = input.roleId;
+    if (input.instituteId !== undefined) patch.instituteId = input.instituteId;
+
+    try {
+      const result = await this.repo
+        .createQueryBuilder()
+        .update(UserEntity)
+        .set(patch)
+        .where('id = :id', { id: userId })
+        .andWhere('deleted_at is null')
+        .returning('id')
+        .execute();
+
+      if (!(result.raw as Array<{ id: string }>)[0]) return null;
+      return await this.findById(userId);
+    } catch (err) {
+      // Same race as `create`: two concurrent edits can both pass the service's pre-check, and
+      // the unique index catches the loser — a 409, never a 500.
+      if (isUniqueViolation(err)) throw new EmailAlreadyExistsError();
+      throw err;
+    }
+  }
+
+  async softDelete(userId: string): Promise<boolean> {
+    const result = await this.repo
+      .createQueryBuilder()
+      .update(UserEntity)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where('id = :id', { id: userId })
+      .andWhere('deleted_at is null')
+      .execute();
+    return (result.affected ?? 0) > 0;
   }
 
   async updatePassword(userId: string, passwordHash: string): Promise<void> {
@@ -290,7 +359,16 @@ export class TypeOrmGrantsRepository implements GrantsRepository {
   ) {}
 
   async listByRoleId(roleId: string): Promise<PermissionGrant[]> {
-    const rows = await this.repo.find({ where: { roleId }, select: ['action', 'scope'] });
+    // `role_grants` stores a permission id; the action string lives on `permissions`. Joining
+    // here keeps that detail inside the persistence layer — callers still get { action, scope }.
+    const rows = await this.repo
+      .createQueryBuilder('grant')
+      .innerJoin(PermissionEntity, 'permission', 'permission.id = grant.permissionId')
+      .select('permission.action', 'action')
+      .addSelect('grant.scope', 'scope')
+      .where('grant.roleId = :roleId', { roleId })
+      .getRawMany<{ action: string; scope: PermissionScope }>();
+
     return rows.map((r) => ({
       // `action` is FK-constrained to the permissions catalogue, so every value is a valid
       // PermissionAction — the cast narrows the DB string, it never widens.
@@ -308,8 +386,15 @@ export class TypeOrmRoleRepository implements RoleRepository {
   ) {}
 
   async listWithGrants(): Promise<RoleWithGrants[]> {
-    const roles = await this.roles.find({ order: { id: 'ASC' } });
-    const grants = await this.grants.find();
+    // Ordered by `code` now that `id` is an opaque uuid — sorting by it would be arbitrary.
+    const roles = await this.roles.find({ order: { code: 'ASC' } });
+    const grants = await this.grants
+      .createQueryBuilder('grant')
+      .innerJoin(PermissionEntity, 'permission', 'permission.id = grant.permissionId')
+      .select('grant.role_id', 'roleId')
+      .addSelect('permission.action', 'action')
+      .addSelect('grant.scope', 'scope')
+      .getRawMany<{ roleId: string; action: string; scope: PermissionScope }>();
 
     const byRole = new Map<string, PermissionGrant[]>();
     for (const g of grants) {
@@ -320,6 +405,7 @@ export class TypeOrmRoleRepository implements RoleRepository {
 
     return roles.map((r) => ({
       id: r.id,
+      code: r.code,
       name: r.name,
       isSystem: r.isSystem,
       instituteId: r.instituteId,

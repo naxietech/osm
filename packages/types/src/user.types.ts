@@ -31,10 +31,15 @@ export interface CreateUserDto {
 
 /**
  * Account lifecycle. `pending` is an invited account with no password set yet; `locked` is
- * a temporary brute-force lockout the server clears on its own, as opposed to `suspended`,
+ * a temporary brute-force lockout the server clears on its own, as opposed to `deactivate`,
  * which an admin sets and only an admin can undo.
+ *
+ * Declared as a runtime array because both apps need the values, not just the type: the API
+ * builds its Zod enum and Swagger docs from it, and the web app renders one badge per status.
+ * Deriving the type from the array keeps the two from drifting apart.
  */
-export type UserStatus = 'pending' | 'active' | 'suspended' | 'locked';
+export const USER_STATUSES = ['pending', 'active', 'deactivate', 'locked'] as const;
+export type UserStatus = (typeof USER_STATUSES)[number];
 
 /**
  * A user as the admin directory sees them: `SafeUser` plus the account-management fields.
