@@ -14,6 +14,23 @@ export function isUniqueViolation(err: unknown): boolean {
 }
 
 /**
+ * The name of the constraint a violation came from, when the driver reported one.
+ *
+ * Needed wherever one write can trip more than one unique constraint and they mean different
+ * things to the caller — a class save touches `classes.name` and both `class_groups` sibling
+ * indexes in the same transaction, and "that class name is taken" is not the same message as
+ * "that group name is taken". Returns null when the driver gave no name, so callers must still
+ * have a sensible fallback.
+ */
+export function uniqueViolationConstraint(err: unknown): string | null {
+  if (!isUniqueViolation(err)) return null;
+  if (typeof err !== 'object' || err === null) return null;
+  const candidate = err as { constraint?: unknown; driverError?: { constraint?: unknown } };
+  const name = candidate.constraint ?? candidate.driverError?.constraint;
+  return typeof name === 'string' ? name : null;
+}
+
+/**
  * `23503` — a foreign key was violated.
  *
  * Deliberately a neutral detector rather than something that maps straight to a status: the same

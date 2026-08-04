@@ -41,7 +41,87 @@ export interface ClassGroup {
   subgroups: Subgroup[];
 }
 
-/** A configurable level: Class 1–12 (school), 1st/2nd Year (college), Semester (university). */
+/**
+ * A class as the API stores and returns it — the live shape behind `GET /classes`.
+ *
+ * Distinct from {@link Level} on purpose. `Level` requires `kind` ({@link InstitutionKind}),
+ * which the API does not store and which nothing in the product ever sets to anything but
+ * `school`; making it optional would be a breaking change to a type six mock screens depend
+ * on, for no gain today. When those screens migrate, `Level` goes and this stays.
+ *
+ * `groups` carries the whole active tree, so a list response is enough to open the edit form
+ * without a second request. Deactivated groups and subgroups are withheld — the form
+ * round-trips what it is given, so a retired row echoed back would read as "restore this".
+ *
+ * `version` is the optimistic-lock counter: send back the one you loaded and the update
+ * applies only while it still matches.
+ */
+export interface AcademicClass {
+  id: string;
+  name: string; // 'Class 9'
+  ordinal: number; // progression order — 'Class 10' must not sort before 'Class 9'
+  description?: string;
+  isActive: boolean;
+  version: number;
+  groups: ClassGroup[];
+}
+
+/** A subgroup as submitted on a class write. No `id` means "create this one". */
+export interface SubgroupInput {
+  id?: string;
+  name: string;
+}
+
+/**
+ * A group as submitted on a class write, with its subgroups. No `id` means "create this one".
+ *
+ * `subgroups` may be omitted, which means the group has none — the same thing an empty array
+ * says. Unlike `groups` on the class itself, there is no "leave it alone" reading to preserve:
+ * a group's subgroups are only ever submitted as part of that group.
+ */
+export interface ClassGroupInput {
+  id?: string;
+  name: string;
+  subgroups?: SubgroupInput[];
+}
+
+/**
+ * `POST /classes`. Omitting `groups` creates a class with no tree — which is what Class 1–8
+ * are: no flag, no empty list to reason about, simply no rows.
+ */
+export interface CreateClassDto {
+  name: string;
+  ordinal: number;
+  description?: string;
+  groups?: ClassGroupInput[];
+}
+
+/**
+ * `PATCH /classes/:id`. Every field is optional except `version`, but **`groups` is special**:
+ * omitting it leaves the stored tree untouched, whereas sending it replaces the tree by
+ * comparison. Anything stored for this class that a submitted tree does not mention is
+ * deactivated — never deleted, because a million student rows will carry these ids.
+ */
+export interface UpdateClassDto {
+  version: number;
+  name?: string;
+  ordinal?: number;
+  description?: string | null;
+  groups?: ClassGroupInput[];
+}
+
+/** `PATCH /classes/:id/status` — an explicit target state, so a double submit is idempotent. */
+export interface UpdateClassStatusDto {
+  isActive: boolean;
+}
+
+/**
+ * A configurable level: Class 1–12 (school), 1st/2nd Year (college), Semester (university).
+ *
+ * **MOCK-ONLY.** Superseded by {@link AcademicClass}, which is what the live `/classes` API
+ * returns. This shape is still read by the exam, checker, student and SLO mock screens and
+ * survives until the last of them migrates. New code wants `AcademicClass`.
+ */
 export interface Level {
   id: string;
   kind: InstitutionKind;

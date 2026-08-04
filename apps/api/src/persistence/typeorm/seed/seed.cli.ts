@@ -3,6 +3,7 @@ import { config as loadDotenv } from 'dotenv';
 import 'reflect-metadata';
 
 import { createDataSource } from '../data-source';
+import { seedClasses } from './classes.seed';
 import { seedInstituteCategories } from './institute-categories.seed';
 import { seedDatabase } from './seed';
 
@@ -41,6 +42,12 @@ async function main(): Promise<void> {
     console.log(
       `Institute categories: ${categories.categoriesCreated} created ` +
         `(${categories.questionsCreated} questions), ${categories.categoriesSkipped} already present.`,
+    );
+
+    const classes = await seedClasses(dataSource);
+    console.log(
+      `Classes: ${classes.classesCreated} created ` +
+        `(${classes.groupsCreated} groups and subgroups), ${classes.classesSkipped} already present.`,
     );
   } finally {
     await dataSource.destroy();
