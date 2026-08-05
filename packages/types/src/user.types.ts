@@ -30,6 +30,23 @@ export interface CreateUserDto {
 }
 
 /**
+ * Request body for `PATCH /users/:id`. Every field is optional — an absent one is left
+ * alone, which is what makes this a patch rather than a replace.
+ *
+ * `instituteId` is the exception that needs three states, so `null` is meaningful and
+ * distinct from absent: `undefined` leaves the link as it is, `null` unlinks the account.
+ * Password and status are not here; each has its own endpoint, because each has side
+ * effects (revoking sessions, clearing a lockout) that a general edit must not trigger by
+ * accident.
+ */
+export interface UpdateUserDto {
+  email?: string;
+  fullName?: string;
+  roleId?: string;
+  instituteId?: string | null;
+}
+
+/**
  * Account lifecycle. `pending` is an invited account with no password set yet; `locked` is
  * a temporary brute-force lockout the server clears on its own, as opposed to `deactivate`,
  * which an admin sets and only an admin can undo.

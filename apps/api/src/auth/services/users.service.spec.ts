@@ -80,6 +80,21 @@ describe('UsersService', () => {
     password: 'temp-pass-123',
   };
 
+  describe('getUser', () => {
+    it('returns the account in the same shape the listing uses', async () => {
+      users.findById.mockResolvedValue(makeUser({ status: 'locked' }));
+      await expect(service.getUser('u-new')).resolves.toMatchObject({
+        id: 'u-new',
+        status: 'locked',
+      });
+    });
+
+    it('reports a missing account as 404, not an empty object', async () => {
+      users.findById.mockResolvedValue(null);
+      await expect(service.getUser('nope')).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
   describe('listUsers', () => {
     it('passes every filter to BOTH the page and the count', async () => {
       users.list.mockResolvedValue([]);
@@ -140,7 +155,11 @@ describe('UsersService', () => {
       // assertOwnInstitute treats anyone carrying an instituteId as institute-bound, so
       // storing this would silently lock a Super Admin out of every other institute —
       // with no screen to undo it.
-      for (const roleId of ['role_super_admin', 'role_admin', 'role_controller']) {
+      for (const roleId of [
+        SYSTEM_ROLE_IDS.superAdmin,
+        SYSTEM_ROLE_IDS.admin,
+        SYSTEM_ROLE_IDS.controller,
+      ]) {
         await expect(
           service.createUser({ ...dto, roleId, instituteId: 'sch_001' }, 'admin'),
         ).rejects.toBeInstanceOf(BadRequestException);
@@ -151,7 +170,7 @@ describe('UsersService', () => {
     it('accepts an institute for the roles that take one', async () => {
       // Institute needs one (all its grants are own-institute); an Evaluator may have one,
       // which makes them a school-specific checker rather than a general one.
-      for (const roleId of ['role_institute', 'role_checker']) {
+      for (const roleId of [SYSTEM_ROLE_IDS.institute, SYSTEM_ROLE_IDS.checker]) {
         users.findByEmail.mockResolvedValue(undefined);
         await expect(
           service.createUser({ ...dto, roleId, instituteId: 'sch_001' }, 'admin'),
@@ -162,7 +181,7 @@ describe('UsersService', () => {
     it('accepts a global role with no institute', async () => {
       users.findByEmail.mockResolvedValue(undefined);
       await expect(
-        service.createUser({ ...dto, roleId: 'role_super_admin' }, 'admin'),
+        service.createUser({ ...dto, roleId: SYSTEM_ROLE_IDS.superAdmin }, 'admin'),
       ).resolves.toBeDefined();
     });
 
@@ -258,7 +277,9 @@ describe('UsersService', () => {
    */
   describe('role / institute pairing', () => {
     const institute = SYSTEM_ROLE_IDS.institute;
+    // An Evaluator *may* hold an institute (a school-specific checker); a global role may not.
     const evaluator = SYSTEM_ROLE_IDS.checker;
+    const global = SYSTEM_ROLE_IDS.admin;
 
     describe('createUser', () => {
       beforeEach(() => users.findByEmail.mockResolvedValue(null));
@@ -270,11 +291,18 @@ describe('UsersService', () => {
         expect(users.create).not.toHaveBeenCalled();
       });
 
-      it('rejects an institute id on a role that cannot have one', async () => {
+      it('rejects an institute id on a global role', async () => {
         await expect(
-          service.createUser({ ...dto, roleId: evaluator, instituteId: 'inst-A' }, 'admin'),
-        ).rejects.toThrow('Only an Institute account can be linked to an institute.');
+          service.createUser({ ...dto, roleId: global, instituteId: 'inst-A' }, 'admin'),
+        ).rejects.toThrow('That role is global and cannot be tied to an institute.');
         expect(users.create).not.toHaveBeenCalled();
+      });
+
+      it('accepts an institute id on an Evaluator — a school-specific checker', async () => {
+        await service.createUser({ ...dto, roleId: evaluator, instituteId: 'inst-A' }, 'admin');
+        expect(users.create).toHaveBeenCalledWith(
+          expect.objectContaining({ roleId: evaluator, instituteId: 'inst-A' }),
+        );
       });
 
       it('creates an Institute account with its institute', async () => {
@@ -291,18 +319,24 @@ describe('UsersService', () => {
     });
 
     describe('updateUser', () => {
-      it('clears the institute when the account moves off the Institute role', async () => {
+      it('clears the institute when the account moves onto a global role', async () => {
         users.findById.mockResolvedValue(makeUser({ roleId: institute, instituteId: 'inst-A' }));
-        await service.updateUser('u-new', { roleId: evaluator }, 'admin');
+        await service.updateUser('u-new', { roleId: global }, 'admin');
         expect(users.update).toHaveBeenCalledWith('u-new', {
-          roleId: evaluator,
+          roleId: global,
           instituteId: null,
         });
       });
 
-      it('records the forced clearing in the audit entry — the caller never asked for it', async () => {
+      it('keeps the institute when moving Institute → Evaluator, which may hold one', async () => {
         users.findById.mockResolvedValue(makeUser({ roleId: institute, instituteId: 'inst-A' }));
         await service.updateUser('u-new', { roleId: evaluator }, 'admin');
+        expect(users.update).toHaveBeenCalledWith('u-new', { roleId: evaluator });
+      });
+
+      it('records the forced clearing in the audit entry — the caller never asked for it', async () => {
+        users.findById.mockResolvedValue(makeUser({ roleId: institute, instituteId: 'inst-A' }));
+        await service.updateUser('u-new', { roleId: global }, 'admin');
         expect(audit.record).toHaveBeenCalledWith(
           expect.objectContaining({
             metadata: expect.objectContaining({ instituteCleared: 'inst-A' }),
@@ -327,11 +361,11 @@ describe('UsersService', () => {
         });
       });
 
-      it('rejects attaching an institute to a non-Institute account', async () => {
-        users.findById.mockResolvedValue(makeUser({ roleId: evaluator }));
+      it('rejects attaching an institute to a global-role account', async () => {
+        users.findById.mockResolvedValue(makeUser({ roleId: global }));
         await expect(
           service.updateUser('u-new', { instituteId: 'inst-A' }, 'admin'),
-        ).rejects.toThrow('Only an Institute account can be linked to an institute.');
+        ).rejects.toThrow('That role is global and cannot be tied to an institute.');
         expect(users.update).not.toHaveBeenCalled();
       });
 

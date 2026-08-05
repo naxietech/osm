@@ -1,4 +1,4 @@
-import { USER_STATUSES, type PermissionGrant, type UserStatus } from '@oses/types';
+import { type PermissionGrant, USER_STATUSES, type UserStatus } from '@oses/types';
 
 /**
  * Account lifecycle status. Defined in @oses/types because the web app renders it on the

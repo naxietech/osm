@@ -49,6 +49,12 @@ export interface PermissionGrant {
 
 export interface Role {
   id: string;
+  /**
+   * Stable slug (`super_admin`, `checker`, …). The id is a uuid minted by the seed, so it
+   * differs between environments and cannot be written into client code; the code is what a
+   * client keys behaviour off when it must recognise a specific system role.
+   */
+  code: string;
   name: string; // 'Super Admin', 'Institute', 'Checker', or a custom name
   isSystem: boolean; // seeded defaults — cannot be deleted
   instituteId?: string; // set = custom role OWNED BY one institute; unset = global

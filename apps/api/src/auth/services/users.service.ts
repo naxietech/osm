@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import type { PaginatedUsers, SafeUser } from '@oses/types';
+import type { AdminUser, PaginatedUsers, SafeUser } from '@oses/types';
 
 import { SYSTEM_ROLE_IDS, roleAcceptsInstitute } from '../../rbac/system-roles';
 import { hashPassword } from '../../shared/crypto';
@@ -56,12 +56,21 @@ export class UsersService {
     return { items: rows.map(toAdminUser), total };
   }
 
+  /** One user, in the same shape the listing returns. */
+  async getUser(userId: string): Promise<AdminUser> {
+    const user = await this.users.findById(userId);
+    if (!user) throw new NotFoundException('User not found');
+    return toAdminUser(user);
+  }
+
   /**
    * Admin edit of an account's email, name, role or institute.
    *
-   * A role change revokes the user's sessions. The access token carries `roleId` and the guards
-   * read it from there, so without that the old role would stay in force until the token expired
-   * — up to fifteen minutes of permissions the admin believes they just removed.
+   * A role change revokes the user's sessions, which stops them minting a *new* access token.
+   * It cannot un-issue the one already in their browser — that is `ActiveUserGuard`'s job: it
+   * compares the token's `roleId` against the account and rejects the mismatch on the next
+   * request. The two together are what make a demotion take effect at once; revocation alone
+   * would leave the old permissions valid for the rest of the token's ~15-minute life.
    */
   async updateUser(userId: string, dto: UpdateUserDto, actorId: string): Promise<SafeUser> {
     const user = await this.users.findById(userId);

@@ -22,6 +22,7 @@ import { CurrentUser } from '../shared/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import { clearAuthCookies, setAuthCookies } from './cookies';
 import { type ChangePasswordDto, ChangePasswordSchema, type LoginDto, LoginDtoSchema } from './dto';
+import { ActiveUserGuard } from './guards/active-user.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import type { AuthPrincipal } from './principal';
 import { AuthService, type LoginContext, PermissionResolver, SessionService } from './services';
@@ -108,11 +109,14 @@ export class AuthController {
   }
 
   @Get('permissions')
-  @UseGuards(JwtAuthGuard)
+  // ActiveUserGuard as well as JwtAuthGuard: this was the one protected route whose answer came
+  // purely from token claims, so nothing re-read the account and a deactivated or demoted caller
+  // kept being served their old grant list until the token expired.
+  @UseGuards(JwtAuthGuard, ActiveUserGuard)
   @ApiCookieAuth()
   @ApiOperation({ summary: "The authenticated user's permission grants (action + scope)" })
   @ApiResponse({ status: 200, description: 'Grant list' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 401, description: 'Unauthorized, deactivated, or role changed' })
   getPermissions(@CurrentUser() principal: AuthPrincipal): Promise<PermissionGrant[]> {
     return this.permissions.grantsFor(principal.roleId);
   }

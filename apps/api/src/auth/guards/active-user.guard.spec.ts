@@ -18,17 +18,27 @@ describe('ActiveUserGuard', () => {
     guard = new ActiveUserGuard(users as unknown as UserRepository);
   });
 
-  it('allows an active user', async () => {
-    users.findById.mockResolvedValue({ id: 'u1', status: 'active' });
-    await expect(guard.canActivate(ctxFor({ sub: 'u1' }))).resolves.toBe(true);
+  it('allows an active user whose token still matches their role', async () => {
+    users.findById.mockResolvedValue({ id: 'u1', status: 'active', roleId: 'role-a' });
+    await expect(guard.canActivate(ctxFor({ sub: 'u1', roleId: 'role-a' }))).resolves.toBe(true);
     expect(users.findById).toHaveBeenCalledWith('u1');
   });
 
   it('rejects a deactivated user even with a valid token (#2)', async () => {
-    users.findById.mockResolvedValue({ id: 'u1', status: 'deactivate' });
-    await expect(guard.canActivate(ctxFor({ sub: 'u1' }))).rejects.toBeInstanceOf(
+    users.findById.mockResolvedValue({ id: 'u1', status: 'deactivate', roleId: 'role-a' });
+    await expect(guard.canActivate(ctxFor({ sub: 'u1', roleId: 'role-a' }))).rejects.toBeInstanceOf(
       UnauthorizedException,
     );
+  });
+
+  it('rejects a token whose role no longer matches the account', async () => {
+    // The demotion window: PermissionsGuard reads roleId off the token, so without this the
+    // holder keeps the permissions they were stripped of until the token expires (~15 min).
+    // Revoking sessions cannot help — it stops the next token, not the one already issued.
+    users.findById.mockResolvedValue({ id: 'u1', status: 'active', roleId: 'role-checker' });
+    await expect(
+      guard.canActivate(ctxFor({ sub: 'u1', roleId: 'role-super-admin' })),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('rejects when the user no longer exists', async () => {

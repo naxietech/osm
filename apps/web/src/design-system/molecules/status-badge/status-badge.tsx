@@ -32,13 +32,13 @@ export interface UserStatusBadgeProps {
 
 /**
  * Account state on the admin user directory. `locked` is the server's own brute-force
- * lockout, which clears itself after a short window — distinct from `suspended`, which an
+ * lockout, which clears itself after a short window — distinct from `deactivate`, which an
  * admin set deliberately and only an admin can undo, so the two must not look alike.
  */
 const userStatusConfig: Record<UserStatus, { label: string; variant: BadgeProps['variant'] }> = {
   pending: { label: 'Pending', variant: 'warning' },
   active: { label: 'Active', variant: 'success' },
-  suspended: { label: 'Suspended', variant: 'error' },
+  deactivate: { label: 'Deactivated', variant: 'error' },
   locked: { label: 'Locked', variant: 'warning' },
 };
 

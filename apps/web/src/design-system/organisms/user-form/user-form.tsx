@@ -16,15 +16,26 @@ export interface UserFormValues {
   fullName: string;
   email: string;
   roleId: string;
+  /** Create only. In edit mode the field is not rendered and this stays empty. */
   password: string;
   instituteId?: string;
 }
+
+/** The account being edited, as the form needs it. */
+export type UserFormInitialValues = Omit<UserFormValues, 'password'>;
 
 export interface UserFormProps {
   /** Assignable roles, from `GET /roles`. */
   roles: Role[];
   /** Institutes offered when the chosen role takes one. */
   instituteOptions: Array<{ value: string; label: string }>;
+  /**
+   * Present = editing that account, absent = creating one. Edit mode drops the temporary
+   * password field, because changing a password is its own endpoint with its own side
+   * effects (it signs the user out everywhere), and folding it into a name change would
+   * make an innocuous edit do something the admin never asked for.
+   */
+  initialValues?: UserFormInitialValues;
   onSubmit: (values: UserFormValues) => void;
   onCancel: () => void;
   isSubmitting?: boolean;
@@ -40,17 +51,19 @@ export interface UserFormProps {
  * required for institute-scoped roles, optional for Evaluator (school-specific vs general
  * checker), and hidden for global roles.
  */
-function buildValidationSchema(roles: Role[]): Yup.ObjectSchema<UserFormValues> {
+function buildValidationSchema(roles: Role[], isEdit: boolean): Yup.ObjectSchema<UserFormValues> {
   return Yup.object({
     fullName: Yup.string().trim().required('Full name is required').max(100),
     email: Yup.string().email('Enter a valid email address').required('Email is required'),
     roleId: Yup.string().required('A role is required'),
-    password: Yup.string()
-      .min(
-        MIN_PASSWORD_LENGTH,
-        `Temporary password must be at least ${MIN_PASSWORD_LENGTH} characters`,
-      )
-      .required('A temporary password is required'),
+    password: isEdit
+      ? Yup.string()
+      : Yup.string()
+          .min(
+            MIN_PASSWORD_LENGTH,
+            `Temporary password must be at least ${MIN_PASSWORD_LENGTH} characters`,
+          )
+          .required('A temporary password is required'),
     instituteId: Yup.string().test(
       'institute-required-for-scoped-role',
       'This role is limited to one institute, so pick one',
@@ -66,15 +79,24 @@ function buildValidationSchema(roles: Role[]): Yup.ObjectSchema<UserFormValues> 
 export function UserForm({
   roles,
   instituteOptions,
+  initialValues,
   onSubmit,
   onCancel,
   isSubmitting = false,
   submitError,
 }: UserFormProps): React.ReactElement {
-  const validationSchema = useMemo(() => buildValidationSchema(roles), [roles]);
+  const isEdit = initialValues !== undefined;
+  const validationSchema = useMemo(() => buildValidationSchema(roles, isEdit), [roles, isEdit]);
 
   const formik = useFormik<UserFormValues>({
-    initialValues: { fullName: '', email: '', roleId: '', password: '', instituteId: '' },
+    initialValues: {
+      fullName: initialValues?.fullName ?? '',
+      email: initialValues?.email ?? '',
+      roleId: initialValues?.roleId ?? '',
+      password: '',
+      instituteId: initialValues?.instituteId ?? '',
+    },
+    enableReinitialize: true,
     validationSchema,
     onSubmit: (values) =>
       onSubmit({
@@ -84,7 +106,11 @@ export function UserForm({
         // Only send an institute the role actually takes. Without this a value left over
         // from a previously-selected role would bind, say, a Super Admin to one institute
         // — which the API stores happily and which then locks them out of every other one.
-        ...(values.instituteId ? { instituteId: values.instituteId } : {}),
+        //
+        // Edit keeps the empty string rather than dropping the key: the page diffs these
+        // values against the saved account, and a missing key would read as "unchanged"
+        // exactly when the admin has just cleared the institute.
+        ...(isEdit || values.instituteId ? { instituteId: values.instituteId ?? '' } : {}),
       }),
   });
 
@@ -111,6 +137,7 @@ export function UserForm({
   };
 
   const roleOptions = roles.map((r) => ({ value: r.id, label: r.name }));
+  const roleChanged = isEdit && formik.values.roleId !== initialValues.roleId;
 
   return (
     <form onSubmit={formik.handleSubmit} noValidate className="space-y-4">
@@ -153,7 +180,13 @@ export function UserForm({
             label={requirement === 'optional' ? 'Institute (optional)' : 'Institute'}
             value={formik.values.instituteId ?? ''}
             onChange={handleInstituteChange}
-            options={instituteOptions}
+            // An optional institute needs a way back out, or an evaluator who was made
+            // school-specific could never be returned to marking across all institutes.
+            options={
+              requirement === 'optional'
+                ? [{ value: '', label: 'No institute (general evaluator)' }, ...instituteOptions]
+                : instituteOptions
+            }
             error={formik.touched.instituteId ? formik.errors.instituteId : undefined}
             required={requirement === 'required'}
           />
@@ -166,23 +199,34 @@ export function UserForm({
         </>
       )}
 
-      <FormField
-        id="password"
-        name="password"
-        type="password"
-        autoComplete="new-password"
-        label="Temporary Password"
-        value={formik.values.password}
-        onChange={formik.handleChange}
-        onBlur={formik.handleBlur}
-        error={formik.touched.password ? formik.errors.password : undefined}
-        required
-      />
+      {!isEdit && (
+        <>
+          <FormField
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="new-password"
+            label="Temporary Password"
+            value={formik.values.password}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={formik.touched.password ? formik.errors.password : undefined}
+            required
+          />
 
-      <p className="text-xs text-muted-foreground">
-        Share this password with the user directly — there is no invitation email yet. They can
-        change it from the account menu after signing in.
-      </p>
+          <p className="text-xs text-muted-foreground">
+            Share this password with the user directly — there is no invitation email yet. They can
+            change it from the account menu after signing in.
+          </p>
+        </>
+      )}
+
+      {roleChanged && (
+        <Alert tone="warning">
+          Changing the role signs this user out of every device straight away. They will need to log
+          in again, and the new permissions apply from their next request.
+        </Alert>
+      )}
 
       {submitError && <Alert tone="danger">{submitError}</Alert>}
 
@@ -194,9 +238,10 @@ export function UserForm({
           type="submit"
           variant="primary"
           isLoading={isSubmitting}
+          disabled={isEdit && !formik.dirty}
           className="w-full sm:w-auto"
         >
-          Create User
+          {isEdit ? 'Save Changes' : 'Create User'}
         </Button>
       </div>
     </form>

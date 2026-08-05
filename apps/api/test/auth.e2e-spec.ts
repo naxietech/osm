@@ -266,7 +266,7 @@ describeDb('Auth sessions (e2e)', () => {
       await request(server())
         .patch('/api/v1/users/not-a-uuid/status')
         .set('Cookie', `oses_access=${access}`)
-        .send({ status: 'suspended' })
+        .send({ status: 'deactivate' })
         .expect(404);
 
       await request(server())
@@ -359,13 +359,17 @@ describeDb('Auth sessions (e2e)', () => {
         .get('/api/v1/roles')
         .set('Cookie', `oses_access=${superAccess}`)
         .expect(200);
-      const roles = res.body.data as { id: string; grants: { action: string }[] }[];
+      const roles = res.body.data as { id: string; code: string; grants: { action: string }[] }[];
       expect(roles).toHaveLength(5);
       const evaluator = roles.find((r) => r.id === SYSTEM_ROLE_IDS.checker);
       expect(evaluator?.grants.map((g) => g.action).sort()).toEqual([
         'dashboard.view',
         'marking.mark',
       ]);
+      // The web app keys the institute rule off `code`, not `id` — ids are uuids minted per
+      // environment, so a client that recognised a role by id would stop recognising it.
+      expect(evaluator?.code).toBe('checker');
+      expect(roles.every((r) => typeof r.code === 'string' && r.code.length > 0)).toBe(true);
 
       const checkerAccess = await accessFor(CHECKER);
       await request(server())
@@ -398,6 +402,25 @@ describeDb('Auth sessions (e2e)', () => {
         })
         .expect(201);
       editableId = created.body.data.id as string;
+    });
+
+    it('GET /users/:id returns the account with its admin fields', async () => {
+      // The edit screen opens by URL, so it loads the account from the id alone rather
+      // than from whatever the list happened to have cached.
+      const res = await asSuper('get', `/api/v1/users/${editableId}`).expect(200);
+      expect(res.body.data).toMatchObject({
+        id: editableId,
+        email: EDITABLE.email,
+        roleId: SYSTEM_ROLE_IDS.controller,
+      });
+      expect(res.body.data).toHaveProperty('status');
+      expect(res.body.data).toHaveProperty('lastLoginAt');
+      expect(res.body.data).not.toHaveProperty('passwordHash');
+    });
+
+    it('GET /users/:id answers 404 for an unknown id, and for one that is not a uuid', async () => {
+      await asSuper('get', '/api/v1/users/019fc9fe-0000-7000-8000-000000000000').expect(404);
+      await asSuper('get', '/api/v1/users/not-a-uuid').expect(404);
     });
 
     it('edits the name and email', async () => {
@@ -526,5 +549,106 @@ describeDb('Auth sessions (e2e)', () => {
 
     it('a second delete reports 404', () =>
       asSuper('delete', `/api/v1/users/${editableId}`).expect(404));
+  });
+
+  // ---- how fast an account change reaches an already-issued token ----
+  describe('propagation of account changes to a live access token', () => {
+    let superCookie: string;
+
+    const asSuper = (method: 'patch' | 'delete', url: string): request.Test =>
+      request(server())[method](url).set('Cookie', superCookie);
+
+    const withToken = (url: string): request.Test => request(server()).get(url);
+
+    // One admin login for the whole block: /auth/login is rate-limited to 40/min per IP, and
+    // logging in per test burns that budget for no benefit — the admin is never modified here.
+    beforeAll(async () => {
+      const res = await login(SUPER).expect(200);
+      superCookie = `oses_access=${cookieValue(res, 'oses_access')}`;
+    });
+
+    /**
+     * A fresh victim per test, holding their own access + refresh cookie. They are a SECOND
+     * Super Admin so that demoting them is not blocked by the last-Super-Admin rule, and so
+     * their token demonstrably carries real privilege before the change.
+     */
+    async function freshVictim(email: string): Promise<{
+      id: string;
+      access: string;
+      refresh: string;
+    }> {
+      const repo = dataSource.getRepository(UserEntity);
+      const saved = await repo.save(
+        repo.create({
+          email,
+          passwordHash: await hashPassword('victim-strong-pass-123'),
+          roleId: SYSTEM_ROLE_IDS.superAdmin,
+          fullName: 'Victim Person',
+          status: 'active',
+        }),
+      );
+      const res = await login({ email, password: 'victim-strong-pass-123' }).expect(200);
+      return {
+        id: saved.id,
+        access: `oses_access=${cookieValue(res, 'oses_access')}`,
+        refresh: `oses_refresh=${cookieValue(res, 'oses_refresh')}`,
+      };
+    }
+
+    it('a role change kills the already-issued token at once, not in 15 minutes', async () => {
+      // The token still says Super Admin, and PermissionsGuard reads the role from the token.
+      // Revoking sessions cannot un-issue it, so without ActiveUserGuard comparing roleId the
+      // holder keeps users.manage for the rest of the token's ~15-minute life.
+      const victim = await freshVictim('demoted@oses.pk');
+      await withToken('/api/v1/users?limit=1').set('Cookie', victim.access).expect(200);
+
+      await asSuper('patch', `/api/v1/users/${victim.id}`)
+        .send({ roleId: SYSTEM_ROLE_IDS.checker })
+        .expect(200);
+
+      await withToken('/api/v1/users?limit=1').set('Cookie', victim.access).expect(401);
+      // The one route that used to answer from token claims alone.
+      await withToken('/api/v1/auth/permissions').set('Cookie', victim.access).expect(401);
+      // And no replacement token, because the sessions were revoked too.
+      await request(server())
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', victim.refresh)
+        .expect(401);
+    });
+
+    it('deactivating kills the token at once, on every protected route', async () => {
+      const victim = await freshVictim('deactivated@oses.pk');
+
+      await asSuper('patch', `/api/v1/users/${victim.id}/status`)
+        .send({ status: 'deactivate' })
+        .expect(200);
+
+      for (const url of [
+        '/api/v1/users?limit=1',
+        '/api/v1/auth/me',
+        '/api/v1/auth/permissions',
+        '/api/v1/roles',
+      ]) {
+        await withToken(url).set('Cookie', victim.access).expect(401);
+      }
+    });
+
+    it('deleting kills the token at once', async () => {
+      const victim = await freshVictim('deleted@oses.pk');
+      await asSuper('delete', `/api/v1/users/${victim.id}`).expect(200);
+      await withToken('/api/v1/users?limit=1').set('Cookie', victim.access).expect(401);
+    });
+
+    it('leaves an unaffected edit alone — the guard is not a blanket logout', async () => {
+      // Renaming somebody must not invalidate their session, or routine admin edits would
+      // sign people out for no reason.
+      const victim = await freshVictim('renamed-only@oses.pk');
+
+      await asSuper('patch', `/api/v1/users/${victim.id}`)
+        .send({ fullName: 'Still Super' })
+        .expect(200);
+
+      await withToken('/api/v1/users?limit=1').set('Cookie', victim.access).expect(200);
+    });
   });
 });

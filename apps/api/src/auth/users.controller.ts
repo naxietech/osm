@@ -6,7 +6,6 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -14,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiCookieAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
-import type { PaginatedUsers, SafeUser } from '@oses/types';
+import type { AdminUser, PaginatedUsers, SafeUser } from '@oses/types';
 
 import { CurrentUser } from '../shared/decorators/current-user.decorator';
 import { RequirePermissions } from '../shared/decorators/require-permissions.decorator';
@@ -75,6 +74,20 @@ export class UsersController {
     return this.users.listUsers(query);
   }
 
+  @Get(':id')
+  @RequirePermissions('users.manage')
+  @ApiOperation({
+    summary: 'One user, with the account-management fields',
+    description:
+      'Returns the same shape a row of the listing carries. Exists so an edit screen can be ' +
+      'opened by URL — without it a deep link or a refresh has no way to load the account.',
+  })
+  @ApiResponse({ status: 200, description: 'AdminUser' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  getOne(@Param('id', uuidParam('User')) id: string): Promise<AdminUser> {
+    return this.users.getUser(id);
+  }
+
   @Post()
   @RequirePermissions('users.manage')
   @ApiOperation({ summary: 'Create a user with a role + temporary password' })
@@ -108,9 +121,10 @@ export class UsersController {
   @ApiOperation({
     summary: "Edit a user's email, name, role or institute",
     description:
-      'Every field is optional; omitting one leaves it alone. Changing the role revokes the ' +
-      "user's sessions, because the access token carries the role and would otherwise keep the " +
-      'old permissions alive until it expired. Moving an account onto the Institute role requires ' +
+      'Every field is optional; omitting one leaves it alone. Changing the role takes effect at ' +
+      "once: the user's sessions are revoked, and ActiveUserGuard rejects their existing access " +
+      'token on its next request because the role on it no longer matches the account. Moving an ' +
+      'account onto the Institute role requires ' +
       'an instituteId; moving it off any other role clears the one it had. Password and status ' +
       'have their own endpoints.',
   })
@@ -123,7 +137,7 @@ export class UsersController {
   @ApiResponse({ status: 409, description: 'Email already in use' })
   update(
     @CurrentUser() actor: AuthPrincipal,
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id', uuidParam('User')) id: string,
     @Body(new ZodValidationPipe(UpdateUserSchema)) dto: UpdateUserDto,
   ): Promise<SafeUser> {
     return this.users.updateUser(id, dto, actor.sub);
@@ -142,7 +156,7 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'User not found' })
   remove(
     @CurrentUser() actor: AuthPrincipal,
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id', uuidParam('User')) id: string,
   ): Promise<{ message: string }> {
     return this.users.deleteUser(id, actor.sub);
   }
