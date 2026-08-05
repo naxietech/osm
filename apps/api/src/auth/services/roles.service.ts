@@ -13,6 +13,7 @@ export class RolesService {
     const rows = await this.roles.listWithGrants();
     return rows.map((r) => ({
       id: r.id,
+      code: r.code,
       name: r.name,
       isSystem: r.isSystem,
       instituteId: r.instituteId ?? undefined,

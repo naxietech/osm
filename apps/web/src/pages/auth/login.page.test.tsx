@@ -128,7 +128,7 @@ describe('LoginPage', () => {
   });
 
   it('falls back to the form when the marker is stale', async () => {
-    // The cookie outlives its session — cleared server-side, or the account was suspended.
+    // The cookie outlives its session — cleared server-side, or the account was deactivated.
     // The check answers 401, which means signed out, so the form is the right thing to show.
     giveSessionHint();
     renderLogin();

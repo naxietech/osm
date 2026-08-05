@@ -6,6 +6,7 @@ import { instituteRequirementFor, showsInstitutePicker } from './role-institute-
 
 function role(overrides: Partial<Role> & Pick<Role, 'id'>): Role {
   return {
+    code: 'custom',
     name: 'Test Role',
     isSystem: true,
     grants: [],
@@ -35,7 +36,9 @@ describe('instituteRequirementFor', () => {
   it('offers one to an Evaluator without demanding it', () => {
     // An evaluator with an institute is school-specific; without one they are a general
     // evaluator who marks across all institutes. Both are valid, so neither is forced.
-    expect(instituteRequirementFor(role({ id: 'role_checker', grants: global }))).toBe('optional');
+    expect(instituteRequirementFor(role({ id: 'any-uuid', code: 'checker', grants: global }))).toBe(
+      'optional',
+    );
   });
 
   it('wants none for the global roles', () => {
@@ -52,7 +55,9 @@ describe('instituteRequirementFor', () => {
 describe('showsInstitutePicker', () => {
   it('shows for required and optional, hides for none', () => {
     expect(showsInstitutePicker(role({ id: 'role_institute', grants: ownInstitute }))).toBe(true);
-    expect(showsInstitutePicker(role({ id: 'role_checker', grants: global }))).toBe(true);
+    expect(showsInstitutePicker(role({ id: 'any-uuid', code: 'checker', grants: global }))).toBe(
+      true,
+    );
     expect(showsInstitutePicker(role({ id: 'role_super_admin', grants: global }))).toBe(false);
     expect(showsInstitutePicker(undefined)).toBe(false);
   });

@@ -15,7 +15,7 @@ export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonEle
    * never disagree.
    */
   label: string;
-  /** `danger` for actions that take something away — suspending, revoking, deleting. */
+  /** `danger` for actions that take something away — deactivating, revoking, deleting. */
   tone?: 'default' | 'danger';
   size?: 'sm' | 'md';
   isLoading?: boolean;

@@ -22,7 +22,7 @@ export function hasSessionHint(): boolean {
  * Forget the marker, because we have just learned there is no session behind it.
  *
  * The API clears it on sign-out, but that is only the tidy path. A session that simply expires,
- * a sign-out request that never reached the server, an account suspended while a tab sat open —
+ * a sign-out request that never reached the server, an account deactivated while a tab sat open —
  * all leave the marker behind with nothing behind it. Left alone it never expires on its own
  * (its max-age is the refresh window, renewed on every login), so every later visit to `/login`
  * pays the `/auth/me` 401 *and* the renewal attempt the client fires behind it: two wasted round

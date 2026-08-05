@@ -3,6 +3,7 @@ export * from './annotation-canvas';
 export * from './annotation-toolbar';
 export * from './charts';
 export * from './count-cell';
+export * from './filter-bar';
 export * from './form-field';
 export * from './image-upload-field';
 export * from './labeled-progress';

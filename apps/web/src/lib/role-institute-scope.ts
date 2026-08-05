@@ -8,8 +8,13 @@ export type InstituteRequirement = 'required' | 'optional' | 'none';
  * (`packages/types/src/checker.types.ts`): `school-specific`, bound to one institute and
  * allowed to mark only that institute's papers, and `general`, bound to nothing and
  * markable across the board. So an institute is meaningful but not compulsory.
+ *
+ * Matched on `code`, not `id`. Role ids are uuids minted by the seed and differ per
+ * environment, so an id hard-coded here silently stops matching — which is exactly what
+ * happened when the seed moved off slug ids: this returned `none` for every evaluator and
+ * the institute picker vanished from the form with nothing to show it had.
  */
-const EVALUATOR_ROLE_ID = 'role_checker';
+const EVALUATOR_ROLE_CODE = 'checker';
 
 /**
  * How an institute applies to a role:
@@ -27,7 +32,7 @@ const EVALUATOR_ROLE_ID = 'role_checker';
 export function instituteRequirementFor(role: Role | undefined): InstituteRequirement {
   if (!role) return 'none';
   if (role.instituteId || role.grants.some((g) => g.scope === 'own-institute')) return 'required';
-  if (role.id === EVALUATOR_ROLE_ID) return 'optional';
+  if (role.code === EVALUATOR_ROLE_CODE) return 'optional';
   return 'none';
 }
 

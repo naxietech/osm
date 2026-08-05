@@ -219,7 +219,7 @@ describe('apiRequest session renewal', () => {
   });
 
   it('announces the session ended when the replay is still refused', async () => {
-    // Renewal works but the account was suspended — do not loop, end the session.
+    // Renewal works but the account was deactivated — do not loop, end the session.
     const expiry = trackSessionExpiry();
     fetchMock
       .mockResolvedValueOnce(unauthorized())

@@ -2,34 +2,50 @@
  * Users list (super admin) — every login in the system, read from the API.
  *
  * All accounts are created here by the super admin; institutes don't manage their own
- * logins. Accounts are never deleted, only suspended, so the audit log and anything a
+ * logins. Accounts are never deleted, only deactivated, so the audit log and anything a
  * user created keeps pointing at a real record.
  */
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 
-import type { AdminUser } from '@oses/types';
+import { type AdminUser, USER_STATUSES, type UserStatus } from '@oses/types';
 
 import { PageHeader } from '@/components/widgets';
 import { Button } from '@/design-system/atoms/button';
-import { Ban, KeyRound, UserCheck } from '@/design-system/atoms/icon';
+import { Ban, KeyRound, Pencil, UserCheck } from '@/design-system/atoms/icon';
 import { IconButton } from '@/design-system/atoms/icon-button';
 import { Alert } from '@/design-system/molecules/alert';
+import { FilterBar } from '@/design-system/molecules/filter-bar';
 import { FormField } from '@/design-system/molecules/form-field';
 import { ConfirmDialog } from '@/design-system/molecules/modal';
 import { UserStatusBadge } from '@/design-system/molecules/status-badge';
 import { type ColumnDef, DataTable } from '@/design-system/organisms/data-table';
 import { useAuth } from '@/hooks/use-auth';
+import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useRoles } from '@/hooks/use-roles';
 import { MIN_PASSWORD_LENGTH } from '@/lib/constants';
 import { ROUTES } from '@/router/routes';
 import { apiErrorMessage } from '@/services/api-client';
 import { instituteName } from '@/services/institute.service';
 import { USERS_PAGE_SIZE, usersService } from '@/services/users.service';
+
+const STATUS_LABELS: Record<UserStatus, string> = {
+  pending: 'Pending',
+  active: 'Active',
+  deactivate: 'Deactivated',
+  locked: 'Locked',
+};
+
+const STATUS_OPTIONS = USER_STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] }));
+
+/** Narrowed to a real status, so a hand-edited `?status=nonsense` is ignored, not sent on. */
+function readStatus(raw: string | null): UserStatus | undefined {
+  return USER_STATUSES.find((s) => s === raw);
+}
 
 /** ISO timestamp → short local date, or a word when the user has never signed in. */
 function formatLastLogin(iso: string | null): string {
@@ -52,12 +68,87 @@ export function UsersListPage(): React.ReactElement {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isAuthenticated } = useAuth();
-  const [page, setPage] = useState(0);
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  /**
+   * Search, filters and page live in the URL rather than in state, so the back button works,
+   * a refresh keeps your place, and a narrowed list can be sent to someone as a link.
+   */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const q = searchParams.get('q') ?? '';
+  const status = readStatus(searchParams.get('status'));
+  const roleId = searchParams.get('roleId') ?? '';
+  const page = Math.max(0, Number(searchParams.get('page') ?? '1') - 1);
+
+  /**
+   * The box renders this immediately; only the debounced copy reaches the URL and the query,
+   * so typing stays smooth and four keystrokes make one request rather than four.
+   */
+  const [searchInput, setSearchInput] = useState(q);
+  const debouncedSearch = useDebouncedValue(searchInput);
+
+  /**
+   * Writes the given changes to the URL, dropping anything empty so the bar stays clean.
+   *
+   * `replace` decides whether the change is worth a history entry. Choosing a filter or a page
+   * is a deliberate step you should be able to undo with Back; typing is not — pushing an entry
+   * per keystroke would bury the previous screen under four of them.
+   */
+  const applyParams = (changes: Record<string, string>, replace = false): void =>
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        for (const [key, value] of Object.entries(changes)) {
+          if (value) next.set(key, value);
+          else next.delete(key);
+        }
+        return next;
+      },
+      { replace },
+    );
+
+  /**
+   * Any change to what is being matched sends you back to page 1. Staying put would ask for
+   * rows 51–75 of a result set that may now hold three — the API answers correctly with an
+   * empty page, and it reads as "the search is broken".
+   */
+  const narrow = (changes: Record<string, string>, replace = false): void =>
+    applyParams({ ...changes, page: '' }, replace);
+
+  useEffect(() => {
+    if (debouncedSearch !== q) narrow({ q: debouncedSearch }, true);
+    // `q` is the settled URL value; re-running on it would fight the user's typing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
+
+  const clearFilters = (): void => {
+    setSearchInput('');
+    applyParams({ q: '', status: '', roleId: '', page: '' });
+  };
+
+  const setPage = (updater: (previous: number) => number): void =>
+    applyParams({ page: String(updater(page) + 1) });
+
+  /**
+   * The edit screen finishes by coming back here, so it hands its confirmation over in the
+   * navigation state — the page that did the work is gone by the time there is anything to
+   * announce. Cleared immediately after reading, or a refresh would re-announce a change
+   * that happened once, minutes ago.
+   */
+  const location = useLocation();
+  const handedOverNotice = (location.state as { notice?: string } | null)?.notice;
+
+  useEffect(() => {
+    if (!handedOverNotice) return;
+    setNotice(handedOverNotice);
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handedOverNotice]);
+
   /** The row a dialog is open for, and which dialog. Null when none is open. */
-  const [pendingSuspend, setPendingSuspend] = useState<AdminUser | null>(null);
+  const [pendingDeactivate, setPendingDeactivate] = useState<AdminUser | null>(null);
+  const [pendingActivate, setPendingActivate] = useState<AdminUser | null>(null);
   const [pendingReset, setPendingReset] = useState<AdminUser | null>(null);
 
   /**
@@ -80,9 +171,18 @@ export function UsersListPage(): React.ReactElement {
   // `enabled` for the same reason as use-roles: signing out drops this query, and a dropped
   // query that a mounted screen is still watching asks again — with the session just ended.
   const usersQuery = useQuery({
-    queryKey: ['users', page],
-    queryFn: () => usersService.listUsers({ offset: page * USERS_PAGE_SIZE }),
+    queryKey: ['users', { page, q, status, roleId }],
+    queryFn: () =>
+      usersService.listUsers({
+        offset: page * USERS_PAGE_SIZE,
+        q,
+        status,
+        roleId: roleId || undefined,
+      }),
     enabled: isAuthenticated,
+    // Without this the table blanks to a spinner on every keystroke's worth of new filters;
+    // keeping the previous page visible while the next one loads makes narrowing feel live.
+    placeholderData: (previous) => previous,
   });
 
   // Roles are a small, stable list, fetched once so the table can name a user's role
@@ -92,26 +192,31 @@ export function UsersListPage(): React.ReactElement {
   const roleName = (roleId: string | undefined): string =>
     (roleId && roles.find((r) => r.id === roleId)?.name) || '—';
 
+  const closeStatusDialogs = (): void => {
+    setPendingDeactivate(null);
+    setPendingActivate(null);
+  };
+
   const statusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: 'active' | 'suspended' }) =>
+    mutationFn: ({ id, status }: { id: string; status: 'active' | 'deactivate' }) =>
       usersService.setStatus(id, status),
     onMutate: ({ id }) => markRowBusy(id),
     onSuccess: async (_result, variables) => {
       setActionError(null);
       setNotice(
-        variables.status === 'suspended'
-          ? 'Account suspended and signed out everywhere.'
-          : 'Account reactivated.',
+        variables.status === 'deactivate'
+          ? 'Account deactivated and signed out everywhere.'
+          : 'Account reactivated. They can sign in again now.',
       );
-      setPendingSuspend(null);
+      closeStatusDialogs();
       await queryClient.invalidateQueries({ queryKey: ['users'] });
     },
-    // The server refuses to suspend your own account or the last active Super Admin, and
+    // The server refuses to deactivate your own account or the last active Super Admin, and
     // says why — show its wording rather than restating the rule here.
     onError: (error: unknown) => {
       setNotice(null);
       setActionError(apiErrorMessage(error));
-      setPendingSuspend(null);
+      closeStatusDialogs();
     },
     onSettled: (_result, _error, variables) => markRowIdle(variables.id),
   });
@@ -148,15 +253,16 @@ export function UsersListPage(): React.ReactElement {
     resetPasswordForm.resetForm();
   }
 
-  /** Suspending is the destructive direction; reactivating needs no confirmation. */
+  /**
+   * Both directions confirm. Reactivating is not destructive, but it is not trivial either —
+   * it hands someone back their access, and on a long list the two buttons sit in the same
+   * place, so a mis-click restores an account that was switched off deliberately.
+   */
   const requestStatusChange = (user: AdminUser): void => {
-    if (user.status === 'suspended') {
-      statusMutation.mutate({ id: user.id, status: 'active' });
-      return;
-    }
     setNotice(null);
     setActionError(null);
-    setPendingSuspend(user);
+    if (user.status === 'deactivate') setPendingActivate(user);
+    else setPendingDeactivate(user);
   };
 
   const columns: ColumnDef<AdminUser>[] = [
@@ -194,7 +300,7 @@ export function UsersListPage(): React.ReactElement {
     {
       key: 'actions',
       header: 'Actions',
-      width: '110px',
+      width: '150px',
       /**
        * Icon buttons, not word buttons. Two labelled buttons per row took more width than
        * the name and email they belonged to, and a third action would not have fitted at
@@ -205,6 +311,12 @@ export function UsersListPage(): React.ReactElement {
       render: (row) => (
         <div className="flex justify-end gap-1.5">
           <IconButton
+            icon={<Pencil size={15} aria-hidden />}
+            label={`Edit ${row.fullName}`}
+            size="sm"
+            onClick={() => void navigate(ROUTES.admin.userEdit.replace(':id', row.id))}
+          />
+          <IconButton
             icon={<KeyRound size={15} aria-hidden />}
             label="Reset password"
             size="sm"
@@ -214,7 +326,7 @@ export function UsersListPage(): React.ReactElement {
               setPendingReset(row);
             }}
           />
-          {row.status === 'suspended' ? (
+          {row.status === 'deactivate' ? (
             <IconButton
               icon={<UserCheck size={15} aria-hidden />}
               label="Reactivate account"
@@ -225,7 +337,7 @@ export function UsersListPage(): React.ReactElement {
           ) : (
             <IconButton
               icon={<Ban size={15} aria-hidden />}
-              label="Suspend account"
+              label="Deactivate account"
               tone="danger"
               size="sm"
               isLoading={busyRowIds.has(row.id)}
@@ -237,6 +349,7 @@ export function UsersListPage(): React.ReactElement {
     },
   ];
 
+  const isNarrowed = q.trim().length > 0 || status !== undefined || roleId !== '';
   const total = usersQuery.data?.total ?? 0;
   const pageCount = Math.max(1, Math.ceil(total / USERS_PAGE_SIZE));
   const firstShown = total === 0 ? 0 : page * USERS_PAGE_SIZE + 1;
@@ -256,23 +369,57 @@ export function UsersListPage(): React.ReactElement {
       />
 
       {(listError ?? actionError) && (
-        <Alert tone="danger" className="mb-4">
+        <Alert
+          tone="danger"
+          className="mb-4"
+          // A failed action is dismissible; a failed *load* is not — the table below it is
+          // empty, and hiding the reason would leave the screen looking like "no users".
+          onDismiss={listError ? undefined : () => setActionError(null)}
+          dismissLabel="Dismiss error"
+        >
           {listError ?? actionError}
         </Alert>
       )}
 
       {notice && !listError && !actionError && (
-        <Alert tone="success" className="mb-4">
+        <Alert tone="success" className="mb-4" onDismiss={() => setNotice(null)}>
           {notice}
         </Alert>
       )}
+
+      <FilterBar
+        className="mb-4"
+        searchValue={searchInput}
+        onSearchChange={setSearchInput}
+        searchLabel="Search users"
+        searchPlaceholder="Search name or email…"
+        filters={[
+          {
+            id: 'role-filter',
+            label: 'Role',
+            value: roleId,
+            allLabel: 'All roles',
+            options: roles.map((r) => ({ value: r.id, label: r.name })),
+            onChange: (value) => narrow({ roleId: value }),
+          },
+          {
+            id: 'status-filter',
+            label: 'Status',
+            value: status ?? '',
+            allLabel: 'All statuses',
+            options: STATUS_OPTIONS,
+            onChange: (value) => narrow({ status: value }),
+          },
+        ]}
+        onClear={clearFilters}
+      />
 
       <div className="rounded-lg border border-border bg-card shadow-sm">
         <DataTable<AdminUser>
           data={usersQuery.data?.items ?? []}
           columns={columns}
           isLoading={usersQuery.isLoading}
-          emptyMessage="No users found"
+          emptyMessage={isNarrowed ? 'No users match those filters' : 'No users found'}
         />
       </div>
 
@@ -304,15 +451,29 @@ export function UsersListPage(): React.ReactElement {
       )}
 
       <ConfirmDialog
-        open={pendingSuspend !== null}
-        onClose={() => setPendingSuspend(null)}
+        open={pendingDeactivate !== null}
+        onClose={() => setPendingDeactivate(null)}
         onConfirm={() =>
-          pendingSuspend && statusMutation.mutate({ id: pendingSuspend.id, status: 'suspended' })
+          pendingDeactivate &&
+          statusMutation.mutate({ id: pendingDeactivate.id, status: 'deactivate' })
         }
-        title={`Suspend ${pendingSuspend?.fullName ?? 'this account'}?`}
+        title={`Deactivate ${pendingDeactivate?.fullName ?? 'this account'}?`}
         description="They will be signed out of every device immediately and cannot sign in again until someone reactivates the account."
-        confirmLabel="Suspend"
+        confirmLabel="Deactivate"
         tone="danger"
+        busy={statusMutation.isPending}
+      />
+
+      <ConfirmDialog
+        open={pendingActivate !== null}
+        onClose={() => setPendingActivate(null)}
+        onConfirm={() =>
+          pendingActivate && statusMutation.mutate({ id: pendingActivate.id, status: 'active' })
+        }
+        title={`Reactivate ${pendingActivate?.fullName ?? 'this account'}?`}
+        description="They will be able to sign in again immediately, and any lockout from failed login attempts is cleared. Their old sessions stay signed out, so they must log in again."
+        confirmLabel="Reactivate"
+        tone="primary"
         busy={statusMutation.isPending}
       />
 
