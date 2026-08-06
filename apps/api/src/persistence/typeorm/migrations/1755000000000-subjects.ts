@@ -15,6 +15,12 @@ import type { MigrationInterface, QueryRunner } from 'typeorm';
  *
  * The check constraints repeat the DTO's length rules on purpose, so bad data cannot arrive
  * through a path that skips Zod (a seed, a migration, a console).
+ *
+ * `id` uses `uuidv7()` — native in Postgres 18 — matching the RBAC tables. A v7 key opens with a
+ * timestamp, so new rows append to the right-hand edge of the primary-key index instead of
+ * scattering through it. That buys this table almost nothing at its size; it is here because
+ * subjects is the module the next one gets copied from, and a convention only holds if the
+ * reference copy follows it.
  */
 export class Subjects1755000000000 implements MigrationInterface {
   name = 'Subjects1755000000000';
@@ -26,7 +32,7 @@ export class Subjects1755000000000 implements MigrationInterface {
 
     await queryRunner.query(`
       create table "subjects" (
-        "id" uuid primary key default gen_random_uuid(),
+        "id" uuid primary key default uuidv7(),
         "code" citext not null,
         "name" text not null,
         "is_active" boolean not null default true,

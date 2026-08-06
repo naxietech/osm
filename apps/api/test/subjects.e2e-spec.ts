@@ -139,7 +139,12 @@ describeDb('Subjects (e2e)', () => {
       const body = res.body as Envelope<SubjectBody>;
       expect(body.success).toBe(true);
       expect(body.data).toEqual({
-        id: expect.stringMatching(/^[0-9a-f-]{36}$/) as unknown as string,
+        // A **v7** uuid — the version nibble is the 7, the variant one of 8/9/a/b. The id comes
+        // from the column default, so this also proves the entity leaves the column out of the
+        // insert rather than generating a v4 of its own in JS.
+        id: expect.stringMatching(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+        ) as unknown as string,
         code: 'PHY',
         name: 'Physics',
         isActive: true,
