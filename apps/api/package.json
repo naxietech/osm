@@ -3,8 +3,8 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "nest start --watch",
-    "start:dev": "nest start --watch",
+    "dev": "pnpm --filter @oses/types build && nest start --watch",
+    "start:dev": "pnpm --filter @oses/types build && nest start --watch",
     "build": "nest build",
     "test": "jest --passWithNoTests",
     "test:e2e": "jest --config test/jest-e2e.json",

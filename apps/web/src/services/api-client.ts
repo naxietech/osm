@@ -162,7 +162,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions<T> = {
   if (res.status === 401 && !NO_RENEWAL_PATHS.some((p) => path.startsWith(p))) {
     if (await renewSession()) {
       res = await send(path, options);
-      // Still refused straight after a successful renewal — the account is suspended or
+      // Still refused straight after a successful renewal — the account is deactivated or
       // gone. Treat that as the session ending rather than looping.
       if (res.status === 401) notifySessionExpired();
     } else {

@@ -11,13 +11,35 @@ import { ALL_PERMISSION_ACTIONS } from './permissions.constants';
  * share one definition instead of mirroring.
  */
 
-/** Stable role ids — referenced by users.role_id and @oses/types Role.id. */
+/**
+ * Stable role ids — referenced by `users.role_id`, carried in the access token, and compared
+ * against in the guards.
+ *
+ * These are **fixed** uuids rather than generated ones, which is what lets this stay a
+ * compile-time constant: a guard can say `roleId === SYSTEM_ROLE_IDS.superAdmin` with no
+ * database lookup. Roles created later (custom roles) get a generated `uuidv7()` instead — they
+ * are looked up by `code`, since by definition there is no constant to compare them to.
+ *
+ * They are genuine uuid v7 values, minted once by `uuidv7()` and pasted here — not hand-written
+ * placeholders. All five share one millisecond prefix and increment in the tail, so they sort in
+ * role order and index as tightly as any other v7 key. Readability is not lost by making them
+ * opaque: `roles.code` (`super_admin`, `admin`, …) is the human-facing key.
+ */
 export const SYSTEM_ROLE_IDS = {
-  superAdmin: 'role_super_admin',
-  admin: 'role_admin',
-  controller: 'role_controller',
-  checker: 'role_checker', // display name: "Evaluator"
-  institute: 'role_institute',
+  superAdmin: '019fc9fe-9756-7829-86f1-fc4c79b7ab36',
+  admin: '019fc9fe-9756-7849-bb20-8c3c8213b4c5',
+  controller: '019fc9fe-9756-7851-8368-55cd6e8d7874',
+  checker: '019fc9fe-9756-7856-ae6a-ae9b60217577', // display name: "Evaluator"
+  institute: '019fc9fe-9756-785b-925d-8ab3063888b0',
+} as const;
+
+/** The readable key for each system role — `roles.code`, unique, and safe to show in a UI. */
+export const SYSTEM_ROLE_CODES = {
+  superAdmin: 'super_admin',
+  admin: 'admin',
+  controller: 'controller',
+  checker: 'checker',
+  institute: 'institute',
 } as const;
 
 /**
@@ -92,21 +114,39 @@ export function roleAcceptsInstitute(roleId: string): boolean {
 
 export interface SystemRoleSeed {
   id: string;
+  code: string;
   name: string;
   grants: PermissionGrant[];
 }
 
 export const SYSTEM_ROLES: SystemRoleSeed[] = [
-  { id: SYSTEM_ROLE_IDS.superAdmin, name: 'Super Admin', grants: grants('all', ALL_ADMIN_ACTIONS) },
-  { id: SYSTEM_ROLE_IDS.admin, name: 'Admin', grants: grants('all', ADMIN_ACTIONS) },
+  {
+    id: SYSTEM_ROLE_IDS.superAdmin,
+    code: SYSTEM_ROLE_CODES.superAdmin,
+    name: 'Super Admin',
+    grants: grants('all', ALL_ADMIN_ACTIONS),
+  },
+  {
+    id: SYSTEM_ROLE_IDS.admin,
+    code: SYSTEM_ROLE_CODES.admin,
+    name: 'Admin',
+    grants: grants('all', ADMIN_ACTIONS),
+  },
   {
     id: SYSTEM_ROLE_IDS.controller,
+    code: SYSTEM_ROLE_CODES.controller,
     name: 'Controller Examiner',
     grants: grants('all', CONTROLLER_EXAMINER_ACTIONS),
   },
-  { id: SYSTEM_ROLE_IDS.checker, name: 'Evaluator', grants: grants('all', EVALUATOR_ACTIONS) },
+  {
+    id: SYSTEM_ROLE_IDS.checker,
+    code: SYSTEM_ROLE_CODES.checker,
+    name: 'Evaluator',
+    grants: grants('all', EVALUATOR_ACTIONS),
+  },
   {
     id: SYSTEM_ROLE_IDS.institute,
+    code: SYSTEM_ROLE_CODES.institute,
     name: 'Institute',
     grants: grants('own-institute', INSTITUTE_ACTIONS),
   },

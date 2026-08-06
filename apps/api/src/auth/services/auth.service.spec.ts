@@ -1,6 +1,7 @@
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 
 import type { AuthConfig } from '../../config/auth.config';
+import { SYSTEM_ROLE_IDS } from '../../rbac/system-roles';
 import { hashPassword, verifyPassword } from '../../shared/crypto';
 import type {
   AuthAuditRepository,
@@ -34,7 +35,7 @@ function makeUser(over: Partial<AuthUserRecord> = {}): AuthUserRecord {
     id: 'u1',
     email: 'admin@oses.pk',
     passwordHash: '$argon2id$fake',
-    roleId: 'role_super_admin',
+    roleId: SYSTEM_ROLE_IDS.superAdmin,
     instituteId: null,
     fullName: 'System Administrator',
     status: 'active',
@@ -111,7 +112,7 @@ describe('AuthService.login', () => {
   });
 
   it('rejects a non-active account', async () => {
-    users.findByEmail.mockResolvedValue(makeUser({ status: 'suspended' }));
+    users.findByEmail.mockResolvedValue(makeUser({ status: 'deactivate' }));
     await expect(
       service.login({ email: 'admin@oses.pk', password: 'x' }, ctx),
     ).rejects.toBeInstanceOf(UnauthorizedException);
@@ -151,7 +152,7 @@ describe('AuthService.login', () => {
     expect(result.accessToken).toBe('access-tok');
     expect(result.refreshToken).toBe('refresh-tok');
     expect(result.user.email).toBe('admin@oses.pk');
-    expect(result.user.roleId).toBe('role_super_admin');
+    expect(result.user.roleId).toBe(SYSTEM_ROLE_IDS.superAdmin);
     expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ event: 'login.success' }));
   });
 
@@ -162,8 +163,8 @@ describe('AuthService.login', () => {
       expect(me.id).toBe('u1');
     });
 
-    it('rejects a suspended account even with a valid token', async () => {
-      users.findById.mockResolvedValue(makeUser({ status: 'suspended' }));
+    it('rejects a deactivated account even with a valid token', async () => {
+      users.findById.mockResolvedValue(makeUser({ status: 'deactivate' }));
       await expect(service.getCurrentUser('u1')).rejects.toBeInstanceOf(UnauthorizedException);
     });
 

@@ -1,15 +1,37 @@
-import type { PermissionGrant, UserStatus } from '@oses/types';
+import { type PermissionGrant, USER_STATUSES, type UserStatus } from '@oses/types';
 
 /**
  * Account lifecycle status. Defined in @oses/types because the web app renders it on the
  * admin user directory; re-exported here so the TypeORM user entity and the repositories
  * keep importing it from the domain port, leaving the dependency pointing adapter → port.
+ *
+ * `pending` and `locked` are set by the system (before activation, and after too many failed
+ * logins); `active` and `deactivate` are the two an admin toggles.
  */
+export { USER_STATUSES };
 export type { UserStatus };
 
-export interface ListUsersOptions {
+/** Narrowing applied to a user listing. Every field is optional — absent means "no filter". */
+export interface UserFilters {
+  /** Free-text, case-insensitive, over email and full name. */
+  search?: string;
+  /** Exact account status. */
+  status?: UserStatus;
+  /** Exact role. */
+  roleId?: string;
+}
+
+export interface ListUsersOptions extends UserFilters {
   limit: number;
   offset: number;
+}
+
+/** Fields an admin may change on an existing account. Absent means "leave alone". */
+export interface UpdateUserInput {
+  email?: string;
+  fullName?: string;
+  roleId?: string;
+  instituteId?: string | null;
 }
 
 /**
@@ -59,12 +81,19 @@ export interface UserRepository {
   findById(userId: string): Promise<AuthUserRecord | null>;
   /** One page of users, newest first. */
   list(opts: ListUsersOptions): Promise<AuthUserRecord[]>;
-  /** Total user count, for pagination. */
-  count(): Promise<number>;
+  /** Total live-user count for pagination — narrowed by the same filters the page used. */
+  count(opts?: UserFilters): Promise<number>;
   /** Count active users holding a given role — used to protect the last active Super Admin. */
   countActiveByRole(roleId: string): Promise<number>;
   /** Insert a user. Throws {@link EmailAlreadyExistsError} on a duplicate email (incl. races). */
   create(input: CreateUserInput): Promise<AuthUserRecord>;
+  /**
+   * Change an existing account's email, name, role or institute. Throws
+   * {@link EmailAlreadyExistsError} on a duplicate email. Returns `null` if no such live user.
+   */
+  update(userId: string, input: UpdateUserInput): Promise<AuthUserRecord | null>;
+  /** Mark the account deleted. Returns whether a live row was marked. */
+  softDelete(userId: string): Promise<boolean>;
   /** Set a new password hash; also clears the failed-login counter + lockout (recovery path). */
   updatePassword(userId: string, passwordHash: string): Promise<void>;
   updateStatus(userId: string, status: UserStatus): Promise<void>;
@@ -112,7 +141,7 @@ export interface SessionRepository {
   /** Revoke every still-active session in a family — the token-theft response. */
   revokeFamily(familyId: string, reason: string): Promise<void>;
   revokeById(id: string, reason: string): Promise<void>;
-  /** Revoke all of a user's active sessions (password change, reset, suspend). */
+  /** Revoke all of a user's active sessions (password change, reset, deactivation). */
   revokeAllForUser(userId: string, reason: string): Promise<void>;
 }
 
@@ -153,6 +182,8 @@ export interface GrantsRepository {
 /** A role plus its grants, for the roles directory. */
 export interface RoleWithGrants {
   id: string;
+  /** Readable, unique key (`super_admin`) — what the id used to be before it became a uuid. */
+  code: string;
   name: string;
   isSystem: boolean;
   instituteId: string | null;

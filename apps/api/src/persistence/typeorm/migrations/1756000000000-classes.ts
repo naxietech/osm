@@ -9,6 +9,10 @@ import type { MigrationInterface, QueryRunner } from 'typeorm';
  *
  * Not a JSON column, for the same reason: a student's stored group must be a row the database
  * can protect, not an array element whose position could shift under it.
+ *
+ * Ids default to `uuidv7()` (a Postgres 18 built-in), matching what the RBAC tables were moved
+ * to. A v7 uuid opens with a millisecond timestamp, so new rows append to the end of the
+ * primary-key index instead of scattering through it the way `gen_random_uuid()` does.
  */
 export class Classes1756000000000 implements MigrationInterface {
   name = 'Classes1756000000000';
@@ -18,7 +22,7 @@ export class Classes1756000000000 implements MigrationInterface {
 
     await queryRunner.query(`
       create table "classes" (
-        "id" uuid primary key default gen_random_uuid(),
+        "id" uuid primary key default uuidv7(),
         "name" citext not null,
         "ordinal" smallint not null,
         "description" text,
@@ -44,7 +48,7 @@ export class Classes1756000000000 implements MigrationInterface {
 
     await queryRunner.query(`
       create table "class_groups" (
-        "id" uuid primary key default gen_random_uuid(),
+        "id" uuid primary key default uuidv7(),
         "class_id" uuid not null,
         "parent_id" uuid,
         "name" citext not null,
@@ -95,9 +99,10 @@ export class Classes1756000000000 implements MigrationInterface {
     //
     // `sort_order` is a real column for the same reason `classes.ordinal` is. Groups are
     // written in one statement, so `created_at` is identical across them to the microsecond
-    // and could never separate them; ordering would fall through to a random uuid and the tree
-    // would come back shuffled on every read. Position is scoped to the parent — groups are
-    // numbered within their class, subgroups within their group.
+    // and could never separate them; ordering would fall through to `id`, and a v7 uuid only
+    // orders down to the millisecond — siblings written together share one, leaving the random
+    // tail to decide, so the tree would come back shuffled on every read. Position is scoped to
+    // the parent — groups are numbered within their class, subgroups within their group.
     await queryRunner.query(
       `create index "class_groups_class_idx" on "class_groups" ("class_id", "parent_id", "sort_order")`,
     );

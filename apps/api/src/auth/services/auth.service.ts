@@ -156,7 +156,7 @@ export class AuthService {
   /** Resolve the current user for `/me`, fresh from the store (authoritative status/role). */
   async getCurrentUser(userId: string): Promise<SafeUser> {
     const user = await this.users.findById(userId);
-    // Reject suspended/inactive accounts even while their short-lived access token is valid.
+    // Reject deactivated/inactive accounts even while their short-lived access token is valid.
     if (!user || user.status !== 'active') {
       throw new UnauthorizedException('Session no longer valid');
     }
@@ -169,7 +169,7 @@ export class AuthService {
    */
   async changePassword(userId: string, dto: ChangePasswordDto, ctx: LoginContext): Promise<void> {
     const user = await this.users.findById(userId);
-    // Re-check status live — a suspended user's access token may still be within its 15-min life.
+    // Re-check status live — a deactivated user's access token may still be within its 15-min life.
     if (!user || user.status !== 'active' || !user.passwordHash) {
       throw new UnauthorizedException('Session no longer valid');
     }

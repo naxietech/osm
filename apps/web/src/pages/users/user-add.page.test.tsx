@@ -22,9 +22,10 @@ const SIGNED_IN = {
 };
 
 const ROLES = [
-  { id: 'role_admin', name: 'Admin', isSystem: true, grants: [], createdAt: 'x' },
+  { id: 'role_admin', code: 'admin', name: 'Admin', isSystem: true, grants: [], createdAt: 'x' },
   {
     id: 'role_institute',
+    code: 'institute',
     name: 'Institute',
     isSystem: true,
     grants: [{ action: 'students.manage', scope: 'own-institute' }],
@@ -34,6 +35,7 @@ const ROLES = [
   // with one they are school-specific, without one they mark across all institutes.
   {
     id: 'role_checker',
+    code: 'checker',
     name: 'Evaluator',
     isSystem: true,
     grants: [{ action: 'marking.mark', scope: 'all' }],
