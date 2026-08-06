@@ -10,10 +10,12 @@ import { UserEntity } from '../src/persistence/typeorm/entities';
 import { seedDatabase } from '../src/persistence/typeorm/seed/seed';
 import { SYSTEM_ROLE_IDS } from '../src/rbac/system-roles';
 import { hashPassword } from '../src/shared/crypto';
+import { resetInstituteData } from './reset-db';
+import { requireTestDatabaseUrl } from './test-database';
 
-const TEST_URL = process.env['DATABASE_URL_TEST'] ?? process.env['DATABASE_URL'];
+const TEST_URL = requireTestDatabaseUrl();
 process.env['JWT_SECRET'] ??= 'test-only-secret-minimum-32-characters-long';
-process.env['DATABASE_URL'] = TEST_URL ?? 'postgres://oses:oses_dev_pw@localhost:5432/oses_test';
+process.env['DATABASE_URL'] = TEST_URL;
 
 const SUPER = {
   email: 'superadmin@oses.pk',
@@ -22,8 +24,6 @@ const SUPER = {
 };
 const EVALUATOR = { email: 'checker-icm@oses.pk', password: 'checker-strong-pass-123' };
 const ADMIN = { email: 'admin-icm@oses.pk', password: 'admin-strong-pass-123' };
-
-const describeDb = TEST_URL ? describe : describe.skip;
 
 interface Envelope<T> {
   success: boolean;
@@ -45,7 +45,7 @@ interface CategoryBody {
   }>;
 }
 
-describeDb('Institute categories (e2e)', () => {
+describe('Institute categories (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   const server = () => app.getHttpServer();
@@ -103,9 +103,7 @@ describeDb('Institute categories (e2e)', () => {
   });
 
   beforeEach(async () => {
-    await dataSource.query(
-      'truncate table institute_category_questions, institute_categories restart identity cascade',
-    );
+    await resetInstituteData(dataSource);
   });
 
   const asSuper = (method: 'get' | 'post' | 'patch' | 'delete', url: string) =>

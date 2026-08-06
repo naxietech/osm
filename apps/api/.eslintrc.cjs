@@ -15,6 +15,10 @@ module.exports = {
         '@typescript-eslint/no-unsafe-member-access': 'off',
         '@typescript-eslint/no-unsafe-return': 'off',
         '@typescript-eslint/explicit-function-return-type': 'off',
+        // `expect(mock.method).toHaveBeenCalledWith(...)` is the standard jest assertion, and it
+        // is a reference to an unbound method by construction. The rule cannot tell that apart
+        // from a genuine `this` mistake, so it is a false positive on every typed mock.
+        '@typescript-eslint/unbound-method': 'off',
       },
     },
   ],

@@ -101,8 +101,17 @@ function notifySessionExpired(): void {
  * Paths that must never trigger a renewal. A 401 from login means "wrong password",
  * and a 401 from refresh means the session is genuinely dead — retrying either would
  * be pointless, and retrying refresh would recurse.
+ *
+ * The `/public/*` routes are here for a different reason: they take no credentials at all, so
+ * a 401 from one is a bug in the request rather than an expired session. Trying to renew would
+ * fire a pointless refresh for a visitor who has never signed in — on the registration link,
+ * which is the one page most of its callers will ever see.
  */
-const NO_RENEWAL_PATHS: string[] = [API_ENDPOINTS.auth.login, API_ENDPOINTS.auth.refresh];
+const NO_RENEWAL_PATHS: string[] = [
+  API_ENDPOINTS.auth.login,
+  API_ENDPOINTS.auth.refresh,
+  '/public/',
+];
 
 /**
  * The renewal currently in the air, or null. Requests tend to fail in bursts — a

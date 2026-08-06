@@ -9,13 +9,7 @@ import React from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 
-import {
-  type CreateInstituteDto,
-  GenderCategory,
-  InstituteLevel,
-  InstitutionType,
-  Province,
-} from '@oses/types';
+import { type CreateInstituteDto, InstitutionType, Province } from '@oses/types';
 
 import { Button } from '@/design-system/atoms/button';
 import { Building2, type LucideIcon, MapPin, User } from '@/design-system/atoms/icon';
@@ -23,6 +17,12 @@ import { FormField } from '@/design-system/molecules/form-field';
 import { SelectField, type SelectOption } from '@/design-system/molecules/select-field';
 
 export interface InstituteFormProps {
+  /**
+   * Categories to choose from. Required rather than optional: every institute has one, and the
+   * API refuses a registration without it — a form that could not set it was quietly producing
+   * requests the server would reject.
+   */
+  categories: SelectOption[];
   initialValues?: Partial<CreateInstituteDto>;
   onSubmit: (data: CreateInstituteDto) => void;
   onCancel?: () => void;
@@ -34,10 +34,9 @@ export interface InstituteFormProps {
 interface InstituteFormValues {
   instituteCode: string;
   instituteName: string;
-  registrationNo: string;
+  branch: string;
+  categoryId: string;
   institutionType: string;
-  instituteLevel: string;
-  category: string;
   address: string;
   city: string;
   province: string;
@@ -53,18 +52,6 @@ const INSTITUTION_TYPE_OPTIONS: SelectOption[] = [
   { value: InstitutionType.PRIVATE, label: 'Private' },
   { value: InstitutionType.SEMI_GOVERNMENT, label: 'Semi-Government' },
   { value: InstitutionType.OTHER, label: 'Other' },
-];
-
-const INSTITUTE_LEVEL_OPTIONS: SelectOption[] = [
-  { value: InstituteLevel.SECONDARY, label: 'Secondary (SSC / Matric)' },
-  { value: InstituteLevel.HIGHER_SECONDARY, label: 'Higher Secondary (HSSC / Intermediate)' },
-  { value: InstituteLevel.BOTH, label: 'Both' },
-];
-
-const CATEGORY_OPTIONS: SelectOption[] = [
-  { value: GenderCategory.BOYS, label: 'Boys' },
-  { value: GenderCategory.GIRLS, label: 'Girls' },
-  { value: GenderCategory.CO_EDUCATION, label: 'Co-education' },
 ];
 
 const PROVINCE_OPTIONS: SelectOption[] = [
@@ -88,20 +75,10 @@ const validationSchema = Yup.object({
     .min(2, 'Institute name must be at least 2 characters')
     .max(255, 'Institute name is too long')
     .required('Institute name is required'),
-  registrationNo: Yup.string()
-    .trim()
-    .min(2, 'Registration number is too short')
-    .max(50, 'Registration number is too long')
-    .required('Registration / affiliation number is required'),
+  categoryId: Yup.string().required('Select a category'),
   institutionType: Yup.string()
     .oneOf(Object.values(InstitutionType), 'Select an institution type')
     .required('Institution type is required'),
-  instituteLevel: Yup.string()
-    .oneOf(Object.values(InstituteLevel), 'Select an institute level')
-    .required('Institute level is required'),
-  category: Yup.string()
-    .oneOf(Object.values(GenderCategory), 'Select a category')
-    .required('Category is required'),
   address: Yup.string()
     .trim()
     .min(5, 'Address must be at least 5 characters')
@@ -158,6 +135,7 @@ function SectionHeading({
 }
 
 export function InstituteForm({
+  categories,
   initialValues,
   onSubmit,
   onCancel,
@@ -169,10 +147,9 @@ export function InstituteForm({
     initialValues: {
       instituteCode: initialValues?.instituteCode ?? '',
       instituteName: initialValues?.instituteName ?? '',
-      registrationNo: initialValues?.registrationNo ?? '',
+      branch: initialValues?.branch ?? '',
+      categoryId: initialValues?.categoryId ?? '',
       institutionType: initialValues?.institutionType ?? '',
-      instituteLevel: initialValues?.instituteLevel ?? '',
-      category: initialValues?.category ?? '',
       address: initialValues?.address ?? '',
       city: initialValues?.city ?? '',
       province: initialValues?.province ?? '',
@@ -187,10 +164,9 @@ export function InstituteForm({
       const dto: CreateInstituteDto = {
         instituteCode: values.instituteCode,
         instituteName: values.instituteName,
-        registrationNo: values.registrationNo,
+        categoryId: values.categoryId,
         institutionType: values.institutionType as InstitutionType,
-        instituteLevel: values.instituteLevel as InstituteLevel,
-        category: values.category as GenderCategory,
+        ...(values.branch.trim() ? { branch: values.branch.trim() } : {}),
         address: values.address,
         city: values.city,
         province: values.province as Province,
@@ -255,14 +231,22 @@ export function InstituteForm({
           />
 
           <FormField
-            id="registrationNo"
-            name="registrationNo"
-            label="Registration / Affiliation No."
-            value={formik.values.registrationNo}
+            id="branch"
+            name="branch"
+            label="Branch / Campus"
+            value={formik.values.branch}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
-            error={fieldError('registrationNo')}
+            error={fieldError('branch')}
+          />
+
+          <SelectField
+            id="categoryId"
+            name="categoryId"
+            label="Category"
+            options={categories}
             required
+            {...selectProps('categoryId')}
           />
 
           <SelectField
@@ -272,24 +256,6 @@ export function InstituteForm({
             options={INSTITUTION_TYPE_OPTIONS}
             required
             {...selectProps('institutionType')}
-          />
-
-          <SelectField
-            id="instituteLevel"
-            name="instituteLevel"
-            label="Institute Level"
-            options={INSTITUTE_LEVEL_OPTIONS}
-            required
-            {...selectProps('instituteLevel')}
-          />
-
-          <SelectField
-            id="category"
-            name="category"
-            label="Category"
-            options={CATEGORY_OPTIONS}
-            required
-            {...selectProps('category')}
           />
         </div>
       </section>

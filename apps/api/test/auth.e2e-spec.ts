@@ -10,9 +10,10 @@ import { UserEntity } from '../src/persistence/typeorm/entities';
 import { seedDatabase } from '../src/persistence/typeorm/seed/seed';
 import { SYSTEM_ROLE_IDS } from '../src/rbac/system-roles';
 import { hashPassword } from '../src/shared/crypto';
+import { requireTestDatabaseUrl } from './test-database';
 
-const TEST_URL = process.env['DATABASE_URL_TEST'] ?? process.env['DATABASE_URL'];
-process.env['DATABASE_URL'] = TEST_URL ?? 'postgres://oses:oses_dev_pw@localhost:5433/oses_test';
+const TEST_URL = requireTestDatabaseUrl();
+process.env['DATABASE_URL'] = TEST_URL;
 
 const SUPER = {
   email: 'superadmin@oses.pk',
@@ -20,7 +21,6 @@ const SUPER = {
   fullName: 'System Administrator',
 };
 const CHECKER = { email: 'checker@oses.pk', password: 'checker-strong-pass-123' };
-const describeDb = TEST_URL ? describe : describe.skip;
 
 /** Pull a cookie value out of a Set-Cookie response header. */
 function cookieValue(res: request.Response, name: string): string {
@@ -31,7 +31,7 @@ function cookieValue(res: request.Response, name: string): string {
   return pair.slice(pair.indexOf('=') + 1);
 }
 
-describeDb('Auth sessions (e2e)', () => {
+describe('Auth sessions (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   const server = () => app.getHttpServer();

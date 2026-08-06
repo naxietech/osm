@@ -5,31 +5,35 @@ import { InstituteRegistrationForm } from './institute-registration-form';
 
 const baseProps = {
   categories: [],
-  isCodeTaken: () => false,
   onSubmit: vi.fn(),
 };
 
 // Formik validates asynchronously, so validity-driven assertions are awaited.
 describe('InstituteRegistrationForm', () => {
-  it('renders the new Level and Gender selects and disables submit until valid', async () => {
+  it('asks for a password and keeps submit disabled until the form is valid', async () => {
+    // The password is collected here because there is no email service to send a temporary one
+    // with — it becomes the institute's login the moment a super admin approves.
     render(<InstituteRegistrationForm {...baseProps} onSubmit={vi.fn()} />);
-    expect(screen.getByLabelText(/Education Level/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Gender/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Password/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Confirm Password/i)).toBeInTheDocument();
     await waitFor(() =>
       expect(screen.getByRole('button', { name: /Submit Registration/i })).toBeDisabled(),
     );
   });
 
-  it('flags a duplicate institute code', async () => {
+  it('pre-fills the code and email the page already checked', () => {
+    // Availability is the server's answer, asked once before this form is shown. The form no
+    // longer keeps its own duplicate predicate, which would only be a staler copy of that rule.
     render(
       <InstituteRegistrationForm
         {...baseProps}
         onSubmit={vi.fn()}
-        isCodeTaken={(c) => c.trim().toUpperCase() === 'DUP-1'}
+        initialCode="S01"
+        initialEmail="principal@example.pk"
       />,
     );
-    fireEvent.change(screen.getByLabelText(/Institute Code/i), { target: { value: 'DUP-1' } });
-    expect(await screen.findByText(/already registered/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Institute Code/i)).toHaveValue('S01');
+    expect(screen.getByLabelText(/Contact Email/i)).toHaveValue('principal@example.pk');
   });
 
   it('flags an invalid email', async () => {

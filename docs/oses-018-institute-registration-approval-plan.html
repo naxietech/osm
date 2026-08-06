@@ -1,0 +1,1002 @@
+<title>Institute Registration &amp; Approval — Development Plan</title>
+<style>
+  :root {
+    --bg: #f5f7f9; --surface: #ffffff; --surface-2: #eef1f5; --surface-3: #e7ebf1;
+    --text: #14171c; --text-2: #56606f; --text-3: #8b95a4;
+    --border: #e0e5eb; --border-strong: #cfd6df;
+    --accent: #3552b5; --accent-2: #4f74e6; --accent-soft: rgba(53, 82, 181, 0.08);
+    --good: #1f8f5f; --good-soft: rgba(31, 143, 95, 0.10);
+    --warn: #b1751a; --warn-soft: rgba(177, 117, 26, 0.12);
+    --crit: #c33a50; --crit-soft: rgba(195, 58, 80, 0.10);
+    --shadow: 0 1px 2px rgba(20, 23, 28, 0.04), 0 4px 16px rgba(20, 23, 28, 0.05);
+    --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0c0f14; --surface: #13181f; --surface-2: #191f28; --surface-3: #202834;
+      --text: #e7ebf2; --text-2: #9aa4b4; --text-3: #6a7484;
+      --border: #232b37; --border-strong: #303a49;
+      --accent: #7d97f0; --accent-2: #9fb2f7; --accent-soft: rgba(125, 151, 240, 0.12);
+      --good: #4cc38a; --good-soft: rgba(76, 195, 138, 0.13);
+      --warn: #e0a94a; --warn-soft: rgba(224, 169, 74, 0.14);
+      --crit: #ec6a7d; --crit-soft: rgba(236, 106, 125, 0.13);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #f5f7f9; --surface: #ffffff; --surface-2: #eef1f5; --surface-3: #e7ebf1;
+    --text: #14171c; --text-2: #56606f; --text-3: #8b95a4; --border: #e0e5eb; --border-strong: #cfd6df;
+    --accent: #3552b5; --accent-2: #4f74e6; --accent-soft: rgba(53,82,181,0.08);
+    --good: #1f8f5f; --good-soft: rgba(31,143,95,0.10); --warn: #b1751a; --warn-soft: rgba(177,117,26,0.12);
+    --crit: #c33a50; --crit-soft: rgba(195,58,80,0.10);
+    --shadow: 0 1px 2px rgba(20,23,28,0.04), 0 4px 16px rgba(20,23,28,0.05);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0c0f14; --surface: #13181f; --surface-2: #191f28; --surface-3: #202834;
+    --text: #e7ebf2; --text-2: #9aa4b4; --text-3: #6a7484; --border: #232b37; --border-strong: #303a49;
+    --accent: #7d97f0; --accent-2: #9fb2f7; --accent-soft: rgba(125,151,240,0.12);
+    --good: #4cc38a; --good-soft: rgba(76,195,138,0.13); --warn: #e0a94a; --warn-soft: rgba(224,169,74,0.14);
+    --crit: #ec6a7d; --crit-soft: rgba(236,106,125,0.13);
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 6px 20px rgba(0,0,0,0.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: var(--font-sans); line-height: 1.65; font-size: 16px; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+  .masthead { padding: 56px 0 32px; border-bottom: 1px solid var(--border); }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--accent); font-weight: 600;
+    display: flex; align-items: center; gap: 9px;
+  }
+  .eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  h1 { font-size: clamp(30px, 5vw, 46px); line-height: 1.08; letter-spacing: -0.02em; margin: 18px 0 12px; font-weight: 700; text-wrap: balance; max-width: 20ch; }
+  .lede { font-size: 18px; color: var(--text-2); max-width: 62ch; margin: 0 0 26px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px 20px; font-family: var(--font-mono); font-size: 12.5px; color: var(--text-3); }
+  .meta span { display: inline-flex; align-items: center; gap: 7px; }
+  .meta b { color: var(--text-2); font-weight: 600; }
+
+  .locked { margin-top: 30px; display: grid; grid-template-columns: repeat(auto-fit, minmax(205px, 1fr)); gap: 12px; }
+  .lockcard { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow); position: relative; overflow: hidden; }
+  .lockcard::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); }
+  .lockcard .k { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
+  .lockcard .v { font-weight: 600; font-size: 14.5px; margin-top: 4px; color: var(--text); }
+  .lockcard .n { font-size: 12.5px; color: var(--text-2); margin-top: 3px; line-height: 1.45; }
+
+  .shell { display: grid; grid-template-columns: 216px 1fr; gap: 48px; align-items: start; padding: 40px 0 80px; }
+  .rail { position: sticky; top: 24px; }
+  .rail nav { display: flex; flex-direction: column; gap: 1px; }
+  .rail a { font-size: 13.5px; color: var(--text-2); text-decoration: none; padding: 7px 12px; border-radius: 7px; display: flex; gap: 10px; align-items: baseline; border-left: 2px solid transparent; }
+  .rail a .num { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); min-width: 20px; }
+  .rail a:hover { background: var(--surface-2); color: var(--text); }
+  .rail .railhead { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-3); padding: 7px 12px; margin-top: 14px; }
+  .rail .railhead:first-child { margin-top: 0; }
+
+  main { min-width: 0; }
+  section { padding: 34px 0; border-top: 1px solid var(--border); scroll-margin-top: 20px; }
+  section:first-child { border-top: none; padding-top: 6px; }
+  .sechead { display: flex; align-items: baseline; gap: 14px; margin-bottom: 6px; }
+  .sechead .snum { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 3px 9px; border-radius: 6px; letter-spacing: 0.04em; white-space: nowrap; }
+  h2 { font-size: 25px; letter-spacing: -0.015em; margin: 0; font-weight: 680; text-wrap: balance; }
+  .subhead { color: var(--text-2); margin: 8px 0 22px; max-width: 68ch; }
+  h3 { font-size: 16px; font-weight: 640; margin: 26px 0 10px; letter-spacing: -0.01em; }
+  h3 .tag { font-family: var(--font-mono); font-size: 11px; font-weight: 500; color: var(--text-3); margin-left: 8px; }
+  h4 { font-size: 14px; font-weight: 640; margin: 18px 0 8px; color: var(--text); }
+  p { margin: 0 0 12px; max-width: 72ch; }
+  a.inline { color: var(--accent); }
+  ul, ol { margin: 0 0 14px; padding-left: 22px; max-width: 72ch; }
+  li { margin: 6px 0; }
+  li::marker { color: var(--text-3); }
+  code { font-family: var(--font-mono); font-size: 0.86em; background: var(--surface-2); padding: 1.5px 5px; border-radius: 5px; border: 1px solid var(--border); color: var(--text); }
+  strong { font-weight: 640; }
+
+  .note { border: 1px solid var(--border); border-left: 3px solid var(--accent); background: var(--surface); border-radius: 10px; padding: 14px 16px; margin: 16px 0; box-shadow: var(--shadow); }
+  .note.crit { border-left-color: var(--crit); }
+  .note.warn { border-left-color: var(--warn); }
+  .note.good { border-left-color: var(--good); }
+  .note .lbl { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; margin-bottom: 5px; display: block; color: var(--accent); }
+  .note.crit .lbl { color: var(--crit); } .note.warn .lbl { color: var(--warn); } .note.good .lbl { color: var(--good); }
+  .note p:last-child { margin-bottom: 0; }
+
+  .cards { display: grid; gap: 12px; margin: 16px 0; }
+  .cards.two { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 16px 18px; box-shadow: var(--shadow); }
+  .card .ct { font-weight: 640; font-size: 14.5px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .card .cd { color: var(--text-2); font-size: 13.5px; margin-top: 6px; }
+  .card ul { margin: 8px 0 0; } .card li { font-size: 13.5px; }
+
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.03em; padding: 3px 9px; border-radius: 20px; border: 1px solid var(--border-strong); color: var(--text-2); background: var(--surface-2); text-transform: uppercase; }
+  .chip.good { color: var(--good); background: var(--good-soft); border-color: transparent; }
+  .chip.warn { color: var(--warn); background: var(--warn-soft); border-color: transparent; }
+  .chip.crit { color: var(--crit); background: var(--crit-soft); border-color: transparent; }
+  .chip.accent { color: var(--accent); background: var(--accent-soft); border-color: transparent; }
+
+  .scroll { overflow-x: auto; margin: 16px 0; border: 1px solid var(--border); border-radius: 11px; box-shadow: var(--shadow); }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; background: var(--surface); }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3); font-weight: 600; background: var(--surface-2); }
+  tbody tr:last-child td { border-bottom: none; }
+  td code { white-space: nowrap; }
+  .method { font-family: var(--font-mono); font-weight: 700; font-size: 11.5px; padding: 2px 7px; border-radius: 5px; white-space: nowrap; }
+  .method.post { color: var(--good); background: var(--good-soft); }
+  .method.get { color: var(--accent); background: var(--accent-soft); }
+  .method.patch { color: var(--warn); background: var(--warn-soft); }
+  .method.del { color: var(--crit); background: var(--crit-soft); }
+
+  pre.code { font-family: var(--font-mono); font-size: 12.5px; line-height: 1.65; background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 16px 18px; overflow-x: auto; margin: 16px 0; box-shadow: var(--shadow); color: var(--text-2); tab-size: 2; }
+  pre.code .c { color: var(--text-3); }
+  pre.code .h { color: var(--accent); font-weight: 600; }
+  pre.code .r { color: var(--crit); }
+  pre.code .g { color: var(--good); }
+  pre.code b { color: var(--text); font-weight: 600; }
+
+  pre.mermaid { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; overflow-x: auto; margin: 18px 0; box-shadow: var(--shadow); text-align: center; }
+
+  .phase { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 11px; padding: 18px 20px; margin-bottom: 14px; box-shadow: var(--shadow); }
+  .phase-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
+  .phase-num { font-family: var(--font-mono); font-size: 22px; font-weight: 700; color: var(--accent); line-height: 1; }
+  .phase-title { font-size: 16px; font-weight: 650; }
+  .phase-where { font-family: var(--font-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-3); margin-left: auto; }
+  .done-when { background: var(--surface-2); border-radius: 8px; padding: 11px 14px; margin-top: 12px; font-size: 13.5px; color: var(--text-2); }
+  .done-when b { color: var(--good); }
+  .splitbar { display: flex; align-items: center; gap: 14px; margin: 22px 0; color: var(--accent); font-family: var(--font-mono); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; }
+  .splitbar::before, .splitbar::after { content: ""; height: 1px; background: var(--border-strong); flex: 1; }
+
+  .decided { display: grid; gap: 12px; margin: 16px 0; }
+  .dec { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--good); border-radius: 11px; padding: 14px 16px; box-shadow: var(--shadow); }
+  .dec.changed { border-left-color: var(--warn); }
+  .dec .q { font-weight: 640; font-size: 14.5px; margin-bottom: 4px; }
+  .dec .a { color: var(--text-2); font-size: 13.5px; }
+  .dec .a b { color: var(--good); }
+  .dec.changed .a b { color: var(--warn); }
+
+  .faq { display: flex; flex-direction: column; gap: 9px; margin: 18px 0; }
+  .faq details { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; box-shadow: var(--shadow); overflow: hidden; }
+  .faq details[open] { border-color: var(--border-strong); }
+  .faq summary { cursor: pointer; padding: 14px 16px; font-weight: 620; font-size: 15px; list-style: none; display: flex; justify-content: space-between; gap: 14px; align-items: center; color: var(--text); }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::after { content: "+"; font-family: var(--font-mono); color: var(--accent); font-size: 19px; line-height: 1; flex-shrink: 0; }
+  .faq details[open] summary::after { content: "\2013"; }
+  .faq summary:hover { color: var(--accent); }
+  .faq .a { padding: 0 16px 15px; color: var(--text-2); font-size: 14.5px; }
+  .faq .a p { margin: 0 0 9px; max-width: 74ch; }
+  .faq .a p:last-child { margin-bottom: 0; }
+
+  footer { border-top: 1px solid var(--border); padding: 26px 0 60px; color: var(--text-3); font-size: 13px; font-family: var(--font-mono); }
+
+  @media (max-width: 900px) { .shell { grid-template-columns: 1fr; gap: 0; } .rail { display: none; } }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <div class="eyebrow"><span class="dot"></span>OSES · Backend + Web · Module 2</div>
+    <h1>Institute Registration &amp; Approval — Development Plan</h1>
+    <p class="lede">An institute fills in a public form. A super admin reads it and presses one button. That button turns an application into a working account with a login — and creates the row that every student, exam, script and result will eventually hang from. It is the smallest table in the system with the largest blast radius.</p>
+    <div class="meta">
+      <span><b>Scope</b> apps/api + apps/web + packages/types</span>
+      <span><b>Spec</b> OSMS TRD Module 2 · consumes Module 1</span>
+      <span><b>Branch</b> osm-018-institute-registration-approval</span>
+      <span><b>Status</b> v1 · decisions locked · no code written yet</span>
+    </div>
+
+    <div class="locked">
+      <div class="lockcard"><div class="k">Who approves</div><div class="v">Super Admin</div><div class="n">Holds <code>institutes.manage</code>; already seeded</div></div>
+      <div class="lockcard"><div class="k">Approval</div><div class="v">One button</div><div class="n">Approve &amp; Register — approves and creates the login together</div></div>
+      <div class="lockcard"><div class="k">Password</div><div class="v">Set by the institute</div><div class="n">Collected on the public form, hashed on arrival</div></div>
+      <div class="lockcard"><div class="k">Identity</div><div class="v">Institute code</div><div class="n">Globally unique; freed again if the application is rejected</div></div>
+      <div class="lockcard"><div class="k">Removal</div><div class="v">Deactivate</div><div class="n">Delete only while nothing is attached</div></div>
+      <div class="lockcard"><div class="k">Cascade</div><div class="v">Designed now, wired later</div><div class="n">Students and evaluators do not exist yet — the seam does</div></div>
+      <div class="lockcard"><div class="k">Shape</div><div class="v">Flat list</div><div class="n">No board→school hierarchy in this branch</div></div>
+    </div>
+  </header>
+
+  <div class="shell">
+    <aside class="rail">
+      <nav>
+        <div class="railhead">Review</div>
+        <a href="#s0"><span class="num">00</span> Decisions locked</a>
+        <a href="#s1"><span class="num">01</span> What we build</a>
+        <a href="#s2"><span class="num">02</span> Architecture</a>
+        <a href="#s3"><span class="num">03</span> Database</a>
+        <a href="#s3b"><span class="num">03·</span> Seed data</a>
+        <a href="#s4"><span class="num">04</span> API surface</a>
+        <a href="#s5"><span class="num">05</span> Scalability</a>
+        <a href="#s6"><span class="num">06</span> Security</a>
+        <a href="#s7"><span class="num">07</span> Performance</a>
+        <a href="#s8"><span class="num">08</span> Folder structure</a>
+        <div class="railhead">Delivery</div>
+        <a href="#flow"><span class="num">◆</span> The flow</a>
+        <a href="#build"><span class="num">→</span> Build sequence</a>
+        <a href="#faq"><span class="num">✦</span> FAQs</a>
+        <a href="#qa"><span class="num">QA</span> Manual test plan</a>
+        <a href="#out"><span class="num">×</span> Not in this branch</a>
+      </nav>
+    </aside>
+
+    <main>
+
+      <!-- 00 -->
+      <section id="s0">
+        <div class="sechead"><span class="snum">00</span><h2>Decisions locked</h2></div>
+        <p class="subhead">Every question raised while planning, and what was decided. The rest of the document follows these answers. Two of them changed during the discussion and are marked.</p>
+
+        <div class="decided">
+          <div class="dec">
+            <div class="q">1 · Does approving an institute also create its login?</div>
+            <div class="a"><b>Yes — one button.</b> "Approve &amp; Register" approves the institute and creates its user in the same action. Making the super admin approve first and then go to the Users screen is a double journey for no gain. The button lives on the <b>detail page, not in the list table</b>, behind a confirmation modal that says plainly what is about to happen.</div>
+          </div>
+          <div class="dec">
+            <div class="q">2 · Where does the institute's password come from?</div>
+            <div class="a"><b>The institute sets it on the public form.</b> With no email service there is no way to send a temporary password, so asking for it up front is the only flow that does not end in a phone call. It is hashed with argon2id the moment it arrives, stored in <b>a separate table</b> so it can never travel with an institute record, and destroyed as soon as the login exists or the application is rejected.</div>
+          </div>
+          <div class="dec">
+            <div class="q">3 · What makes an institute unique?</div>
+            <div class="a"><b>The institute code, globally.</b> One field decides whether an institute already exists. The uniqueness rule <b>skips rejected and deleted rows</b>, which is what lets a turned-away institute apply again using its real code.</div>
+          </div>
+          <div class="dec">
+            <div class="q">4 · What about two institutes with the same name?</div>
+            <div class="a"><b>Allowed — names carry no constraint.</b> Two "Government High School" in different cities is normal in Pakistan, and blocking it would reject real institutes. Instead a matching name + city raises a <b>warning on the approval screen</b>, never a block. Lists always show name + branch + city together so a human can tell them apart.</div>
+          </div>
+          <div class="dec">
+            <div class="q">5 · Can a rejected institute apply again?</div>
+            <div class="a"><b>Yes.</b> The rejected row stays, with its reason, as the record of who applied and was turned away. A fresh submission with the same code creates a new row. Blocking the code forever would mean one typo locks a real institute out permanently.</div>
+          </div>
+          <div class="dec">
+            <div class="q">6 · How do we stop the public form being flooded?</div>
+            <div class="a">Three cheap layers: a <b>stricter rate limit</b> on the public write route, a <b>duplicate-code check</b> that refuses a code already waiting for approval, and the <b>approval queue itself</b> as the final human gate. <b>No captcha</b> in phase 1 — it needs a third-party service, which brushes against the confidentiality rule.</div>
+          </div>
+          <div class="dec">
+            <div class="q">7 · When does an applicant learn their code or email is taken?</div>
+            <div class="a"><b>At the step boundary</b> — when they press Next past the step holding those two fields. This does reveal which codes and emails exist, which is normally avoided. It is accepted here because this is a form for <b>institutions rather than individuals</b>, the volume is roughly 150, it is rate-limited, and with no email service there is no other way to tell them. The check runs <b>again at approval</b>, because weeks can pass in between.</div>
+          </div>
+          <div class="dec">
+            <div class="q">8 · What happens to <code>file</code>-type category questions?</div>
+            <div class="a"><b>Blocked, with a clear message.</b> There is no file storage in the API yet. Accepting an upload and keeping only its filename would look like it worked and quietly lose the document — worse than refusing.</div>
+          </div>
+          <div class="dec changed">
+            <div class="q">9 · One status field or two? <span class="chip warn">changed</span></div>
+            <div class="a"><b>One:</b> <code>pending</code> → <code>approved</code> → <code>deactivated</code>, with <code>rejected</code> as a dead end off <code>pending</code>. The old model carried <code>onboardingStatus</code> <em>and</em> <code>isActive</code>, which allowed nonsense states like "complete but inactive". The word is <b>deactivate</b>, not suspend, matching the rename already shipped in the users module.</div>
+          </div>
+          <div class="dec">
+            <div class="q">10 · Who may edit an approved institute, and what?</div>
+            <div class="a"><b>Super admin and admin.</b> Locked forever after approval: <b>category</b>, the <b>question answers</b>, the <b>institute code</b>, the <b>numeric code</b>. Everything else stays editable, <b>including the contact email</b> — contact people change jobs, and freezing the address means nobody can reach the institute. Editing it shows a notice: <em>"Recommended — also change the login email for this institute."</em> The two are deliberately separate; changing one never silently changes the other.</div>
+          </div>
+          <div class="dec">
+            <div class="q">11 · Can an approved institute be deleted?</div>
+            <div class="a"><b>Only while nothing is attached</b> — zero students, zero exams, zero users. That covers the real case: approved by mistake, or a duplicate. The row stays for the audit trail but <b>the code is freed</b>, so the institute can be registered again properly. Once anything is attached, deactivate is the only way out. <b>A hard delete exists at no point.</b></div>
+          </div>
+          <div class="dec">
+            <div class="q">12 · What does deactivating an institute switch off?</div>
+            <div class="a">Its <b>students</b>, its <b>evaluators</b> — and any <b>allocations those evaluators hold are released first</b>, in that order, inside one transaction. An <b>exam already running is not disturbed</b>; the block is on future use. <b>Results are never touched</b> — a deactivated student's result stays valid and readable.</div>
+          </div>
+          <div class="dec">
+            <div class="q">13 · Can the super admin register an institute directly?</div>
+            <div class="a"><b>Yes, and it lands as <code>approved</code> immediately.</b> Making the approver approve their own entry is the same double journey rejected in decision 1. A <code>registration_source</code> column records <code>public</code> or <code>admin</code>, so you can always tell a self-registration from a staff entry.</div>
+          </div>
+          <div class="dec changed">
+            <div class="q">14 · Does an institute have a parent? <span class="chip warn">changed</span></div>
+            <div class="a"><b>No — the list stays flat in this branch.</b> A board such as Lahore Board would naturally sit above its affiliated schools, and one nullable self-referencing column now would be far cheaper than re-parenting live data later. It was raised, considered and <b>deliberately deferred</b>. Recorded here so the decision is visible rather than forgotten. See <a class="inline" href="#out">Not in this branch</a>.</div>
+          </div>
+          <div class="dec">
+            <div class="q">15 · Multi-client tenancy?</div>
+            <div class="a"><b>Deferred.</b> No <code>client_id</code> column. A speculative column that nobody fills is its own kind of debt — people read it as working isolation when it is doing nothing.</div>
+          </div>
+          <div class="dec">
+            <div class="q">16 · Three fields the TRD never asks for</div>
+            <div class="a"><b>Dropped:</b> <code>registrationNo</code>, <code>instituteLevel</code> and <code>category</code> (boys/girls/co-ed). They are left over from the older "School" model. <b>One catch:</b> the <code>InstituteLevel</code> <em>enum</em> stays in <code>@oses/types</code> because <code>exam.types.ts</code> uses it too — only the field leaves the institute.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 01 -->
+      <section id="s1">
+        <div class="sechead"><span class="snum">01</span><h2>What we are building</h2></div>
+        <p class="subhead">What the TRD asks for, what already exists, who will read this data, and the rules that must never break once a million students sit behind it.</p>
+
+        <h3>What the TRD asks for <span class="tag">Module 2</span></h3>
+        <p>An open public link where an institute registers itself, and a <b>Super Admin approval</b> that turns the application into a real account. The fields: institute name <b>with branch</b> (e.g. "NSSOE, Shakargarh Campus"), <b>institute code</b> (government-provided, e.g. <code>S01</code>), <b>category</b> from Module 1, that category's <b>dynamic questions with the institute's answers</b>, <b>type</b> (Govt / Semi-govt / Private / Other), address, province, city, postal code, contact name, designation, contact email and contact number.</p>
+
+        <h3>This module is not starting from nothing</h3>
+        <p>Most of the shape already exists, scattered across three places. The work is to make it real, not to invent it.</p>
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Piece</th><th>State today</th><th>Where</th></tr></thead>
+            <tbody>
+              <tr><td>Institute types, DTOs, enums</td><td><span class="chip accent">defined</span></td><td><code>packages/types/src/institute.types.ts</code></td></tr>
+              <tr><td>Public registration form, approvals queue, list, detail</td><td><span class="chip warn">built on mocks</span></td><td><code>pages/public/</code>, <code>pages/institutes/</code></td></tr>
+              <tr><td>Categories and their dynamic questions</td><td><span class="chip good">live in Postgres</span></td><td><code>institute_categories</code>, <code>institute_category_questions</code></td></tr>
+              <tr><td>A public, login-free, rate-limited controller</td><td><span class="chip good">live and proven</span></td><td><code>public-institute-categories.controller.ts</code></td></tr>
+              <tr><td><code>institutes.manage</code> permission</td><td><span class="chip good">already seeded</span></td><td><code>rbac/permissions.constants.ts</code></td></tr>
+              <tr><td><code>users.institute_id</code></td><td><span class="chip crit">text, no foreign key, points at nothing</span></td><td><code>users</code> table</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="note good"><span class="lbl">Two seams were left open for exactly this module</span><p>The categories module ships a <code>CategoryAnswerProbe</code> port whose <code>hasAnswers(questionId)</code> always answers <b>no</b> — a real, tested interface with a placeholder body, waiting for institute answers to exist. And <code>users.institute_id</code> is a text column holding ids like <code>sch_001</code> that refer to nothing. <b>This is the module that makes both of them honest.</b></p></div>
+
+        <h3>Who will read an institute</h3>
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Who</th><th>Reads what</th><th>Login needed?</th></tr></thead>
+            <tbody>
+              <tr><td><b>Public registration form</b></td><td>Active categories and their questions, to draw itself</td><td><span class="chip crit">No — anyone can open it</span></td></tr>
+              <tr><td><b>Approval queue</b></td><td>Everything on a pending application, plus the duplicate warning</td><td>Yes — <b>Super Admin</b></td></tr>
+              <tr><td><b>Institutes list &amp; detail</b></td><td>The directory, with search, filters and paging</td><td>Yes — <code>institutes.manage</code></td></tr>
+              <tr><td><b>The institute's own users</b></td><td>Their own record only, through <code>users.institute_id</code></td><td>Yes — Institute role</td></tr>
+              <tr><td><b>Students</b><br><span class="chip">later</span></td><td>Every student row points at exactly one institute</td><td>Varies</td></tr>
+              <tr><td><b>Exams, scripts, marking, results</b><br><span class="chip">later</span></td><td>All reachable from the institute, all permanent links</td><td>Varies</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note crit"><span class="lbl">Why this table matters more than the table below it</span><p>An institute row is small — around twenty columns, and there will be roughly 150 of them. But it is the <b>root of the entire data tree</b>. Students hang off institutes, exams hang off students, marks hang off exams, results hang off marks. Every design choice here is inherited by a million rows that do not exist yet. Reference data is cheap to build and expensive to get wrong; root data is expensive both ways.</p></div>
+
+        <h3>Rules that must always hold</h3>
+        <ul>
+          <li><b>An approved institute can never disappear.</b> Results depend on it existing, years later. Deactivation hides it; nothing deletes it.</li>
+          <li><b>An answer must keep pointing at the question it answered.</b> A stored answer references a permanent question id, and the database refuses to let that question be deleted while the answer exists.</li>
+          <li><b>The public form must create nothing but a queue entry.</b> No login, no access, no permission — until a human presses approve.</li>
+          <li><b>A deactivated institute must not leave a working login behind.</b> Switching off the institute while five staff accounts keep signing in is the failure mode to design against.</li>
+          <li><b>Two people approving at once must not create two logins.</b> One approval, one transaction, one outcome.</li>
+          <li><b>No candidate data lives here.</b> The contact details belong to institute staff, not to students. This module must never start holding student information.</li>
+        </ul>
+      </section>
+
+      <!-- 02 -->
+      <section id="s2">
+        <div class="sechead"><span class="snum">02</span><h2>Architecture</h2></div>
+        <p class="subhead">Four hard problems, and the same ports-and-adapters structure that auth and categories already proved.</p>
+
+        <h3>Hard problem 1 — approval is four things that must be one thing</h3>
+        <p>Pressing <b>Approve &amp; Register</b> does four separate jobs:</p>
+        <pre class="code"><b>1.</b> flip status  pending → <span class="g">approved</span>
+<b>2.</b> assign the institute's permanent <span class="h">numeric_code</span>
+<b>3.</b> create the <b>user</b> from the stored email + password hash
+<b>4.</b> destroy the stored credential
+
+<span class="c">Any one of these failing must undo the other three.</span></pre>
+        <p>Half-finishing produces exactly the states that are hardest to recover from: an approved institute nobody can log in to, or a user account belonging to an institute that is still pending. <b>All four run in one database transaction.</b> Either the institute is fully live, or nothing changed and the super admin sees an error and presses the button again.</p>
+
+        <h4>Assigning the numeric code safely</h4>
+        <p>The obvious way to pick the next number is <code>SELECT MAX(numeric_code) + 1</code>. It is also wrong. Two approvals happening at the same moment both read the same maximum and both write the same number.</p>
+        <div class="cards two">
+          <div class="card">
+            <div class="ct"><span class="chip crit">Rejected</span> <code>MAX(numeric_code) + 1</code></div>
+            <div class="cd">Reads and writes are separate steps, so two concurrent approvals collide. The unique constraint catches it and one super admin sees a confusing error — for a number nobody typed.</div>
+          </div>
+          <div class="card">
+            <div class="ct"><span class="chip good">Chosen</span> A Postgres sequence</div>
+            <div class="cd"><code>nextval()</code> is atomic and never hands the same value to two callers. It also never reuses a number after a rollback — which is exactly what we want, because a reused number would make an old student registration number point at a different institute.</div>
+          </div>
+        </div>
+
+        <h3>Hard problem 2 — a cascade with nothing to cascade to</h3>
+        <p>Deactivating an institute must switch off its students and its evaluators, releasing those evaluators' allocations first. <b>None of those tables exist yet.</b> There is no students table, no evaluators table, no allocations table.</p>
+        <p>So the cascade cannot be implemented in this branch — but it can be <b>defined</b>. The categories module already showed the technique, and this module reuses it:</p>
+        <pre class="code"><b>InstituteDependants</b>  <span class="c">· a port owned by this module</span>
+   countStudents(instituteId)        <span class="c">→ 0        (placeholder)</span>
+   countExams(instituteId)           <span class="c">→ 0        (placeholder)</span>
+   releaseAllocations(instituteId)   <span class="c">→ no-op    (placeholder)</span>
+   deactivateStudents(instituteId)   <span class="c">→ no-op    (placeholder)</span>
+   deactivateEvaluators(instituteId) <span class="c">→ no-op    (placeholder)</span>
+
+<span class="c">Real today, and genuinely used:</span>
+   countUsers(instituteId)           <span class="c">→ real query against `users`</span>
+   deactivateUsers(instituteId)      <span class="c">→ real — sets status + revokes sessions</span></pre>
+        <div class="note warn"><span class="lbl">Built now, switches on later</span><p>The interface, its call order and its tests ship in this branch as real code. When the students module lands, the protection turns on by <b>filling in one method</b> — not by trying to add cascade rules to a table that is already carrying a million rows. Designing the seam is the work; the implementation is the easy part that comes afterwards.</p><p>The one branch that is <b>fully real today</b> is the user half — because the <code>users</code> table exists. Deactivating an institute genuinely does deactivate its logins and revoke their sessions, reusing the machinery built for user deactivation.</p></div>
+
+        <h3>Hard problem 3 — holding a password before a user exists</h3>
+        <p>The institute chooses its password on the public form, but the user account is not created until approval, possibly weeks later. So a credential has to be stored against something that is not a user.</p>
+        <div class="cards two">
+          <div class="card">
+            <div class="ct"><span class="chip crit">Rejected</span> A column on <code>institutes</code></div>
+            <div class="cd">It works, but it puts a password hash inside the row that every list, detail and mapper reads. One forgotten field in one mapper and a hash is in an API response. The safety depends on nobody ever making a mistake.</div>
+          </div>
+          <div class="card">
+            <div class="ct"><span class="chip good">Chosen</span> Its own table</div>
+            <div class="cd"><code>institute_registration_credentials</code> — one row per pending institute. The institute repository never selects it, so it <b>cannot</b> leak by accident. The row is deleted the moment the user is created, or the application is rejected.</div>
+          </div>
+        </div>
+        <p>This is the same reasoning that gave the categories module two controllers instead of one: make the unsafe thing <b>structurally impossible</b> rather than merely remembered.</p>
+
+        <h3>Hard problem 4 — two front doors, one table</h3>
+        <p>An institute can arrive two ways, and they are not the same:</p>
+        <div class="scroll">
+          <table>
+            <thead><tr><th></th><th>Public link</th><th>Super admin creates it</th></tr></thead>
+            <tbody>
+              <tr><td>Login required</td><td><span class="chip crit">No</span></td><td>Yes — <code>institutes.manage</code></td></tr>
+              <tr><td>Lands as</td><td><code>pending</code></td><td><code>approved</code> straight away</td></tr>
+              <tr><td>Password</td><td>Chosen by the institute, required</td><td>Typed by the super admin, optional</td></tr>
+              <tr><td>Numeric code</td><td>Assigned at approval</td><td>Assigned at creation</td></tr>
+              <tr><td><code>registration_source</code></td><td><code>public</code></td><td><code>admin</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Two DTOs, two controllers, <b>one service method</b> that takes the source as an argument. The validation rules that matter — code uniqueness, category exists, required questions answered, no <code>file</code> questions — are identical and live in one place, so they can never drift apart between the two doors.</p>
+
+        <h3>Two doors, not one <span class="tag">the same security decision as Module 1</span></h3>
+        <pre class="code"><b>InstitutesController</b>          <span class="c">/institutes</span>
+   Logged in → account active → holds <span class="h">institutes.manage</span>
+   <span class="c">full list/create/edit/approve/reject/deactivate · admin view, every field</span>
+
+<b>PublicInstitutesController</b>    <span class="c">/public/institutes</span>
+   <span class="r">no login</span> + its own tighter rate limit
+   <span class="c">two routes only: check availability, submit a registration</span>
+   <span class="c">returns a written allow-list of fields — never an institute record</span></pre>
+        <p>Separate files on purpose. One controller that "behaves differently when logged in" is the classic way an admin-only field becomes public a year later, when somebody adds a column and forgets the branch.</p>
+
+        <h3>Ports and adapters <span class="tag">same as auth and categories</span></h3>
+        <pre class="code"><b>InstituteRepository</b>              <span class="c">· the interface, owned by the module</span>
+<b>InstituteCredentialRepository</b>    <span class="c">· the isolated password store</span>
+<b>InstituteDependants</b>             <span class="c">· the cascade seam described above</span>
+<b>CategoryAnswerProbe</b>             <span class="c">· NOW REAL — Module 1's placeholder gets its body</span>
+   └─ all implemented in <b>persistence/typeorm/repositories/</b>
+
+<span class="c">The service only ever talks to these interfaces. That is what made branch 014</span>
+<span class="c">cheap: the database engine changed and 83 tests never moved.</span></pre>
+      </section>
+
+      <!-- 03 -->
+      <section id="s3">
+        <div class="sechead"><span class="snum">03</span><h2>Database design</h2></div>
+        <p class="subhead">Three new tables, one sequence, and one conversion of an existing column that has been pointing at nothing since it was created. All in a new migration file — the earlier migrations are history and are never edited.</p>
+
+        <h3>ER diagram <span class="tag">as it will be built</span></h3>
+        <pre class="mermaid">
+erDiagram
+    users ||--o{ institutes : "created_by, approved_by"
+    institutes ||--o{ users : "institute_id"
+    institute_categories ||--o{ institutes : "category_id"
+    institutes ||--o{ institute_question_answers : "institute_id"
+    institute_category_questions ||--o{ institute_question_answers : "question_id"
+    institutes ||--o| institute_registration_credentials : "institute_id"
+
+    users {
+        uuid id PK
+        citext email UK
+        uuid role_id FK
+        uuid institute_id FK "text to uuid in this branch"
+        text status
+    }
+    institute_categories {
+        uuid id PK
+        citext code UK
+        text name
+        boolean is_active
+    }
+    institute_category_questions {
+        uuid id PK
+        uuid category_id FK
+        text text
+        text type
+        boolean required
+    }
+    institutes {
+        uuid id PK
+        citext institute_code "unique while live"
+        integer numeric_code UK "from a sequence"
+        text institute_name
+        text branch "nullable"
+        uuid category_id FK
+        text institution_type
+        text address
+        text city
+        text province
+        text postal_code "nullable"
+        text contact_person_name
+        text contact_person_designation
+        citext contact_email
+        text contact_phone
+        text status "pending approved rejected deactivated"
+        text rejection_reason "nullable"
+        text registration_source "public or admin"
+        uuid approved_by FK "nullable"
+        timestamptz approved_at "nullable"
+        uuid created_by FK "nullable"
+        uuid updated_by FK "nullable"
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at "nullable"
+    }
+    institute_question_answers {
+        uuid id PK
+        uuid institute_id FK
+        uuid question_id FK
+        text values "text array"
+        timestamptz created_at
+    }
+    institute_registration_credentials {
+        uuid institute_id PK
+        text password_hash "argon2id"
+        timestamptz created_at
+    }
+        </pre>
+
+        <h3>What the database itself enforces</h3>
+        <p>Rules written only in application code are rules until somebody writes a script. These live in the schema.</p>
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Rule</th><th>How</th><th>Why it cannot be left to the service</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>One live institute per code</td>
+                <td>Partial unique index on <code>lower(institute_code)</code> <code>WHERE status &lt;&gt; 'rejected' AND deleted_at IS NULL</code></td>
+                <td>A plain unique index would block a rejected institute from ever re-applying. A service-only check loses to two concurrent submissions.</td>
+              </tr>
+              <tr>
+                <td>Numeric codes are never shared</td>
+                <td><code>UNIQUE</code> on <code>numeric_code</code>, values from a sequence</td>
+                <td>A duplicate here silently corrupts every student registration number built from it.</td>
+              </tr>
+              <tr>
+                <td>An answered question can never be deleted</td>
+                <td><code>ON DELETE RESTRICT</code> from <code>institute_question_answers.question_id</code></td>
+                <td>This is the constraint that makes Module 1's <code>CategoryAnswerProbe</code> real. Without it an admin editing a category could strand every answer to it.</td>
+              </tr>
+              <tr>
+                <td>One answer per question per institute</td>
+                <td><code>UNIQUE (institute_id, question_id)</code></td>
+                <td>Two rows for one question means the answer is ambiguous, and nothing would ever error.</td>
+              </tr>
+              <tr>
+                <td>Answers vanish with their institute</td>
+                <td><code>ON DELETE CASCADE</code> from <code>institute_question_answers.institute_id</code></td>
+                <td>Answers have no meaning without the institute that gave them.</td>
+              </tr>
+              <tr>
+                <td>A category in use cannot be deleted</td>
+                <td><code>ON DELETE RESTRICT</code> from <code>institutes.category_id</code></td>
+                <td>Deleting a category out from under 40 institutes is a data-loss bug, not a validation error. On Postgres 18 this surfaces as SQLSTATE <code>23001</code> — the shared <code>pg-errors</code> helper already handles it.</td>
+              </tr>
+              <tr>
+                <td>Only the four real statuses</td>
+                <td><code>CHECK (status IN (…))</code>, plus checks on <code>institution_type</code>, <code>province</code>, <code>registration_source</code></td>
+                <td>A typo'd status makes an institute invisible to every query that filters on it.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Indexes</h3>
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Index</th><th>Serves</th></tr></thead>
+            <tbody>
+              <tr><td>partial unique on <code>lower(institute_code)</code></td><td>The uniqueness rule <em>and</em> the availability check on the public form</td></tr>
+              <tr><td>partial on <code>status</code> where <code>status = 'pending'</code></td><td>The approval queue — the screen opened most often, always filtered the same way</td></tr>
+              <tr><td><code>lower(institute_name)</code>, <code>lower(city)</code></td><td>The duplicate-name warning, so it never scans the table on every submission</td></tr>
+              <tr><td><code>category_id</code></td><td>Filtering the directory by category; the RESTRICT check on category delete</td></tr>
+              <tr><td><code>created_at DESC</code> where <code>deleted_at IS NULL</code></td><td>The default listing order</td></tr>
+              <tr><td><code>users.institute_id</code></td><td>Already exists — but becomes genuinely useful once it points at something</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Converting <code>users.institute_id</code> <span class="tag">the risky part of this branch</span></h3>
+        <p>The column is <code>text</code> today with no foreign key, holding values like <code>sch_001</code> that refer to nothing. It becomes <code>uuid</code> with a real constraint.</p>
+        <pre class="code"><b>1.</b> <span class="r">NULL out every existing value</span> <span class="c">— none of them point at a real institute</span>
+<b>2.</b> alter the column type text → uuid
+<b>3.</b> add the foreign key to institutes(id)
+<b>4.</b> re-seed: create the demo institute, then point the seeded
+   institute user at its real id</pre>
+        <div class="note crit"><span class="lbl">Step 1 discards data — deliberately</span><p>Every value in that column today is a mock id from the frontend prototype. There is no institute to preserve the link to, so keeping the strings would only carry the broken reference into a typed column. <b>On a dev database this is harmless and the seed puts it back.</b> If this branch ever meets a database with real institute users in it, step 1 must be replaced by a mapping step first. Say so in the PR description.</p></div>
+      </section>
+
+      <!-- 03b -->
+      <section id="s3b">
+        <div class="sechead"><span class="snum">03·</span><h2>Seed data</h2></div>
+        <p class="subhead">Small, insert-only, and safe to run twice.</p>
+        <ul>
+          <li><b>One demo institute</b>, <code>approved</code>, under the seeded <b>School</b> category — enough to give the seeded institute user somewhere real to point.</li>
+          <li><b>The seeded institute user is linked to it</b>, which is what makes the new foreign key meaningful the moment the migration finishes.</li>
+          <li><b>Nothing is ever overwritten.</b> Re-running the seed after an admin has edited the demo institute changes nothing — the same rule the categories seed already follows.</li>
+          <li><b>No permission changes.</b> <code>institutes.manage</code> is already in the catalogue and already held only by Super Admin — verified against the running database.</li>
+        </ul>
+        <div class="note good"><span class="lbl">Nothing to add to RBAC</span><p>This module introduces no new permission. Every route reuses <code>institutes.manage</code>, which the seed already grants to Super Admin alone. If a future role needs it, granting the permission is enough — no code change.</p></div>
+      </section>
+
+      <!-- 04 -->
+      <section id="s4">
+        <div class="sechead"><span class="snum">04</span><h2>API surface</h2></div>
+        <p class="subhead">Two public routes with no login, eight admin routes behind the usual guard chain. Every response is wrapped by <code>TransformInterceptor</code>; controllers return plain data.</p>
+
+        <h3>Public <span class="tag">no login · tighter rate limit</span></h3>
+        <div class="scroll">
+          <table>
+            <thead><tr><th style="width:38%">Route</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><span class="method post">POST</span> <code>/public/institutes/check-availability</code></td>
+                <td>Powers the step-boundary check. <b>POST, not GET</b> — an email in a query string ends up in server logs and browser history, which <code>NFR-SEC-5</code> forbids. Answers only <code>{ codeAvailable, emailAvailable }</code>, never a record.</td>
+              </tr>
+              <tr>
+                <td><span class="method post">POST</span> <code>/public/institutes</code></td>
+                <td>The registration itself. Creates one <code>pending</code> row plus its answers and credential, in one transaction. Duplicate code → <b>409</b>. A required <code>file</code> question in the chosen category → <b>400</b> with a plain explanation.</td>
+              </tr>
+              <tr>
+                <td><span class="method get">GET</span> <code>/public/institute-categories</code></td>
+                <td><span class="chip good">already exists</span> Module 1 built it. The form draws itself from this.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Admin <span class="tag">JwtAuthGuard → ActiveUserGuard → PermissionsGuard · institutes.manage</span></h3>
+        <div class="scroll">
+          <table>
+            <thead><tr><th style="width:38%">Route</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td><span class="method get">GET</span> <code>/institutes</code></td><td>Paginated, newest first. <code>?q=</code> name/code search, <code>?status=</code>, <code>?categoryId=</code>. The total is narrowed by the same filters as the page, so "showing 10 of 3" cannot happen — the users module already sets this pattern.</td></tr>
+              <tr><td><span class="method get">GET</span> <code>/institutes/:id</code></td><td>The full record with its category and answers resolved, plus the duplicate-name warning when there is one.</td></tr>
+              <tr><td><span class="method post">POST</span> <code>/institutes</code></td><td>Super admin creates one directly → lands <code>approved</code>, numeric code assigned immediately.</td></tr>
+              <tr><td><span class="method patch">PATCH</span> <code>/institutes/:id</code></td><td>Edit. Sending a locked field (<code>categoryId</code>, answers, <code>instituteCode</code>, <code>numericCode</code>) on an approved institute → <b>400</b> naming the field, never a silent ignore.</td></tr>
+              <tr><td><span class="method post">POST</span> <code>/institutes/:id/approve</code></td><td><b>Approve &amp; Register.</b> Body carries whether to create the login and the user's full name. One transaction, four steps. Email already taken → <b>409</b>. Already approved → <b>409</b>, not a second login.</td></tr>
+              <tr><td><span class="method post">POST</span> <code>/institutes/:id/reject</code></td><td>Requires a reason. Frees the code, destroys the stored credential.</td></tr>
+              <tr><td><span class="method patch">PATCH</span> <code>/institutes/:id/status</code></td><td>Deactivate / reactivate. Deactivating runs the cascade in <a class="inline" href="#s2">§02</a>.</td></tr>
+              <tr><td><span class="method del">DELETE</span> <code>/institutes/:id</code></td><td>Soft delete. Refused with <b>400</b> if anything is attached, and the message says what is attached and how many.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="note"><span class="lbl">Error discipline</span><p>Every one of these throws a Nest <code>HttpException</code> and is shaped by <code>HttpExceptionFilter</code>. A unique-constraint violation becomes a <b>409</b>, never a 500, through the shared <code>pg-errors</code> helper. The web app shows the server's own wording through <code>apiErrorMessage()</code> and never restates a rule in UI copy — that is how copy goes stale.</p></div>
+      </section>
+
+      <!-- 05 -->
+      <section id="s5">
+        <div class="sechead"><span class="snum">05</span><h2>Scalability</h2></div>
+        <p class="subhead">The table is tiny. Everything that will point at it is not.</p>
+
+        <div class="cards two">
+          <div class="card">
+            <div class="ct">This table</div>
+            <div class="cd">Roughly <b>150 rows</b>, growing by a handful a month. Every query on it is indexed and none of them will ever be slow. Paging the directory is about consistency with the rest of the API, not about performance.</div>
+          </div>
+          <div class="card">
+            <div class="ct">What will point at it</div>
+            <div class="cd"><b>1,000,000+ students</b>, their exams, their scripts, their marks and their results — each carrying an institute reference, and each filtered by it constantly.</div>
+          </div>
+        </div>
+
+        <p>So the scalability work here is not about this table's own queries. It is about three things that a million child rows will inherit:</p>
+        <ul>
+          <li><b>A uuid primary key that sorts well.</b> Ids come from <code>uuidv7()</code>, which begins with a timestamp, so new rows land at the end of an index instead of scattering through it. Every child table's foreign key inherits that property.</li>
+          <li><b>A real foreign key on <code>users.institute_id</code>.</b> Once institute scoping is enforced by the database rather than hoped for by the application, the query planner can use it — and the "own institute only" checks that every later module performs get an indexed path instead of a string comparison against nothing.</li>
+          <li><b>A numeric code that never changes and never repeats.</b> Student registration numbers and roll-number blocks are built from it. If it were ever reused, a historical registration number would start pointing at a different institute — silently, and discovered years later in a results report.</li>
+        </ul>
+
+        <div class="note warn"><span class="lbl">The one thing deliberately left undone</span><p>A board with hundreds of affiliated schools has no way to express that relationship, because <a class="inline" href="#s0">decision 14</a> deferred the parent column. If that arrives later it means re-parenting live institutes and revisiting every query that assumed a flat list. The decision is recorded, not forgotten.</p></div>
+      </section>
+
+      <!-- 06 -->
+      <section id="s6">
+        <div class="sechead"><span class="snum">06</span><h2>Security</h2></div>
+        <p class="subhead">This module opens the first door in the system that anyone on the internet can push — and that door now accepts a password.</p>
+
+        <h3>What the public endpoints can and cannot do</h3>
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Concern</th><th>Answer</th></tr></thead>
+            <tbody>
+              <tr><td>Can a submission grant access?</td><td><b>No.</b> It writes one <code>pending</code> row. No login, no permission, no data, until a human approves.</td></tr>
+              <tr><td>Can the form be flooded?</td><td>Rate-limited per IP, tighter than the global 100/min, plus a duplicate-code refusal and the queue as a human gate.</td></tr>
+              <tr><td>Can someone impersonate a real institute?</td><td>They can <em>apply</em> as one. Approval is the defence, which is why the approval screen must show the govt code, contact name and phone number — everything needed to verify by phone.</td></tr>
+              <tr><td>Can the public response leak an admin field?</td><td>The public controller returns a written allow-list, never an institute record. Widening it takes a deliberate edit in one file.</td></tr>
+              <tr><td>Does the availability check leak?</td><td><b>Yes, by design and by decision.</b> It confirms whether a code or email exists. Accepted for institutions at this volume behind a rate limit; recorded in <a class="inline" href="#s0">decision 7</a> rather than left implicit.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>How the password is handled</h3>
+        <pre class="code"><b>arrives</b>  → validated (min 8 chars, same rule as create-user.dto.ts)
+          → hashed with <span class="h">argon2id</span> immediately <span class="c">— never written readable, never logged</span>
+          → stored in <b>institute_registration_credentials</b> <span class="c">(its own table)</span>
+
+<b>approved</b> → read once, becomes the user's password_hash
+          → <span class="r">credential row deleted</span>  <span class="c">(same transaction)</span>
+
+<b>rejected</b> → <span class="r">credential row deleted</span>  <span class="c">nothing lingers</span></pre>
+        <p>The separate table is the whole point: the institute repository never selects it, so no mapper, list endpoint or debug log can reach it by accident. Structural safety beats remembered safety.</p>
+
+        <h3>Everything else</h3>
+        <ul>
+          <li><b>Every state change is audited</b> — approve, reject, deactivate, reactivate, delete — with who did it, when, and the reason where there is one.</li>
+          <li><b>Deactivating an institute revokes its users' sessions</b>, reusing the mechanism built for user deactivation. An open browser tab dies immediately rather than at token expiry.</li>
+          <li><b>No candidate PII passes through this module</b>, now or ever. The contact details are institute staff.</li>
+          <li><b>Guards in the usual order</b> — <code>JwtAuthGuard</code> → <code>ActiveUserGuard</code> → <code>PermissionsGuard</code>. Permission checks, never role checks, so a future custom role holding <code>institutes.manage</code> works without a code change.</li>
+        </ul>
+      </section>
+
+      <!-- 07 -->
+      <section id="s7">
+        <div class="sechead"><span class="snum">07</span><h2>Performance</h2></div>
+        <p class="subhead">Nothing here is hot. Two things are worth being careful about anyway.</p>
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Operation</th><th>Cost</th><th>Note</th></tr></thead>
+            <tbody>
+              <tr><td>Public availability check</td><td>Two indexed lookups</td><td>Called on every step transition, so it must never fall back to a scan — hence the <code>lower()</code> indexes.</td></tr>
+              <tr><td>Public submission</td><td>One transaction, ~4 writes + one argon2 hash</td><td>The hash is deliberately slow (that is its job, ~100ms). It is also why this route needs its own rate limit — hashing is the expensive part an attacker would target.</td></tr>
+              <tr><td>Approval</td><td>One transaction, ~5 statements</td><td>Sub-second, pressed a few times a day.</td></tr>
+              <tr><td>Directory listing</td><td>Indexed, paginated</td><td>Same shape as the users list, including the filtered total.</td></tr>
+              <tr><td>Duplicate-name warning</td><td>One indexed lookup</td><td>Runs on the detail screen, not on every list row.</td></tr>
+              <tr><td>Deactivation cascade</td><td>Trivial today</td><td>Only the user branch does real work. <b>When the student branch is filled in, it must batch</b> — deactivating an institute with 50,000 students cannot be one synchronous request. <code>NFR-PERF-2</code>.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 08 -->
+      <section id="s8">
+        <div class="sechead"><span class="snum">08</span><h2>Folder structure</h2></div>
+        <p class="subhead">Shaped after <code>modules/institute-categories/</code>, which was itself shaped after auth.</p>
+        <pre class="code"><b>apps/api/src/modules/institutes/</b>
+  institutes.module.ts
+  institutes.controller.ts              <span class="c">admin routes</span>
+  public-institutes.controller.ts       <span class="c">the two open routes</span>
+  institutes.service.ts
+  institutes.service.spec.ts
+  approval.service.ts                   <span class="c">the four-step transaction, on its own</span>
+  approval.service.spec.ts
+  institute-mapper.ts                   <span class="c">record → API shape, field by field</span>
+  public-institute-mapper.ts            <span class="c">the allow-list, deliberately separate</span>
+  ports.ts                              <span class="c">3 interfaces + their injection tokens</span>
+  dto/
+    register-institute.dto.ts           <span class="c">public — includes the password</span>
+    create-institute.dto.ts             <span class="c">admin</span>
+    update-institute.dto.ts
+    approve-institute.dto.ts
+    list-institutes.dto.ts
+    check-availability.dto.ts
+    index.ts
+  index.ts
+
+<b>apps/api/src/persistence/typeorm/</b>
+  entities/institute.entity.ts
+  entities/institute-question-answer.entity.ts
+  entities/institute-credential.entity.ts
+  repositories/institute.repository.ts
+  repositories/institute-credential.repository.ts
+  repositories/institute-dependants.repository.ts
+  repositories/category-answer-probe.repository.ts   <span class="c">Module 1's placeholder, now real</span>
+  migrations/&lt;timestamp&gt;-institutes.ts
+  seed/institutes.seed.ts
+
+<b>apps/web/src/</b>
+  services/institutes.service.ts        <span class="c">REPLACES the mock</span>
+  services/institute-categories.service.ts <span class="c">NEW — ICM wiring</span>
+  hooks/use-institutes.ts
+  pages/public/institute-registration.page.tsx      <span class="c">rewritten as a wizard</span>
+  pages/institutes/*.page.tsx                       <span class="c">wired to React Query</span>
+  pages/setup/institute-categories.page.tsx         <span class="c">wired to React Query</span></pre>
+      </section>
+
+      <!-- flow -->
+      <section id="flow">
+        <div class="sechead"><span class="snum">◆</span><h2>The flow, end to end</h2></div>
+        <p class="subhead">From an open link to a working login, and the two ways out.</p>
+        <pre class="mermaid">
+flowchart TD
+    A["Institute opens the public link"] --> B["Step 1 - name, branch, code, contact email"]
+    B --> C{"Code and email free?"}
+    C -->|No| B
+    C -->|Yes| D["Step 2 - category and its questions"]
+    D --> E["Step 3 - address and contact person"]
+    E --> F["Step 4 - choose a password"]
+    F --> G["Review everything"]
+    G --> H["Register"]
+    H --> I["PENDING - one row, no access"]
+
+    Z["Super admin adds one directly"] --> Y["APPROVED at once"]
+
+    I --> J["Super admin opens the detail page"]
+    J --> K{"Verified?"}
+    K -->|No| L["Reject with a reason"]
+    K -->|Yes| M["Approve and Register"]
+
+    L --> N["REJECTED - code freed, password destroyed"]
+    N -.->|"may apply again"| A
+
+    M --> O["One transaction: status, numeric code, user, destroy credential"]
+    O --> P["APPROVED - the institute can log in"]
+    Y --> P
+
+    P --> Q{"Later"}
+    Q -->|"nothing attached yet"| R["Soft delete - code freed"]
+    Q -->|"students or exams exist"| S["Deactivate"]
+    S --> T["Users, students, evaluators off; allocations released"]
+    T -.->|"reversible"| P
+        </pre>
+        <div class="note"><span class="lbl">Read the two dotted lines</span><p>They are the only ways back. A rejected institute can apply again from the start — that is why the code is freed. A deactivated institute can be switched back on — that is why nothing is deleted. Every other arrow goes one way.</p></div>
+      </section>
+
+      <!-- build -->
+      <section id="build">
+        <div class="sechead"><span class="snum">→</span><h2>Build sequence</h2></div>
+        <p class="subhead">Seven phases, each gated before the next begins. The split marker shows where this becomes two PRs if the diff gets heavy.</p>
+
+        <div class="phase">
+          <div class="phase-head"><span class="phase-num">01</span><span class="phase-title">Tables, entities, migration, seed</span><span class="phase-where">apps/api</span></div>
+          <p>Three tables with their check constraints and indexes, the numeric-code sequence, the three TypeORM entities, the <code>users.institute_id</code> conversion, and the demo-institute seed. Nothing wired yet.</p>
+          <div class="done-when"><b>Done when</b> — <code>pnpm db:migrate &amp;&amp; pnpm db:seed</code> builds and fills all three tables, a second seed run changes nothing, <code>db:migrate:revert</code> cleanly drops them and puts <code>users.institute_id</code> back, and the seeded institute user points at a real institute.</div>
+        </div>
+
+        <div class="phase">
+          <div class="phase-head"><span class="phase-num">02</span><span class="phase-title">Ports, repositories, service, DTOs</span><span class="phase-where">apps/api</span></div>
+          <p>The three port interfaces and their adapters, the service, and Zod DTOs with <code>.strict()</code> so unknown fields are rejected rather than silently dropped. <b>Module 1's <code>CategoryAnswerProbe</code> gets its real body here</b> — the first time that protection actually protects anything.</p>
+          <div class="done-when"><b>Done when</b> — unit tests cover both entry paths, the locked-field rules, the duplicate-code path, the <code>file</code>-question refusal and the delete-only-when-empty rule; <code>npx jest</code> green.</div>
+        </div>
+
+        <div class="phase">
+          <div class="phase-head"><span class="phase-num">03</span><span class="phase-title">The approval transaction</span><span class="phase-where">apps/api</span></div>
+          <p>Its own file and its own tests, because it is the one place where four things must succeed or fail together. Includes the sequence-based numeric code, the credential handover, and the deactivation cascade with its placeholder branches.</p>
+          <div class="done-when"><b>Done when</b> — a forced failure at each of the four steps leaves the database exactly as it was; approving twice gives 409 rather than two logins; deactivating an institute genuinely stops its users signing in.</div>
+        </div>
+
+        <div class="phase">
+          <div class="phase-head"><span class="phase-num">04</span><span class="phase-title">Controllers, routes, Swagger</span><span class="phase-where">apps/api</span></div>
+          <p>Two controllers, ten routes, the guard chain, the tighter public rate limit and the Swagger annotations. Controllers return plain data; <code>TransformInterceptor</code> wraps it.</p>
+          <div class="done-when"><b>Done when</b> — Postman walks a registration from public submission to working login; a non-Super-Admin gets 403; a duplicate code gets 409 not 500; the public response contains no field outside the allow-list.</div>
+        </div>
+
+        <div class="splitbar">natural split — everything above is backend-only</div>
+
+        <div class="phase">
+          <div class="phase-head"><span class="phase-num">05</span><span class="phase-title">The shared contract</span><span class="phase-where">packages/types</span></div>
+          <p>The status enum replaces <code>OnboardingStatus</code>; <code>isActive</code> goes; the three unused fields go. <b>Keep the <code>InstituteLevel</code> enum</b> — <code>exam.types.ts</code> still uses it. Remove <code>GenderCategory</code> entirely; nothing else references it.</p>
+          <div class="done-when"><b>Done when</b> — <code>npx tsc --noEmit</code> is green in <em>both</em> apps. Every error this surfaces is a real consumer that needs updating, so read them rather than silencing them.</div>
+        </div>
+
+        <div class="phase">
+          <div class="phase-head"><span class="phase-num">06</span><span class="phase-title">Wire the IRA screens</span><span class="phase-where">apps/web</span></div>
+          <p>Three of the four screens are wiring. The fourth is a rebuild — say so up front so the estimate is honest.</p>
+          <div class="scroll">
+            <table>
+              <thead><tr><th style="width:42%">Screen</th><th>Work</th></tr></thead>
+              <tbody>
+                <tr><td><code>institutes-list.page.tsx</code></td><td><span class="chip good">wiring</span> React Query, search, status filter, paging — the users list already sets the pattern</td></tr>
+                <tr><td><code>institute-approvals.page.tsx</code></td><td><span class="chip good">wiring</span> the pending queue, plus the duplicate-name warning</td></tr>
+                <tr><td><code>institute-detail.page.tsx</code></td><td><span class="chip warn">wiring + new</span> the <b>Approve &amp; Register</b> modal, the reject-with-reason dialog, and the "also change the login email" notice</td></tr>
+                <tr><td><code>public/institute-registration.page.tsx</code></td><td><span class="chip crit">rebuild</span> 68 lines becomes a multi-step wizard: browser-kept progress, the step-boundary availability check, a review step, and a confirmation naming the institute code</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Everything goes through <code>apiRequest</code>; paths live in <code>services/api-endpoints.ts</code>, never inline. Server messages are shown through <code>apiErrorMessage()</code> and never restated in UI copy. <b>The public routes must be added to <code>PUBLIC_ROUTES</code></b> in <code>router/routes.ts</code>, or opening the registration link costs two wasted auth requests.</p>
+          <div class="done-when"><b>Done when</b> — a registration submitted in the browser appears in the approval queue, approving it creates a login that can actually sign in, refreshing mid-wizard loses nothing, and a duplicate code shows the server's own wording.</div>
+        </div>
+
+        <div class="phase">
+          <div class="phase-head"><span class="phase-num">07</span><span class="phase-title">Wire the ICM screens, then the gates</span><span class="phase-where">apps/web</span></div>
+          <p>The ICM backend was finished in an earlier branch, so this is integration — but <b>not a URL swap</b>. The built API deliberately differs from the mock in three ways, and each needs real frontend work.</p>
+          <div class="scroll">
+            <table>
+              <thead><tr><th style="width:30%">Gap</th><th>Today</th><th>What it takes</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>The service is synchronous</b></td>
+                  <td><code>listInstituteCategories(): InstituteCategory[]</code> — returns a value, not a promise</td>
+                  <td>Every function becomes async, so the page moves onto React Query: loading and error states, and cache invalidation after each mutation. A rewrite of the page's data layer.</td>
+                </tr>
+                <tr>
+                  <td><b><code>version</code> does not exist</b></td>
+                  <td><span class="chip crit">zero occurrences</span> in the service <em>or</em> the form</td>
+                  <td>Load it, hold it in form state, send it on save, and handle the <b>409</b> with a "someone else changed this — reload" path. <b>Nothing else in the web app does optimistic locking</b>, so this is a new pattern, not a copied one.</td>
+                </tr>
+                <tr>
+                  <td><b><code>isActive</code> moved</b></td>
+                  <td><code>toggleInstituteCategoryActive()</code> sets a flag locally</td>
+                  <td>Becomes <code>PATCH /institute-categories/:id/status</code>, so the form can no longer send the flag with everything else.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>The question builder must also send each existing question's <b>id</b>, or the reconciler treats every question as new and the answers this branch just started storing would be stranded. And <code>countInstitutesInCategory()</code> — a mock count today — becomes a real one, because <b>this is the branch that gives it something to count</b>.</p>
+          <p>Then the full verify gates on both apps.</p>
+          <div class="done-when"><b>Done when</b> — categories are created and edited against Postgres, two simultaneous edits produce a clear error rather than a silent overwrite, and <code>tsc</code> + <code>eslint</code> + <code>jest</code> + <code>vitest</code> + both builds are green.</div>
+        </div>
+      </section>
+
+      <!-- faq -->
+      <section id="faq">
+        <div class="sechead"><span class="snum">✦</span><h2>Questions this plan expects</h2></div>
+        <div class="faq">
+          <details>
+            <summary>Why can't an approved institute be deleted?</summary>
+            <div class="a"><p>Because a national examination board must be able to produce a result from four years ago, and that result is reachable only through the institute that issued it. Deleting the institute either destroys that chain or leaves rows pointing at nothing.</p><p>There is one narrow exception, and it is narrow on purpose: an institute with <b>nothing attached at all</b> can be soft-deleted, because there is no chain to break. That covers the real case — approved by mistake, or a duplicate — without opening the door.</p></div>
+          </details>
+          <details>
+            <summary>Isn't storing a password before the user exists a bad idea?</summary>
+            <div class="a"><p>It would be, stored badly. It is hashed with argon2id the moment it arrives, so there is nothing readable to steal, and it lives in its own table that the institute repository never touches — so it cannot leak through a mapper or a list endpoint.</p><p>The alternative is worse. With no email service, the only other option is the super admin inventing a temporary password and reading it down the phone, which means every approval ends in a phone call and a password that gets written on paper.</p></div>
+          </details>
+          <details>
+            <summary>What if two super admins press Approve at the same second?</summary>
+            <div class="a"><p>The first transaction wins. The second finds the status is no longer <code>pending</code> and answers <b>409</b> without creating anything. This matters more than it sounds: without the check, the second press would create a <em>second user account</em> for the same institute.</p></div>
+          </details>
+          <details>
+            <summary>An institute typed its code wrong and was rejected. Now what?</summary>
+            <div class="a"><p>They open the public link and register again with the right code. The rejection freed the old code, and the rejected row stays as the record of what happened.</p><p>With no email service there is no way to <em>tell</em> them they were rejected — the super admin phones them. That gap is why <b>invite links are the first item in the next phase</b>: a one-time link the super admin generates and sends over WhatsApp turns that phone call into something the institute can act on.</p></div>
+          </details>
+          <details>
+            <summary>What happens to answers if the category's questions change later?</summary>
+            <div class="a"><p>Nothing, and that is the point. Answers reference permanent question ids, never positions, so reordering or re-wording a question leaves every stored answer meaning what it meant.</p><p>The database refuses to delete an answered question outright — <code>ON DELETE RESTRICT</code>. Module 1 already anticipated this: it retires an answered question instead of deleting it, and the check that decides which is the <code>CategoryAnswerProbe</code> that finally becomes real in this branch.</p></div>
+          </details>
+          <details>
+            <summary>Why tell a stranger that an email is already registered?</summary>
+            <div class="a"><p>It is a genuine trade-off, and it was decided rather than overlooked. Normally you never confirm an account exists, and the usual way to avoid it is to accept the form and confirm by email — which we cannot do.</p><p>What tips it: these are institutions rather than individuals, there are about 150 of them, the route is rate-limited, and the alternative is an applicant learning days later, by phone, that their whole application was never viable. If that balance ever changes, the fix is one flag on the availability endpoint.</p></div>
+          </details>
+          <details>
+            <summary>Why build a cascade for tables that don't exist?</summary>
+            <div class="a"><p>Because the alternative is adding cascade rules to a live table with a million rows in it. Defining the interface now costs an afternoon and a set of tests; retrofitting it later means a migration, a backfill, and a period where the rule is half-enforced.</p><p>It also documents the decision in code rather than in a document nobody rereads. When the students module is built, the missing method is a compile-time obligation, not something someone has to remember.</p></div>
+          </details>
+          <details>
+            <summary>Why does dropping three fields need its own phase?</summary>
+            <div class="a"><p>Because it is not one task. <code>registrationNo</code> is institute-only and leaves cleanly. <code>GenderCategory</code> is institute-only and its enum can go too. <code>InstituteLevel</code> looks identical — but <code>exam.types.ts</code> and <code>exam.service.ts</code> use the enum, so only the field can leave.</p><p>A plan that had not checked would have said "drop three fields", and the build would have hit a type error in the exam module and someone would have made a call under pressure.</p></div>
+          </details>
+        </div>
+      </section>
+
+      <!-- qa -->
+      <section id="qa">
+        <div class="sechead"><span class="snum">QA</span><h2>Manual test plan</h2></div>
+        <p class="subhead">What to click through before calling this done. Automated tests cover the logic; these cover the joins between the parts.</p>
+        <div class="scroll">
+          <table>
+            <thead><tr><th style="width:32%">Scenario</th><th>Expected</th></tr></thead>
+            <tbody>
+              <tr><td>Register through the public link, all fields valid</td><td>Lands in the approval queue as <code>pending</code>. Confirmation names the institute code.</td></tr>
+              <tr><td>Type a code that already exists, press Next</td><td>Told at that step, not at the end.</td></tr>
+              <tr><td>Refresh the browser halfway through the wizard</td><td>Nothing is lost.</td></tr>
+              <tr><td>Choose a category with a required <code>file</code> question</td><td>Refused with a plain explanation, not a crash.</td></tr>
+              <tr><td>Submit, then approve with "create login" ticked</td><td>The institute can sign in immediately with the password it chose.</td></tr>
+              <tr><td>Approve the same institute twice (two tabs)</td><td>Second attempt gives 409. Exactly one user exists.</td></tr>
+              <tr><td>Approve when the email already belongs to a user</td><td>Clear message naming the conflict. Nothing is created.</td></tr>
+              <tr><td>Reject with a reason, then re-register with the same code</td><td>Accepted. The rejected row is still visible with its reason.</td></tr>
+              <tr><td>Edit an approved institute's category</td><td>Refused, naming the field.</td></tr>
+              <tr><td>Edit an approved institute's contact email</td><td>Allowed, with the "also change the login email" notice shown.</td></tr>
+              <tr><td>Deactivate an institute that has users</td><td>Its users cannot sign in, and an already-open tab stops working on its next request.</td></tr>
+              <tr><td>Reactivate it</td><td>Users can sign in again.</td></tr>
+              <tr><td>Delete an institute with a user attached</td><td>Refused, and the message says what is attached.</td></tr>
+              <tr><td>Delete a freshly approved institute with nothing attached</td><td>Allowed. Its code can be used again.</td></tr>
+              <tr><td>Try to delete a category that an institute uses</td><td>409 from the shared <code>pg-errors</code> helper, not a 500.</td></tr>
+              <tr><td>Open any public route while logged out</td><td>Works, and returns nothing outside the allow-list.</td></tr>
+              <tr><td>Hammer the public submission route</td><td>Rate-limited before the argon2 hashing becomes the bottleneck.</td></tr>
+              <tr><td>Sign in as a non-Super-Admin and open <code>/institutes</code></td><td>403.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- out -->
+      <section id="out">
+        <div class="sechead"><span class="snum">×</span><h2>Not in this branch</h2></div>
+        <p class="subhead">Left out deliberately. Each line is a decision, not an oversight.</p>
+        <div class="scroll">
+          <table>
+            <thead><tr><th style="width:30%">Left out</th><th>Why</th></tr></thead>
+            <tbody>
+              <tr><td><b>Board → school hierarchy</b><br><code>parent_institute_id</code></td><td>Raised, considered, deferred. A board with hundreds of affiliated schools cannot express that today. Adding the column later means re-parenting live institutes and revisiting every query that assumed a flat list — so this is the item on this page most worth revisiting early.</td></tr>
+              <tr><td>Bulk student import</td><td>The student module's job. At 500,000 rows it must be a validated CSV processed as a background job, never a synchronous request (<code>NFR-PERF-2</code>).</td></tr>
+              <tr><td>File uploads for <code>file</code> questions</td><td>No object storage in the API yet. Blocked with a clear message rather than half-accepted.</td></tr>
+              <tr><td>Invite links</td><td>The next thing to build. A one-time super-admin-generated link needs no email service and closes the "how do we tell a rejected institute to try again" gap.</td></tr>
+              <tr><td>Email of any kind</td><td>No mail service exists. Every notification in this flow happens by phone today, which is why the institute code doubles as the reference an applicant quotes.</td></tr>
+              <tr><td><code>client_id</code> / multi-tenancy</td><td>No second client on the roadmap. An unused column reads like working isolation while doing nothing.</td></tr>
+              <tr><td>The shared audit-log table</td><td>Its own PR. This module writes through the existing auth audit log and ships <code>created_by</code> / <code>updated_by</code> so the history exists from day one.</td></tr>
+              <tr><td>Captcha</td><td>Needs a third-party service. Rate limit + duplicate check + human approval is enough at this volume.</td></tr>
+              <tr><td>Server-side draft saving</td><td>Browser-kept progress solves the real pain — losing work on a refresh — for no backend cost. A resume link is a credential to secure for little gain.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="note good"><span class="lbl">Sequencing — checked against main</span><p>Everything this branch depends on is <b>already merged</b>. PR #20 brought the uuid role keys, Postgres 18 and the <code>deactivate</code> rename; <code>pg-errors.ts</code> on <code>main</code> already handles SQLSTATE <code>23001</code>, and <code>uuidv7()</code> is available. The subjects module is <b>not</b> merged, and does not need to be — IRA has no dependency on it. The only overlap to watch is <code>packages/types/src/index.ts</code> and <code>services/api-endpoints.ts</code>, which both branches touch; whichever merges second resolves a small conflict there.</p></div>
+      </section>
+
+    </main>
+  </div>
+
+  <footer>OSES — On-Screen Exam System · Institute Registration &amp; Approval · development plan v1</footer>
+</div>

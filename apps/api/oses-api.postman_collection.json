@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "OSES — API (Phase 1)",
-    "description": "Backend endpoints for the OSES API: auth, user + role management, and institute categories.\n\nAuth is COOKIE-BASED: after `Login`, Postman's cookie jar stores `oses_access` + `oses_refresh` (HttpOnly) and sends them automatically on later requests — so `Me`, `Refresh`, admin routes, etc. just work. There are no tokens in the response body.\n\nSet the `baseUrl` variable if your API isn't on http://localhost:3001.\n\nMost admin routes need a Super Admin session: user + role management require the `users.manage` grant, and institute categories require `institute-categories.manage` — both held by Super Admin only, so an Admin or Evaluator gets 403.\n\nThe one exception is the `Public` folder, which needs no login at all.",
+    "name": "OSES \u2014 API (Phase 1)",
+    "description": "Backend endpoints for the OSES API: auth, user + role management, and institute categories.\n\nAuth is COOKIE-BASED: after `Login`, Postman's cookie jar stores `oses_access` + `oses_refresh` (HttpOnly) and sends them automatically on later requests \u2014 so `Me`, `Refresh`, admin routes, etc. just work. There are no tokens in the response body.\n\nSet the `baseUrl` variable if your API isn't on http://localhost:3001.\n\nMost admin routes need a Super Admin session: user + role management require the `users.manage` grant, and institute categories require `institute-categories.manage` \u2014 both held by Super Admin only, so an Admin or Evaluator gets 403.\n\nThe one exception is the `Public` folder, which needs no login at all.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -65,7 +65,7 @@
               "mode": "raw",
               "raw": "{\n  \"email\": \"superadmin@oses.pk\",\n  \"password\": \"change-me-to-a-strong-password-min-12-chars\"\n}"
             },
-            "description": "Verify email + password; sets the HttpOnly auth cookies. Wrong password (6+ chars) → 401; short password → 400; 5 wrong attempts → account locked ~15 min."
+            "description": "Verify email + password; sets the HttpOnly auth cookies. Wrong password (6+ chars) \u2192 401; short password \u2192 400; 5 wrong attempts \u2192 account locked ~15 min."
           }
         },
         {
@@ -92,7 +92,7 @@
             "method": "POST",
             "header": [],
             "url": "{{baseUrl}}/auth/refresh",
-            "description": "Rotate the refresh token and reissue cookies. Replaying an old refresh token → 401 (reuse detected, family revoked)."
+            "description": "Rotate the refresh token and reissue cookies. Replaying an old refresh token \u2192 401 (reuse detected, family revoked)."
           }
         },
         {
@@ -110,7 +110,7 @@
               "mode": "raw",
               "raw": "{\n  \"currentPassword\": \"current-password\",\n  \"newPassword\": \"new-strong-password\"\n}"
             },
-            "description": "Change your own password. Revokes ALL sessions — you must log in again afterward."
+            "description": "Change your own password. Revokes ALL sessions \u2014 you must log in again afterward."
           }
         },
         {
@@ -135,12 +135,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/users?limit=50&offset=0&q=&status=active&roleId={{roleCheckerId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "users"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["users"],
               "query": [
                 {
                   "key": "limit",
@@ -188,7 +184,7 @@
               "mode": "raw",
               "raw": "{\n  \"email\": \"staff@oses.pk\",\n  \"fullName\": \"Staff Member\",\n  \"roleId\": \"{{roleAdminId}}\",\n  \"password\": \"temporary-password-123\"\n}"
             },
-            "description": "Create a user with a role + temporary password. roleId is now a UUID, not a slug — use the {{roleSuperAdminId}} / {{roleAdminId}} / {{roleControllerId}} / {{roleCheckerId}} / {{roleInstituteId}} collection variables, or copy an id from 'List roles'. instituteId is required for the Institute role and rejected for every other one. Duplicate email -> 409. Unknown role or a role/institute mismatch -> 400. Not a Super Admin -> 403."
+            "description": "Create a user with a role + temporary password. roleId is now a UUID, not a slug \u2014 use the {{roleSuperAdminId}} / {{roleAdminId}} / {{roleControllerId}} / {{roleCheckerId}} / {{roleInstituteId}} collection variables, or copy an id from 'List roles'. instituteId is required for the Institute role and rejected for every other one. Duplicate email -> 409. Unknown role or a role/institute mismatch -> 400. Not a Super Admin -> 403."
           }
         },
         {
@@ -206,7 +202,7 @@
               "mode": "raw",
               "raw": "{\n  \"email\": \"principal@college.edu.pk\",\n  \"fullName\": \"College Principal\",\n  \"roleId\": \"{{roleInstituteId}}\",\n  \"instituteId\": \"{{instituteId}}\",\n  \"password\": \"temporary-password-123\"\n}"
             },
-            "description": "The Institute role is the only one that may carry an instituteId — and it must. Drop the instituteId here and the request fails 400 'An Institute account must be linked to an institute'; send an instituteId with any other roleId and it fails 400 'Only an Institute account can be linked to an institute'."
+            "description": "The Institute role is the only one that may carry an instituteId \u2014 and it must. Drop the instituteId here and the request fails 400 'An Institute account must be linked to an institute'; send an instituteId with any other roleId and it fails 400 'Only an Institute account can be linked to an institute'."
           }
         },
         {
@@ -224,7 +220,7 @@
               "mode": "raw",
               "raw": "{\n  \"fullName\": \"Updated Name\",\n  \"email\": \"updated@oses.pk\"\n}"
             },
-            "description": "Every field is optional; omitting one leaves it alone. An empty body is rejected ('Nothing to update') and unknown fields are rejected outright, so a typo like 'rolId' fails loudly instead of being silently ignored.\n\nChanging roleId revokes the user's sessions — the access token carries the role and the guards read it from there, so without that the old permissions would stay live until the token expired (up to 15 min).\n\nRole/institute pairing: moving an account OFF the Institute role clears its instituteId automatically (the clearing is written to the audit log); moving it ONTO the Institute role requires an instituteId in the same request.\n\nPassword and status are NOT here — each has its own endpoint. 400 unknown role / your own role / last active Super Admin / role-institute mismatch. 404 no such user. 409 email already in use."
+            "description": "Every field is optional; omitting one leaves it alone. An empty body is rejected ('Nothing to update') and unknown fields are rejected outright, so a typo like 'rolId' fails loudly instead of being silently ignored.\n\nChanging roleId revokes the user's sessions \u2014 the access token carries the role and the guards read it from there, so without that the old permissions would stay live until the token expired (up to 15 min).\n\nRole/institute pairing: moving an account OFF the Institute role clears its instituteId automatically (the clearing is written to the audit log); moving it ONTO the Institute role requires an instituteId in the same request.\n\nPassword and status are NOT here \u2014 each has its own endpoint. 400 unknown role / your own role / last active Super Admin / role-institute mismatch. 404 no such user. 409 email already in use."
           }
         },
         {
@@ -260,7 +256,7 @@
               "mode": "raw",
               "raw": "{\n  \"status\": \"deactivate\"\n}"
             },
-            "description": "Activate or deactivate an account. status is 'active' or 'deactivate'.\n\nDeactivating revokes the user's sessions immediately, so an open tab dies at once rather than when the access token happens to expire. Reactivating also clears any login lockout.\n\nThis is the REVERSIBLE switch-off — the account stays visible in 'List users' throughout, and you can turn it back on. DELETE is the one-way door.\n\n400 your own account, or the last active Super Admin. 404 no such user."
+            "description": "Activate or deactivate an account. status is 'active' or 'deactivate'.\n\nDeactivating revokes the user's sessions immediately, so an open tab dies at once rather than when the access token happens to expire. Reactivating also clears any login lockout.\n\nThis is the REVERSIBLE switch-off \u2014 the account stays visible in 'List users' throughout, and you can turn it back on. DELETE is the one-way door.\n\n400 your own account, or the last active Super Admin. 404 no such user."
           }
         },
         {
@@ -269,7 +265,7 @@
             "method": "DELETE",
             "header": [],
             "url": "{{baseUrl}}/users/:userId",
-            "description": "Soft delete: the row is kept so the audit trail and every created_by reference stay intact. The account disappears from 'List users', can no longer sign in, and its sessions are revoked immediately. There is no restore endpoint — use 'Set status' -> deactivate for anything reversible.\n\nNote: the deleted user's email stays taken (the unique index covers deleted rows), so re-creating the same address returns 409.\n\n400 your own account, or the last active Super Admin. 404 no such user."
+            "description": "Soft delete: the row is kept so the audit trail and every created_by reference stay intact. The account disappears from 'List users', can no longer sign in, and its sessions are revoked immediately. There is no restore endpoint \u2014 use 'Set status' -> deactivate for anything reversible.\n\nNote: the deleted user's email stays taken (the unique index covers deleted rows), so re-creating the same address returns 409.\n\n400 your own account, or the last active Super Admin. 404 no such user."
           }
         }
       ]
@@ -284,14 +280,14 @@
             "method": "GET",
             "header": [],
             "url": "{{baseUrl}}/roles",
-            "description": "The 5 system roles with their permission grants (action + scope) — used to populate the role picker on the create-user screen."
+            "description": "The 5 system roles with their permission grants (action + scope) \u2014 used to populate the role picker on the create-user screen."
           }
         }
       ]
     },
     {
       "name": "Institute Categories (Super Admin only)",
-      "description": "The super-admin taxonomy institutes are classified by, plus the dynamic questions each category asks at registration. Requires the institute-categories.manage grant — held by Super Admin only, so an Admin or Evaluator gets 403. Log in first: these use the same HttpOnly cookie as the rest of the API.\n\nThese requests keep the {{categoryId}} and {{categoryVersion}} collection variables in step with the server automatically, so you can run List → Update → Update without editing anything by hand.",
+      "description": "The super-admin taxonomy institutes are classified by, plus the dynamic questions each category asks at registration. Requires the institute-categories.manage grant \u2014 held by Super Admin only, so an Admin or Evaluator gets 403. Log in first: these use the same HttpOnly cookie as the rest of the API.\n\nThese requests keep the {{categoryId}} and {{categoryVersion}} collection variables in step with the server automatically, so you can run List \u2192 Update \u2192 Update without editing anything by hand.",
       "item": [
         {
           "name": "List categories",
@@ -365,7 +361,7 @@
               "mode": "raw",
               "raw": "{\n  \"code\": \"DEMO\",\n  \"name\": \"Demo Category\",\n  \"description\": \"A throwaway category for trying the endpoints\",\n  \"questions\": [\n    {\n      \"text\": \"Are you an ed-tech institute?\",\n      \"type\": \"radio\",\n      \"required\": true,\n      \"options\": [\n        \"Yes\",\n        \"No\"\n      ]\n    },\n    {\n      \"text\": \"Describe your institute\",\n      \"type\": \"text\"\n    }\n  ]\n}"
             },
-            "description": "Creates the category and its questions together — each question gets a permanent uuid.\n\nValidation: code 1-20 chars (letters/numbers/dash/underscore, case-insensitively unique), name 1-100, at most 50 questions, at most 20 options each.\nradio/checkbox/select MUST carry options; text/file must NOT. Unknown fields are rejected.\n\nDuplicate code (even differing only by case) → 409."
+            "description": "Creates the category and its questions together \u2014 each question gets a permanent uuid.\n\nValidation: code 1-20 chars (letters/numbers/dash/underscore, case-insensitively unique), name 1-100, at most 50 questions, at most 20 options each.\nradio/checkbox/select MUST carry options; text/file must NOT. Unknown fields are rejected.\n\nDuplicate code (even differing only by case) \u2192 409."
           },
           "event": [
             {
@@ -402,7 +398,7 @@
               "mode": "raw",
               "raw": "{\n  \"version\": {{categoryVersion}},\n  \"name\": \"Demo Category (updated)\",\n  \"questions\": [\n    {\n      \"text\": \"A brand-new question (no id)\",\n      \"type\": \"text\"\n    },\n    {\n      \"id\": \"PASTE-AN-EXISTING-QUESTION-ID-HERE\",\n      \"text\": \"Are you an ed-tech institute?\",\n      \"type\": \"radio\",\n      \"required\": true,\n      \"options\": [\n        \"Yes\",\n        \"No\"\n      ]\n    }\n  ]\n}"
             },
-            "description": "The category and its question list are saved together, in one transaction.\n\nYou do not need to set `version` by hand — List, Get, Create, Update and the status change all capture the current `{{categoryId}}` and `{{categoryVersion}}` from their response. A 409 therefore means a genuine clash: somebody really did save between your read and your write.\n\n`version` is the copy you loaded — send it back and the save applies only while it still matches, so two people editing at once cannot silently overwrite each other.\n\nHow the question list is read:\n  • a question WITH an id  → updates that stored question, keeping its id (and so every answer already stored against it)\n  • a question WITHOUT an id → creates a new one\n  • a stored question you omit → removed (retired instead of deleted once it has answers)\n  • omit `questions` entirely → the stored list is left completely untouched\n\nPosition in the list becomes the display order; ids never change, so reordering is safe.\n\nAnswers: 200 · 400 (a question id from another category) · 404 · 409 (someone else saved first — reload and retry, or the code is taken)."
+            "description": "The category and its question list are saved together, in one transaction.\n\nYou do not need to set `version` by hand \u2014 List, Get, Create, Update and the status change all capture the current `{{categoryId}}` and `{{categoryVersion}}` from their response. A 409 therefore means a genuine clash: somebody really did save between your read and your write.\n\n`version` is the copy you loaded \u2014 send it back and the save applies only while it still matches, so two people editing at once cannot silently overwrite each other.\n\nHow the question list is read:\n  \u2022 a question WITH an id  \u2192 updates that stored question, keeping its id (and so every answer already stored against it)\n  \u2022 a question WITHOUT an id \u2192 creates a new one\n  \u2022 a stored question you omit \u2192 removed (retired instead of deleted once it has answers)\n  \u2022 omit `questions` entirely \u2192 the stored list is left completely untouched\n\nPosition in the list becomes the display order; ids never change, so reordering is safe.\n\nAnswers: 200 \u00b7 400 (a question id from another category) \u00b7 404 \u00b7 409 (someone else saved first \u2014 reload and retry, or the code is taken)."
           },
           "event": [
             {
@@ -439,7 +435,7 @@
               "mode": "raw",
               "raw": "{\n  \"isActive\": false\n}"
             },
-            "description": "Sends the state you want rather than toggling, so a double submit is harmless.\n\nDeactivating hides the category from the public registration form while every institute already classified under it keeps working. This is the normal way to withdraw a category — deleting is the rare one."
+            "description": "Sends the state you want rather than toggling, so a double submit is harmless.\n\nDeactivating hides the category from the public registration form while every institute already classified under it keeps working. This is the normal way to withdraw a category \u2014 deleting is the rare one."
           },
           "event": [
             {
@@ -467,7 +463,7 @@
             "method": "DELETE",
             "header": [],
             "url": "{{baseUrl}}/institute-categories/{{categoryId}}",
-            "description": "Permanent delete; its questions go with it. Allowed only while nothing references the category — once institute registration exists, a category in use answers 409 and you deactivate it instead.\n\n204 on success, 404 if it was already gone."
+            "description": "Permanent delete; its questions go with it. Allowed only while nothing references the category \u2014 once institute registration exists, a category in use answers 409 and you deactivate it instead.\n\n204 on success, 404 if it was already gone."
           },
           "event": [
             {
@@ -487,6 +483,187 @@
       ]
     },
     {
+      "name": "Institutes (Super Admin only)",
+      "description": "Institute registration and approval. Every route needs the `institutes.manage` grant.\n\nThe usual journey is: an institute registers through the PUBLIC folder, you find it here with `?status=pending`, then Approve & Register.\n\nList, Get, Create and Approve all capture `{{instituteId}}` from their response, so the later calls need no copy-paste.",
+      "item": [
+        {
+          "name": "List institutes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/institutes?limit=25&offset=0&q=&status=pending&categoryId=",
+            "description": "Paginated, newest first. Filters combine with AND, and `total` is narrowed by the same set as the page \u2014 so \"showing 10 of 3\" cannot happen.\n\n\u2022 q \u2014 searches name, institute code and city (partial, case-insensitive)\n\u2022 status \u2014 pending | approved | rejected | deactivated. Leave it BLANK for no filter; sending an empty value is a 400, not \"all\".\n\u2022 categoryId \u2014 exact category uuid\n\nSoft-deleted institutes never appear. Use ?status=pending as your approval queue."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "const first = b.data && b.data.items && b.data.items[0];",
+                  "if (first) pm.collectionVariables.set('instituteId', first.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get one institute",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/institutes/{{instituteId}}",
+            "description": "The full record, its category answers, and `possibleDuplicates` \u2014 live institutes sharing this name and city.\n\nThat duplicate list is a prompt to look twice, never a block: two \"Government High School\" in different cities is entirely normal. Check the government code before approving.\n\n`numericCode` is null until approval \u2014 it is drawn once, then never changes and never gets reissued, because student registration numbers are built from it."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Keep {{instituteId}} pointing at whatever you last touched, so the",
+                  "// approve / reject / status / delete calls need no copy-paste.",
+                  "const b = pm.response.json();",
+                  "const inst = b.data && (b.data.institute || b.data);",
+                  "if (inst && inst.id) pm.collectionVariables.set('instituteId', inst.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create institute (admin \u2014 lands approved)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/institutes",
+            "description": "A super admin entering an institute themselves. It lands `approved` with its numeric code already drawn \u2014 making the approver approve their own entry is ceremony, not a control.\n\nNo login is created here: use the Users folder, which handles temporary passwords properly.\n\n`answers` must satisfy the chosen category's required questions, exactly as the public route does. A duplicate institute code is a 409, never a 500.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"instituteCode\": \"ADM-001\",\n  \"instituteName\": \"Admin-entered School\",\n  \"branch\": \"Main Campus\",\n  \"categoryId\": \"{{categoryId}}\",\n  \"institutionType\": \"government\",\n  \"address\": \"1 Mall Road\",\n  \"city\": \"Lahore\",\n  \"province\": \"punjab\",\n  \"postalCode\": \"54000\",\n  \"contactPersonName\": \"Ayesha Khan\",\n  \"contactPersonDesignation\": \"Principal\",\n  \"contactEmail\": \"admin-entered@example.pk\",\n  \"contactPhone\": \"+92-42-1234567\",\n  \"answers\": []\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Keep {{instituteId}} pointing at whatever you last touched, so the",
+                  "// approve / reject / status / delete calls need no copy-paste.",
+                  "const b = pm.response.json();",
+                  "const inst = b.data && (b.data.institute || b.data);",
+                  "if (inst && inst.id) pm.collectionVariables.set('instituteId', inst.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update institute",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/institutes/{{instituteId}}",
+            "description": "Send only what changed \u2014 an empty patch is a 400.\n\nLOCKED once the application exists, and absent from the schema entirely: `instituteCode`, `categoryId`, `answers`, `numericCode`, `status`. Sending one answers 400 NAMING the field rather than accepting the request and ignoring it \u2014 a caller who cannot tell \"ignored\" from \"saved\" will believe the change applied. Try it.\n\n`contactEmail` is NOT locked: contact people change jobs. But changing it does not change any login \u2014 that is a separate user account on the Users screen.\n\n`branch` and `postalCode` accept null to clear them.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"city\": \"Karachi\",\n  \"contactPersonName\": \"New Contact\",\n  \"contactEmail\": \"new-contact@example.pk\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Approve & Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/institutes/{{instituteId}}/approve",
+            "description": "ONE transaction, four steps: flip the status, draw the permanent numeric code, create the user, destroy the stored credential. Any failure rolls back all four \u2014 there is no half-approved state to clean up.\n\nThe password is the one the applicant chose at registration; it has been sitting hashed in its own table ever since. Supply `password` here ONLY for an institute that has none on file (one you entered through Create above).\n\n\u2022 createLogin: false \u2014 approve without provisioning access\n\u2022 fullName \u2014 optional; defaults to the contact person's name\n\nApproving twice answers 409, never a second account. Try it: press it again.\nA contact email that has been taken since the application arrived is also a 409.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"createLogin\": true,\n  \"fullName\": \"Ayesha Khan\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Keep {{instituteId}} pointing at whatever you last touched, so the",
+                  "// approve / reject / status / delete calls need no copy-paste.",
+                  "const b = pm.response.json();",
+                  "const inst = b.data && (b.data.institute || b.data);",
+                  "if (inst && inst.id) pm.collectionVariables.set('instituteId', inst.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject application",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/institutes/{{instituteId}}/reject",
+            "description": "A reason is mandatory \u2014 without one nobody can tell the institute what to fix.\n\nThe row stays, with its reason, as the record of who applied and was turned away. But the institute code is FREED, so they can register again once the problem is fixed \u2014 check with the public availability route afterwards.\n\nThe stored password is destroyed. There is no email service: telling them is a phone call, and the institute code is what they quote.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"The government code does not match board records.\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Deactivate / reactivate",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/institutes/{{instituteId}}/status",
+            "description": "status: \"deactivated\" or \"approved\".\n\nDeactivating switches off the institute's accounts and revokes their sessions, releasing evaluator allocations first. An exam already running is NOT disturbed \u2014 the block is on future use \u2014 and results are never touched.\n\nReactivating deliberately does NOT switch those accounts back on: one may have been disabled for its own reasons. Re-enable them individually in the Users folder.\n\nRefused with 400 while an application is still pending or rejected \u2014 approve or reject it first.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"deactivated\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete institute (soft, only while empty)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/institutes/{{instituteId}}",
+            "description": "For the case deactivation handles badly: approved by mistake, or a duplicate.\n\nRefused with 400 the moment any user, student or exam hangs off it \u2014 and the message says WHAT is attached and how many. Those records must stay reachable for years, so deactivation is the only way out for a working institute.\n\nThe row is retained for the audit trail, but the institute code is freed for a correct entry."
+          }
+        }
+      ]
+    },
+    {
       "name": "Public (no authentication)",
       "description": "The only routes in the API that need no login. Rate limited, and deliberately narrow.",
       "item": [
@@ -496,8 +673,59 @@
             "method": "GET",
             "header": [],
             "url": "{{baseUrl}}/public/institute-categories",
-            "description": "Powers the open institute-registration link, so it answers without any cookie.\n\nReturns ONLY active categories and their active questions, and only these fields: id, code, name, description, questions[id, text, type, required, options]. No version, no isActive, no timestamps — the response is built from an explicit allow-list.\n\nThere is deliberately no \"get one by id\" here, so hidden categories cannot be probed for.\n\nCache-Control: public, max-age=60. Throttled to 30 requests/minute — exceed it and you get 429."
+            "description": "Powers the open institute-registration link, so it answers without any cookie.\n\nReturns ONLY active categories and their active questions, and only these fields: id, code, name, description, questions[id, text, type, required, options]. No version, no isActive, no timestamps \u2014 the response is built from an explicit allow-list.\n\nThere is deliberately no \"get one by id\" here, so hidden categories cannot be probed for.\n\nCache-Control: public, max-age=60. Throttled to 30 requests/minute \u2014 exceed it and you get 429."
           }
+        },
+        {
+          "name": "Check availability",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/public/institutes/check-availability",
+            "description": "Powers the check the registration form makes before showing its long section, so an applicant is told BEFORE filling in fifteen more fields.\n\nPOST rather than GET on purpose: an email in a query string lands in server logs and browser history, which NFR-SEC-5 forbids.\n\nAnswers two booleans and nothing else \u2014 never the institute holding the code, never whose account owns the address. A field you do not send answers null rather than a guess. Send at least one, or it is a 400.\n\nThrottled to 20/minute.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"instituteCode\": \"TEST-001\",\n  \"contactEmail\": \"principal@testschool.pk\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Register an institute",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/public/institutes",
+            "description": "Creates ONE pending application and nothing else \u2014 no login, no permission, no access \u2014 until a super admin approves it. That is what makes an anonymous write route acceptable.\n\nThe password is collected here because there is no email service to send a temporary one with. It is hashed with argon2id the moment it arrives and stored in its own table, apart from the institute record, until approval turns it into a login. Minimum 8 characters.\n\n`answers` must satisfy every required question of the chosen category. Take the question ids from the public categories call above. A category with a REQUIRED file question is refused with a 400 \u2014 there is no file storage yet, and pretending to accept an upload would quietly lose the document.\n\nThe response is four fields: id, instituteCode, instituteName, status. The institute code is what the applicant quotes when they phone to ask what happened.\n\nTHROTTLED TO 5/MINUTE \u2014 the strictest limit in the API, because this route runs argon2id and that cost is what an attacker would aim at. A 429 here is the limiter, not a bug.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"instituteCode\": \"TEST-001\",\n  \"instituteName\": \"Test High School\",\n  \"branch\": \"Main Campus\",\n  \"categoryId\": \"{{categoryId}}\",\n  \"institutionType\": \"government\",\n  \"address\": \"1 Mall Road\",\n  \"city\": \"Lahore\",\n  \"province\": \"punjab\",\n  \"postalCode\": \"54000\",\n  \"contactPersonName\": \"Ayesha Khan\",\n  \"contactPersonDesignation\": \"Principal\",\n  \"contactEmail\": \"principal@testschool.pk\",\n  \"contactPhone\": \"+92-42-1234567\",\n  \"answers\": [\n    {\n      \"questionId\": \"PASTE-A-QUESTION-ID-FROM-THE-CATEGORY\",\n      \"values\": [\n        \"Yes\"\n      ]\n    }\n  ],\n  \"password\": \"a-strong-password\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Keep {{instituteId}} pointing at whatever you last touched, so the",
+                  "// approve / reject / status / delete calls need no copy-paste.",
+                  "const b = pm.response.json();",
+                  "const inst = b.data && (b.data.institute || b.data);",
+                  "if (inst && inst.id) pm.collectionVariables.set('instituteId', inst.id);"
+                ]
+              }
+            }
+          ]
         }
       ]
     }

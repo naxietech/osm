@@ -4,6 +4,7 @@ import 'reflect-metadata';
 
 import { createDataSource } from '../data-source';
 import { seedInstituteCategories } from './institute-categories.seed';
+import { seedInstitutes } from './institutes.seed';
 import { seedDatabase } from './seed';
 
 // apps/api/.env is the source of truth locally — override any stale shell value (e.g. a
@@ -42,6 +43,24 @@ async function main(): Promise<void> {
       `Institute categories: ${categories.categoriesCreated} created ` +
         `(${categories.questionsCreated} questions), ${categories.categoriesSkipped} already present.`,
     );
+
+    // Institutes last: it files the demo institute under a category the step above just planted.
+    const institutes = await seedInstitutes(dataSource);
+    if (institutes.skippedReason) {
+      console.log(`Institutes: ${institutes.skippedReason}`);
+    } else {
+      console.log(
+        institutes.created
+          ? `Institutes: demo institute created (numeric code ${institutes.numericCode}, ` +
+              `${institutes.answersCreated} question answers).`
+          : 'Institutes: demo institute already present.',
+      );
+    }
+    if (institutes.usersRelinked > 0) {
+      console.log(
+        `Institutes: re-linked ${institutes.usersRelinked} institute user(s) that had no institute.`,
+      );
+    }
   } finally {
     await dataSource.destroy();
   }

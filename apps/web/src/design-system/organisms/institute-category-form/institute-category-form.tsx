@@ -29,9 +29,19 @@ import { Input } from '@/design-system/atoms/input';
 import { FormField } from '@/design-system/molecules/form-field';
 import { SelectField, type SelectOption } from '@/design-system/molecules/select-field';
 
-/** A question row while editing; `key` is a stable React key (kept reorder-safe, not persisted). */
+/**
+ * A question row while editing.
+ *
+ * `key` is a React key — stable across reorders, never persisted. `id` is the opposite: it is the
+ * database's permanent identity for a question, and **it must survive a round trip through this
+ * form**. Every institute answer points at a question by id, and the API's reconciler reads a
+ * question arriving without one as brand new — so dropping it here would silently re-create the
+ * whole list on every save and strand every answer already given. A question being created for
+ * the first time genuinely has no id; that is the only time it may be absent.
+ */
 interface QuestionDraft {
   key: string;
+  id?: string;
   text: string;
   type: CategoryQuestionType;
   required: boolean;
@@ -135,6 +145,7 @@ export function InstituteCategoryForm({
       description: initialValue?.description ?? '',
       questions: (initialValue?.questions ?? []).map((q) => ({
         key: nextKey(),
+        ...(q.id ? { id: q.id } : {}),
         text: q.text,
         type: q.type,
         required: q.required ?? false,
@@ -148,6 +159,7 @@ export function InstituteCategoryForm({
       const cleaned: CategoryQuestionInput[] = values.questions
         .filter((q) => q.text.trim().length > 0)
         .map((q) => ({
+          ...(q.id ? { id: q.id } : {}),
           text: q.text.trim(),
           type: q.type,
           required: q.required,

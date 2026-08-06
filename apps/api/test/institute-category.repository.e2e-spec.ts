@@ -13,11 +13,12 @@ import {
   InstituteCategoryQuestionEntity,
 } from '../src/persistence/typeorm/entities';
 import { TypeOrmInstituteCategoryRepository } from '../src/persistence/typeorm/repositories/institute-category.repository';
+import { resetInstituteData } from './reset-db';
+import { requireTestDatabaseUrl } from './test-database';
 
 // Integration test — needs a reachable Postgres. Point DATABASE_URL_TEST (or DATABASE_URL)
 // at the oses_test database. Skips cleanly when neither is set.
-const TEST_URL = process.env['DATABASE_URL_TEST'] ?? process.env['DATABASE_URL'];
-const describeDb = TEST_URL ? describe : describe.skip;
+const TEST_URL = requireTestDatabaseUrl();
 
 const EMPTY_PLAN: QuestionMutationPlan = { insert: [], update: [], deactivate: [], remove: [] };
 
@@ -42,12 +43,12 @@ class SelectCountingLogger implements TypeOrmLogger {
   log(): void {}
 }
 
-describeDb('TypeOrmInstituteCategoryRepository (integration)', () => {
+describe('TypeOrmInstituteCategoryRepository (integration)', () => {
   let dataSource: DataSource;
   let repo: TypeOrmInstituteCategoryRepository;
 
   beforeAll(async () => {
-    dataSource = createDataSource(TEST_URL as string);
+    dataSource = createDataSource(TEST_URL);
     await dataSource.initialize();
     await dataSource.runMigrations();
     repo = new TypeOrmInstituteCategoryRepository(
@@ -61,9 +62,7 @@ describeDb('TypeOrmInstituteCategoryRepository (integration)', () => {
   });
 
   beforeEach(async () => {
-    await dataSource.query(
-      'truncate table institute_category_questions, institute_categories restart identity cascade',
-    );
+    await resetInstituteData(dataSource);
   });
 
   async function seedSchool() {
@@ -218,7 +217,7 @@ describeDb('TypeOrmInstituteCategoryRepository (integration)', () => {
 
       const counter = new SelectCountingLogger();
       const counted = new DataSource({
-        ...buildDataSourceOptions(TEST_URL as string),
+        ...buildDataSourceOptions(TEST_URL),
         logging: ['query'],
         logger: counter,
       });

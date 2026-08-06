@@ -5,6 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 import { AuthModule } from './auth/auth.module';
 import { InstituteCategoriesModule } from './modules/institute-categories/institute-categories.module';
+import { InstitutesModule } from './modules/institutes/institutes.module';
 import { PersistenceModule } from './persistence/persistence.module';
 
 @Module({
@@ -15,6 +16,7 @@ import { PersistenceModule } from './persistence/persistence.module';
     PersistenceModule,
     AuthModule,
     InstituteCategoriesModule,
+    InstitutesModule,
     // Add new modules here as each backend is built.
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

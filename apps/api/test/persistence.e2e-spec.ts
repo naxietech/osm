@@ -11,23 +11,22 @@ import { seedDatabase } from '../src/persistence/typeorm/seed/seed';
 import { ALL_PERMISSION_ACTIONS } from '../src/rbac/permissions.constants';
 import { SYSTEM_ROLE_IDS } from '../src/rbac/system-roles';
 import { verifyPassword } from '../src/shared/crypto';
+import { requireTestDatabaseUrl } from './test-database';
 
 // Integration test — needs a reachable Postgres. Point DATABASE_URL_TEST (or DATABASE_URL)
 // at the oses_test database. Skips cleanly when neither is set.
-const TEST_URL = process.env['DATABASE_URL_TEST'] ?? process.env['DATABASE_URL'];
+const TEST_URL = requireTestDatabaseUrl();
 const SUPER = {
   email: 'superadmin@oses.pk',
   password: 'test-password-strong-123',
   fullName: 'System Administrator',
 };
 
-const describeDb = TEST_URL ? describe : describe.skip;
-
-describeDb('auth persistence + seed (integration)', () => {
+describe('auth persistence + seed (integration)', () => {
   let dataSource: DataSource;
 
   beforeAll(async () => {
-    dataSource = createDataSource(TEST_URL as string);
+    dataSource = createDataSource(TEST_URL);
     await dataSource.initialize();
     await dataSource.runMigrations();
     // deterministic start

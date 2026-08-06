@@ -21,10 +21,8 @@ function fillValidForm(): void {
   fireEvent.change(screen.getByLabelText(/Institution Name/i), {
     target: { value: 'Test Institute' },
   });
-  fireEvent.change(screen.getByLabelText(/Affiliation No/i), { target: { value: 'REG-123' } });
+  choose(/Category/i, 'School');
   choose(/Institution Type/i, 'Government');
-  choose(/Institute Level/i, 'Secondary (SSC / Matric)');
-  choose(/Category/i, 'Boys');
   choose(/Province/i, 'Punjab');
   fireEvent.change(screen.getByLabelText(/Address/i), {
     target: { value: 'Street 1, Sector F-8' },
@@ -43,14 +41,20 @@ function fillValidForm(): void {
   });
 }
 
+const CATEGORIES = [
+  { value: 'cat_school', label: 'School' },
+  { value: 'cat_college', label: 'College' },
+];
+
 describe('InstituteForm', () => {
   it('renders the text fields and dropdowns', () => {
-    render(<InstituteForm {...defaultProps} />);
+    render(<InstituteForm categories={CATEGORIES} {...defaultProps} />);
     expect(screen.getByLabelText(/Institution Code/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Institution Name/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Affiliation No/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Branch/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Institution Type/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Institute Level/i)).toBeInTheDocument();
+    // Every institute belongs to a category, and the API refuses a registration without one —
+    // this form could not set it before, so the request it built was never valid.
     expect(screen.getByLabelText(/Category/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Province/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Address/i)).toBeInTheDocument();
@@ -63,7 +67,7 @@ describe('InstituteForm', () => {
 
   it('submits the typed DTO when a complete, valid form is submitted', async () => {
     const handleSubmit = vi.fn();
-    render(<InstituteForm {...defaultProps} onSubmit={handleSubmit} />);
+    render(<InstituteForm categories={CATEGORIES} {...defaultProps} onSubmit={handleSubmit} />);
 
     fillValidForm();
     fireEvent.click(screen.getByText('Create Institute'));
@@ -72,10 +76,8 @@ describe('InstituteForm', () => {
       expect(handleSubmit).toHaveBeenCalledWith({
         instituteCode: 'ISB-001',
         instituteName: 'Test Institute',
-        registrationNo: 'REG-123',
+        categoryId: 'cat_school',
         institutionType: 'government',
-        instituteLevel: 'secondary',
-        category: 'boys',
         address: 'Street 1, Sector F-8',
         city: 'Islamabad',
         province: 'punjab',
@@ -90,7 +92,7 @@ describe('InstituteForm', () => {
 
   it('shows a validation error and does not submit when required fields are empty', async () => {
     const handleSubmit = vi.fn();
-    render(<InstituteForm {...defaultProps} onSubmit={handleSubmit} />);
+    render(<InstituteForm categories={CATEGORIES} {...defaultProps} onSubmit={handleSubmit} />);
 
     fireEvent.click(screen.getByText('Create Institute'));
 
@@ -101,18 +103,19 @@ describe('InstituteForm', () => {
   });
 
   it('disables submit button when isSubmitting is true', () => {
-    render(<InstituteForm {...defaultProps} isSubmitting />);
+    render(<InstituteForm categories={CATEGORIES} {...defaultProps} isSubmitting />);
     expect(screen.getByText('Create Institute').closest('button')).toBeDisabled();
   });
 
   it('shows instituteCode field as disabled in edit mode', () => {
-    render(<InstituteForm {...defaultProps} mode="edit" />);
+    render(<InstituteForm categories={CATEGORIES} {...defaultProps} mode="edit" />);
     expect(screen.getByLabelText(/Institution Code/i)).toBeDisabled();
   });
 
   it('pre-fills fields from initialValues', () => {
     render(
       <InstituteForm
+        categories={CATEGORIES}
         {...defaultProps}
         initialValues={{ instituteName: 'Existing Institute', city: 'Lahore' }}
       />,

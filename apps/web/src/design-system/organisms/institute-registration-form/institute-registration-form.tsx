@@ -19,9 +19,7 @@ import * as Yup from 'yup';
 
 import {
   type CategoryQuestionType,
-  GenderCategory,
   type InstituteCategory,
-  InstituteLevel,
   type InstituteQuestionAnswer,
   InstitutionType,
   Province,
@@ -42,18 +40,6 @@ const TYPE_OPTIONS: SelectOption[] = [
   { value: InstitutionType.OTHER, label: 'Other' },
 ];
 
-const LEVEL_OPTIONS: SelectOption[] = [
-  { value: InstituteLevel.SECONDARY, label: 'Secondary (SSC / Matric)' },
-  { value: InstituteLevel.HIGHER_SECONDARY, label: 'Higher Secondary (HSSC / Inter)' },
-  { value: InstituteLevel.BOTH, label: 'Both' },
-];
-
-const GENDER_OPTIONS: SelectOption[] = [
-  { value: GenderCategory.BOYS, label: 'Boys' },
-  { value: GenderCategory.GIRLS, label: 'Girls' },
-  { value: GenderCategory.CO_EDUCATION, label: 'Co-education' },
-];
-
 const PROVINCE_OPTIONS: SelectOption[] = [
   { value: Province.PUNJAB, label: 'Punjab' },
   { value: Province.SINDH, label: 'Sindh' },
@@ -70,8 +56,6 @@ interface FormState {
   instituteCode: string;
   categoryId: string;
   institutionType: string;
-  instituteLevel: string;
-  category: string;
   address: string;
   province: string;
   city: string;
@@ -80,6 +64,13 @@ interface FormState {
   contactPersonDesignation: string;
   contactEmail: string;
   contactPhone: string;
+  /**
+   * The password this institute will sign in with once approved. Collected here because there
+   * is no email service to send a temporary one with — it is hashed the moment it reaches the
+   * API and held apart from the institute record until approval turns it into a login.
+   */
+  password: string;
+  confirmPassword: string;
   /** Category question answers keyed by questionId (one value for single-answer types). */
   answers: Record<string, string[]>;
 }
@@ -90,8 +81,6 @@ const EMPTY: FormState = {
   instituteCode: '',
   categoryId: '',
   institutionType: '',
-  instituteLevel: '',
-  category: '',
   address: '',
   province: '',
   city: '',
@@ -100,6 +89,8 @@ const EMPTY: FormState = {
   contactPersonDesignation: '',
   contactEmail: '',
   contactPhone: '',
+  password: '',
+  confirmPassword: '',
   answers: {},
 };
 
@@ -112,8 +103,6 @@ const REQUIRED_TEXT: Array<[keyof FormState, string]> = [
   ['instituteName', 'Institute name is required'],
   ['categoryId', 'Institute category is required'],
   ['institutionType', 'Type is required'],
-  ['instituteLevel', 'Education level is required'],
-  ['category', 'Gender is required'],
   ['address', 'Address is required'],
   ['province', 'Province is required'],
   ['city', 'City is required'],
@@ -124,28 +113,32 @@ const REQUIRED_TEXT: Array<[keyof FormState, string]> = [
 export interface InstituteRegistrationFormProps {
   /** Active categories (with their dynamic questions) the institute can register under. */
   categories: InstituteCategory[];
-  /** Predicate to flag a duplicate government code (injected — no service import here). */
-  isCodeTaken: (code: string) => boolean;
+  /**
+   * Code and email, already checked for availability by the page before this form is shown.
+   * They are pre-filled and left editable — a typo caught here is better than one caught by the
+   * server — but a change to either is re-checked on submit by the API regardless.
+   */
+  initialCode?: string;
+  initialEmail?: string;
+  isSubmitting?: boolean;
   onSubmit: (dto: RegisterInstituteDto) => void;
 }
 
 export function InstituteRegistrationForm({
   categories,
-  isCodeTaken,
+  initialCode = '',
+  initialEmail = '',
+  isSubmitting = false,
   onSubmit,
 }: InstituteRegistrationFormProps): React.ReactElement {
   const categoryOptions: SelectOption[] = categories.map((c) => ({ value: c.id, label: c.name }));
 
   const validationSchema = useMemo(() => {
     const shape: Record<string, Yup.AnySchema> = {
-      instituteCode: Yup.string()
-        .trim()
-        .required('Institute code is required')
-        .test(
-          'unique-code',
-          'This institute code is already registered.',
-          (value) => !value || !isCodeTaken(value.trim()),
-        ),
+      // Availability is the server's answer, not a guess made here — the page asks before this
+      // form is reached, and the API checks again on submit. A local predicate would only be a
+      // second, staler copy of the same rule.
+      instituteCode: Yup.string().trim().required('Institute code is required'),
       contactEmail: Yup.string()
         .trim()
         .required('Contact email is required')
@@ -154,6 +147,14 @@ export function InstituteRegistrationForm({
         .trim()
         .required('Contact phone is required')
         .matches(PHONE_PATTERN, 'Enter a valid phone number.'),
+      // Matches the API exactly. A stricter rule here would reject passwords the server accepts;
+      // a looser one would let the applicant fill in the whole form and be refused at the end.
+      password: Yup.string()
+        .min(8, 'Password must be at least 8 characters')
+        .required('Choose a password'),
+      confirmPassword: Yup.string()
+        .oneOf([Yup.ref('password')], 'The two passwords do not match')
+        .required('Confirm the password'),
       // Every required question of the SELECTED category must carry a non-empty answer.
       answers: Yup.object().test(
         'required-questions',
@@ -172,16 +173,16 @@ export function InstituteRegistrationForm({
       shape[key] = Yup.string().trim().required(message);
     }
     return Yup.object(shape);
-  }, [categories, isCodeTaken]);
+  }, [categories]);
 
   const formik = useFormik<FormState>({
-    initialValues: EMPTY,
+    initialValues: { ...EMPTY, instituteCode: initialCode, contactEmail: initialEmail },
     validationSchema,
     // The submit button reflects validity from the first render, before any field is touched.
     validateOnMount: true,
     onSubmit: (values) => {
       const questions = categories.find((c) => c.id === values.categoryId)?.questions ?? [];
-      const questionAnswers: InstituteQuestionAnswer[] = questions
+      const answers: InstituteQuestionAnswer[] = questions
         .map((q) => ({ questionId: q.id, values: values.answers[q.id] ?? [] }))
         .filter((a) => a.values.length > 0);
 
@@ -189,10 +190,8 @@ export function InstituteRegistrationForm({
         instituteName: values.instituteName.trim(),
         instituteCode: values.instituteCode.trim(),
         categoryId: values.categoryId,
-        questionAnswers,
+        answers,
         institutionType: values.institutionType as InstitutionType,
-        instituteLevel: values.instituteLevel as InstituteLevel,
-        category: values.category as GenderCategory,
         address: values.address.trim(),
         province: values.province as Province,
         city: values.city.trim(),
@@ -200,6 +199,7 @@ export function InstituteRegistrationForm({
         contactPersonDesignation: values.contactPersonDesignation.trim(),
         contactEmail: values.contactEmail.trim(),
         contactPhone: values.contactPhone.trim(),
+        password: values.password,
         ...(values.branch.trim() ? { branch: values.branch.trim() } : {}),
         ...(values.postalCode.trim() ? { postalCode: values.postalCode.trim() } : {}),
       };
@@ -285,20 +285,6 @@ export function InstituteRegistrationForm({
             options={TYPE_OPTIONS}
             value={formik.values.institutionType}
             onChange={(v) => setValue('institutionType', v)}
-            required
-          />
-          <SelectField
-            label="Education Level"
-            options={LEVEL_OPTIONS}
-            value={formik.values.instituteLevel}
-            onChange={(v) => setValue('instituteLevel', v)}
-            required
-          />
-          <SelectField
-            label="Gender"
-            options={GENDER_OPTIONS}
-            value={formik.values.category}
-            onChange={(v) => setValue('category', v)}
             required
           />
         </div>
@@ -424,8 +410,42 @@ export function InstituteRegistrationForm({
         </div>
       </section>
 
+      <section>
+        <h2 className="mb-1 text-sm font-semibold text-foreground">Choose a password</h2>
+        <p className="mb-4 text-sm text-muted-foreground">
+          This is the password your institute will sign in with once the registration is approved.
+          Keep it safe — there is no automatic reset, so recovering it means contacting the board.
+        </p>
+        <div className="grid gap-4 md:grid-cols-2">
+          <FormField
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="new-password"
+            label="Password"
+            value={formik.values.password}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={errorFor('password')}
+            required
+          />
+          <FormField
+            id="confirmPassword"
+            name="confirmPassword"
+            type="password"
+            autoComplete="new-password"
+            label="Confirm Password"
+            value={formik.values.confirmPassword}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={errorFor('confirmPassword')}
+            required
+          />
+        </div>
+      </section>
+
       <div className="flex justify-end">
-        <Button type="submit" variant="primary" disabled={!formik.isValid}>
+        <Button type="submit" variant="primary" disabled={!formik.isValid || isSubmitting}>
           Submit Registration
         </Button>
       </div>
