@@ -8,6 +8,7 @@ import { AppModule } from '../src/app.module';
 import { createDataSource } from '../src/persistence/typeorm/data-source';
 import { UserEntity } from '../src/persistence/typeorm/entities';
 import { seedDatabase } from '../src/persistence/typeorm/seed/seed';
+import { SYSTEM_ROLE_IDS } from '../src/rbac/system-roles';
 import { hashPassword } from '../src/shared/crypto';
 
 const TEST_URL = process.env['DATABASE_URL_TEST'] ?? process.env['DATABASE_URL'];
@@ -66,14 +67,14 @@ describeDb('Subjects (e2e)', () => {
       users.create({
         email: ADMIN.email,
         passwordHash: await hashPassword(ADMIN.password),
-        roleId: 'role_admin',
+        roleId: SYSTEM_ROLE_IDS.admin,
         fullName: 'Admin One',
         status: 'active',
       }),
       users.create({
         email: EVALUATOR.email,
         passwordHash: await hashPassword(EVALUATOR.password),
-        roleId: 'role_checker',
+        roleId: SYSTEM_ROLE_IDS.checker,
         fullName: 'Evaluator One',
         status: 'active',
       }),

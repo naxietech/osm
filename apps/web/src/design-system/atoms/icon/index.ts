@@ -52,6 +52,7 @@ export {
   Pencil,
   Phone,
   Plus,
+  Search,
   ShieldCheck,
   Square,
   Sun,

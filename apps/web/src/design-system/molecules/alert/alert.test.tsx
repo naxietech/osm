@@ -1,6 +1,6 @@
-import { act, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { Alert } from './alert';
 
@@ -28,122 +28,34 @@ describe('Alert', () => {
     expect(container.querySelector('svg')).toBeNull();
   });
 
-  describe('dismissing', () => {
-    it('has no close button unless a handler is given', () => {
-      render(<Alert>Saved.</Alert>);
-      expect(screen.queryByRole('button', { name: /dismiss/i })).not.toBeInTheDocument();
-    });
-
-    it('closes on click when a handler is given', async () => {
-      const onDismiss = vi.fn();
-      render(<Alert onDismiss={onDismiss}>Saved.</Alert>);
-
-      await userEvent.click(screen.getByRole('button', { name: /dismiss/i }));
-
-      expect(onDismiss).toHaveBeenCalledTimes(1);
-    });
-
-    it('offers the close button on a danger alert too', () => {
-      render(
-        <Alert tone="danger" onDismiss={vi.fn()}>
-          Nope.
-        </Alert>,
-      );
-      expect(screen.getByRole('button', { name: /dismiss/i })).toBeInTheDocument();
-    });
+  it('announces a warning politely, like a success', () => {
+    render(<Alert tone="warning">Changing the role signs them out.</Alert>);
+    expect(screen.getByRole('status')).toHaveTextContent('Changing the role signs them out.');
   });
 
-  describe('auto-dismiss', () => {
-    afterEach(() => {
-      vi.useRealTimers();
-    });
+  it('offers no dismiss button unless the caller can handle it', () => {
+    // A banner the caller cannot clear must not pretend to be dismissible — hiding it would
+    // leave the state that produced it still true, with nothing on screen explaining why.
+    render(<Alert>Saved.</Alert>);
+    expect(screen.queryByRole('button', { name: /dismiss/i })).not.toBeInTheDocument();
+  });
 
-    it('closes a success on its own after the delay', () => {
-      vi.useFakeTimers();
-      const onDismiss = vi.fn();
-      render(
-        <Alert onDismiss={onDismiss} autoDismissMs={5000}>
-          Saved.
-        </Alert>,
-      );
+  it('dismisses when asked', async () => {
+    const onDismiss = vi.fn();
+    render(<Alert onDismiss={onDismiss}>Saved.</Alert>);
 
-      expect(onDismiss).not.toHaveBeenCalled();
-      act(() => {
-        vi.advanceTimersByTime(5000);
-      });
-      expect(onDismiss).toHaveBeenCalledTimes(1);
-    });
+    await userEvent.click(screen.getByRole('button', { name: /dismiss message/i }));
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
 
-    it('never auto-closes a failure, even when asked to', () => {
-      // An error is often the only explanation a user has for why something did not work.
-      // The guard lives here so one forgetful call site cannot drop it.
-      vi.useFakeTimers();
-      const onDismiss = vi.fn();
-      render(
-        <Alert tone="danger" onDismiss={onDismiss} autoDismissMs={5000}>
-          That code is taken.
-        </Alert>,
-      );
-
-      act(() => {
-        vi.advanceTimersByTime(60_000);
-      });
-      expect(onDismiss).not.toHaveBeenCalled();
-    });
-
-    it('is not restarted by unrelated re-renders', () => {
-      // Callers pass an inline arrow, which is a new function every render. If the countdown
-      // depended on it, anything re-rendering the page — typing in a search box — would reset
-      // the timer and the banner would never go away.
-      vi.useFakeTimers();
-      const onDismiss = vi.fn();
-      const { rerender } = render(
-        <Alert
-          onDismiss={() => {
-            onDismiss();
-          }}
-          autoDismissMs={5000}
-        >
-          Saved.
-        </Alert>,
-      );
-
-      act(() => {
-        vi.advanceTimersByTime(3000);
-      });
-      // A fresh handler identity, as a parent re-render would produce.
-      rerender(
-        <Alert
-          onDismiss={() => {
-            onDismiss();
-          }}
-          autoDismissMs={5000}
-        >
-          Saved.
-        </Alert>,
-      );
-      act(() => {
-        vi.advanceTimersByTime(2000);
-      });
-
-      expect(onDismiss).toHaveBeenCalledTimes(1);
-    });
-
-    it('does not leave a timer running after unmount', () => {
-      vi.useFakeTimers();
-      const onDismiss = vi.fn();
-      const { unmount } = render(
-        <Alert onDismiss={onDismiss} autoDismissMs={5000}>
-          Saved.
-        </Alert>,
-      );
-
-      unmount();
-      act(() => {
-        vi.advanceTimersByTime(10_000);
-      });
-
-      expect(onDismiss).not.toHaveBeenCalled();
-    });
+  it('takes a custom name for the dismiss button', async () => {
+    const onDismiss = vi.fn();
+    render(
+      <Alert tone="danger" onDismiss={onDismiss} dismissLabel="Hide this error">
+        Nope
+      </Alert>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Hide this error' }));
+    expect(onDismiss).toHaveBeenCalled();
   });
 });

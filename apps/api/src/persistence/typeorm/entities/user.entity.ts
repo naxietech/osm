@@ -50,4 +50,13 @@ export class UserEntity {
 
   @Column({ name: 'created_by', type: 'uuid', nullable: true })
   createdBy!: string | null;
+
+  /**
+   * Soft delete. Set instead of removing the row, because `auth_audit_log.actor_id`,
+   * `users.created_by` and other tables point here — a hard delete would either break those
+   * references or erase the trail of who did what. Every read filters on `deleted_at is null`,
+   * so a deleted account disappears from listings and can no longer sign in.
+   */
+  @Column({ name: 'deleted_at', type: 'timestamptz', nullable: true })
+  deletedAt!: Date | null;
 }

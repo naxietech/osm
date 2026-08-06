@@ -29,12 +29,6 @@ import { SUBJECTS_KEY, useSubjects } from '@/hooks/use-subjects';
 import { apiErrorMessage } from '@/services/api-client';
 import { subjectsService } from '@/services/subjects.service';
 
-/**
- * How long a success confirmation stays before fading. Long enough to read a sentence without
- * hurrying; short enough that it is gone before the next action. Failures are never on a timer.
- */
-const NOTICE_TIMEOUT_MS = 5000;
-
 export function SubjectsPage(): React.ReactElement {
   const queryClient = useQueryClient();
   const { subjects, isLoading, isError, error } = useSubjects();
@@ -279,7 +273,9 @@ export function SubjectsPage(): React.ReactElement {
           // Only an action failure is dismissible. A failed list read is a standing condition,
           // not an event: hiding it would leave an empty table with no explanation, and it
           // clears itself the moment the list loads.
-          {...(actionError ? { onDismiss: () => setActionError(null) } : {})}
+          {...(actionError
+            ? { onDismiss: () => setActionError(null), dismissLabel: 'Dismiss error' }
+            : {})}
         >
           {actionError ?? listError}
         </Alert>
@@ -287,13 +283,10 @@ export function SubjectsPage(): React.ReactElement {
 
       {notice && !listError && !actionError && (
         <Alert
-          // Keyed on the message so a second confirmation restarts the countdown rather than
-          // inheriting what was left of the first one's.
-          key={notice}
           tone="success"
           className="mb-4"
           onDismiss={() => setNotice(null)}
-          autoDismissMs={NOTICE_TIMEOUT_MS}
+          dismissLabel="Dismiss confirmation"
         >
           {notice}
         </Alert>

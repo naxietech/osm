@@ -30,11 +30,33 @@ export interface CreateUserDto {
 }
 
 /**
- * Account lifecycle. `pending` is an invited account with no password set yet; `locked` is
- * a temporary brute-force lockout the server clears on its own, as opposed to `suspended`,
- * which an admin sets and only an admin can undo.
+ * Request body for `PATCH /users/:id`. Every field is optional — an absent one is left
+ * alone, which is what makes this a patch rather than a replace.
+ *
+ * `instituteId` is the exception that needs three states, so `null` is meaningful and
+ * distinct from absent: `undefined` leaves the link as it is, `null` unlinks the account.
+ * Password and status are not here; each has its own endpoint, because each has side
+ * effects (revoking sessions, clearing a lockout) that a general edit must not trigger by
+ * accident.
  */
-export type UserStatus = 'pending' | 'active' | 'suspended' | 'locked';
+export interface UpdateUserDto {
+  email?: string;
+  fullName?: string;
+  roleId?: string;
+  instituteId?: string | null;
+}
+
+/**
+ * Account lifecycle. `pending` is an invited account with no password set yet; `locked` is
+ * a temporary brute-force lockout the server clears on its own, as opposed to `deactivate`,
+ * which an admin sets and only an admin can undo.
+ *
+ * Declared as a runtime array because both apps need the values, not just the type: the API
+ * builds its Zod enum and Swagger docs from it, and the web app renders one badge per status.
+ * Deriving the type from the array keeps the two from drifting apart.
+ */
+export const USER_STATUSES = ['pending', 'active', 'deactivate', 'locked'] as const;
+export type UserStatus = (typeof USER_STATUSES)[number];
 
 /**
  * A user as the admin directory sees them: `SafeUser` plus the account-management fields.

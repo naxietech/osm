@@ -20,6 +20,30 @@
     {
       "key": "categoryVersion",
       "value": "1"
+    },
+    {
+      "key": "roleSuperAdminId",
+      "value": "019fc9fe-9756-7829-86f1-fc4c79b7ab36"
+    },
+    {
+      "key": "roleAdminId",
+      "value": "019fc9fe-9756-7849-bb20-8c3c8213b4c5"
+    },
+    {
+      "key": "roleControllerId",
+      "value": "019fc9fe-9756-7851-8368-55cd6e8d7874"
+    },
+    {
+      "key": "roleCheckerId",
+      "value": "019fc9fe-9756-7856-ae6a-ae9b60217577"
+    },
+    {
+      "key": "roleInstituteId",
+      "value": "019fc9fe-9756-785b-925d-8ab3063888b0"
+    },
+    {
+      "key": "instituteId",
+      "value": "inst-A"
     }
   ],
   "item": [
@@ -110,7 +134,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/users?limit=50&offset=0",
+              "raw": "{{baseUrl}}/users?limit=50&offset=0&q=&status=active&roleId={{roleCheckerId}}",
               "host": ["{{baseUrl}}"],
               "path": ["users"],
               "query": [
@@ -121,10 +145,28 @@
                 {
                   "key": "offset",
                   "value": "0"
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Free-text filter over email and full name (case-insensitive, max 100 chars). Blank = no filter."
+                },
+                {
+                  "key": "status",
+                  "value": "active",
+                  "disabled": true,
+                  "description": "Exact account status: pending | active | deactivate | locked. Anything else -> 400."
+                },
+                {
+                  "key": "roleId",
+                  "value": "{{roleCheckerId}}",
+                  "disabled": true,
+                  "description": "Exact role id (uuid). Use the role variables. A non-uuid -> 400."
                 }
               ]
             },
-            "description": "Paginated list of users, newest first. Returns { items, total }, where each item is a SafeUser plus the admin fields 'status' (active/suspended) and 'lastLoginAt'. Query params limit (default 50, max 200) and offset (default 0)."
+            "description": "Paginated list of users, newest first. Returns { items, total }.\n\nThree narrowing params, all optional and all combined with AND:\n  q       - free-text SEARCH over email and full name, case-insensitive, max 100 chars\n  status  - exact FILTER: pending | active | deactivate | locked\n  roleId  - exact FILTER: a role uuid\n\nsearch vs filter is a deliberate split: status and roleId are exact matches on indexed columns and stay cheap at any size, while q is a leading-wildcard match that scans. Folding them into one box would make the cheap queries behave like the expensive one.\n\n'total' is narrowed by the same params as the page, so 'showing 10 of 3' cannot happen. Soft-deleted users never appear. Paging: limit (default 50, max 200), offset (default 0)."
           }
         },
         {
@@ -140,9 +182,45 @@
             "url": "{{baseUrl}}/users",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"staff@oses.pk\",\n  \"fullName\": \"Staff Member\",\n  \"roleId\": \"role_admin\",\n  \"password\": \"temporary-password-123\"\n}"
+              "raw": "{\n  \"email\": \"staff@oses.pk\",\n  \"fullName\": \"Staff Member\",\n  \"roleId\": \"{{roleAdminId}}\",\n  \"password\": \"temporary-password-123\"\n}"
             },
-            "description": "Create a user with a role + temporary password. roleId is one of: role_super_admin, role_admin, role_controller, role_checker, role_institute. Duplicate email → 409. Not a Super Admin → 403."
+            "description": "Create a user with a role + temporary password. roleId is now a UUID, not a slug — use the {{roleSuperAdminId}} / {{roleAdminId}} / {{roleControllerId}} / {{roleCheckerId}} / {{roleInstituteId}} collection variables, or copy an id from 'List roles'. instituteId is required for the Institute role and rejected for every other one. Duplicate email -> 409. Unknown role or a role/institute mismatch -> 400. Not a Super Admin -> 403."
+          }
+        },
+        {
+          "name": "Create institute user (role + institute pairing)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"principal@college.edu.pk\",\n  \"fullName\": \"College Principal\",\n  \"roleId\": \"{{roleInstituteId}}\",\n  \"instituteId\": \"{{instituteId}}\",\n  \"password\": \"temporary-password-123\"\n}"
+            },
+            "description": "The Institute role is the only one that may carry an instituteId — and it must. Drop the instituteId here and the request fails 400 'An Institute account must be linked to an institute'; send an instituteId with any other roleId and it fails 400 'Only an Institute account can be linked to an institute'."
+          }
+        },
+        {
+          "name": "Update user (edit email / name / role / institute)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users/:userId",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Updated Name\",\n  \"email\": \"updated@oses.pk\"\n}"
+            },
+            "description": "Every field is optional; omitting one leaves it alone. An empty body is rejected ('Nothing to update') and unknown fields are rejected outright, so a typo like 'rolId' fails loudly instead of being silently ignored.\n\nChanging roleId revokes the user's sessions — the access token carries the role and the guards read it from there, so without that the old permissions would stay live until the token expired (up to 15 min).\n\nRole/institute pairing: moving an account OFF the Institute role clears its instituteId automatically (the clearing is written to the audit log); moving it ONTO the Institute role requires an instituteId in the same request.\n\nPassword and status are NOT here — each has its own endpoint. 400 unknown role / your own role / last active Super Admin / role-institute mismatch. 404 no such user. 409 email already in use."
           }
         },
         {
@@ -164,7 +242,7 @@
           }
         },
         {
-          "name": "Set status (activate / suspend)",
+          "name": "Set status (activate / deactivate)",
           "request": {
             "method": "PATCH",
             "header": [
@@ -176,9 +254,18 @@
             "url": "{{baseUrl}}/users/:userId/status",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"status\": \"suspended\"\n}"
+              "raw": "{\n  \"status\": \"deactivate\"\n}"
             },
-            "description": "Activate or suspend an account. status is 'active' or 'suspended'. Suspending revokes the user's sessions immediately."
+            "description": "Activate or deactivate an account. status is 'active' or 'deactivate'.\n\nDeactivating revokes the user's sessions immediately, so an open tab dies at once rather than when the access token happens to expire. Reactivating also clears any login lockout.\n\nThis is the REVERSIBLE switch-off — the account stays visible in 'List users' throughout, and you can turn it back on. DELETE is the one-way door.\n\n400 your own account, or the last active Super Admin. 404 no such user."
+          }
+        },
+        {
+          "name": "Delete user (soft)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/users/:userId",
+            "description": "Soft delete: the row is kept so the audit trail and every created_by reference stay intact. The account disappears from 'List users', can no longer sign in, and its sessions are revoked immediately. There is no restore endpoint — use 'Set status' -> deactivate for anything reversible.\n\nNote: the deleted user's email stays taken (the unique index covers deleted rows), so re-creating the same address returns 409.\n\n400 your own account, or the last active Super Admin. 404 no such user."
           }
         }
       ]

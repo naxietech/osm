@@ -14,7 +14,12 @@ export function isUniqueViolation(err: unknown): boolean {
 }
 
 /**
- * `23503` — a foreign key was violated.
+ * A foreign key refused the statement.
+ *
+ * Two SQLSTATEs, because Postgres 18 changed which one it uses: an `ON DELETE RESTRICT` refusal
+ * now arrives as `23001` (restrict_violation), where 16 and earlier reported `23503` for that as
+ * well as for every other foreign-key failure. Both are accepted — to a caller they mean the same
+ * thing, and matching only `23503` on PG18 turns a user-correctable 409 into a 500.
  *
  * Deliberately a neutral detector rather than something that maps straight to a status: the same
  * SQLSTATE means very different things depending on which way the key points. A delete refused
@@ -23,5 +28,5 @@ export function isUniqueViolation(err: unknown): boolean {
  * and only where the meaning is unambiguous.
  */
 export function isForeignKeyViolation(err: unknown): boolean {
-  return hasSqlState(err, '23503');
+  return hasSqlState(err, '23503') || hasSqlState(err, '23001');
 }

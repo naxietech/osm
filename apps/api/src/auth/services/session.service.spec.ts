@@ -1,6 +1,7 @@
 import { UnauthorizedException } from '@nestjs/common';
 
 import type { AuthConfig } from '../../config/auth.config';
+import { SYSTEM_ROLE_IDS } from '../../rbac/system-roles';
 import type {
   AuthAuditRepository,
   AuthUserRecord,
@@ -35,7 +36,7 @@ function makeUser(over: Partial<AuthUserRecord> = {}): AuthUserRecord {
     id: 'u1',
     email: 'admin@oses.pk',
     passwordHash: 'x',
-    roleId: 'role_super_admin',
+    roleId: SYSTEM_ROLE_IDS.superAdmin,
     instituteId: null,
     fullName: 'Admin',
     status: 'active',

@@ -1,9 +1,9 @@
-import { type ReactNode, useEffect, useRef } from 'react';
+import { type ReactNode } from 'react';
 
 import { Check, X } from '@/design-system/atoms/icon';
 import { cn } from '@/lib/utils';
 
-export type AlertTone = 'success' | 'danger';
+export type AlertTone = 'success' | 'danger' | 'warning';
 
 export interface AlertProps {
   /** Which semantic tone to render. */
@@ -11,29 +11,21 @@ export interface AlertProps {
   children: ReactNode;
   /** Show the leading icon badge. Defaults to true for success, false for danger. */
   withIcon?: boolean;
-  /** Supply to make the banner dismissible — renders a close button that calls this. */
-  onDismiss?: () => void;
   /**
-   * Dismiss on its own after this many milliseconds. Requires `onDismiss`, since clearing the
-   * message is the caller's state to change.
-   *
-   * Use for confirmations, not for failures: an error is often the only explanation a user has
-   * for why something did not work, and taking it away on a timer punishes anyone who looked
-   * away, reads slowly, or is still hearing it announced. `danger` alerts therefore ignore this
-   * — see the guard below.
+   * Makes the banner dismissible: pass a handler that clears whatever state renders it.
+   * Omit it for a banner the user should not be able to hide — a validation failure that
+   * still blocks the form, say, where dismissing would leave them stuck with no explanation.
    */
-  autoDismissMs?: number;
+  onDismiss?: () => void;
+  /** Accessible name for the dismiss button. */
+  dismissLabel?: string;
   className?: string;
 }
 
 const TONE_CLASSES: Record<AlertTone, string> = {
   success: 'border-success/30 bg-success-subtle text-success-foreground',
   danger: 'border-danger/30 bg-danger-subtle text-danger-foreground',
-};
-
-const DISMISS_CLASSES: Record<AlertTone, string> = {
-  success: 'hover:bg-success/15 focus-visible:outline-success',
-  danger: 'hover:bg-danger/15 focus-visible:outline-danger',
+  warning: 'border-warning/30 bg-warning-subtle text-warning-foreground',
 };
 
 /**
@@ -48,36 +40,9 @@ export function Alert({
   children,
   withIcon = tone === 'success',
   onDismiss,
-  autoDismissMs,
+  dismissLabel = 'Dismiss message',
   className,
 }: AlertProps): React.ReactElement {
-  /**
-   * Failures never dismiss themselves, whatever the caller passed. Enforced here rather than
-   * left to each call site: this is the kind of rule that holds everywhere until the one screen
-   * that forgets it, and by then the message it dropped is the one someone needed.
-   */
-  const autoDismiss = tone === 'danger' ? undefined : autoDismissMs;
-
-  /**
-   * Held in a ref so the countdown does not depend on `onDismiss` keeping its identity. Callers
-   * pass an inline arrow, which is a new function every render — as a dependency it would clear
-   * and restart the timer on every unrelated re-render (typing in a search box, say), so the
-   * banner would sit there forever and never actually dismiss.
-   */
-  const onDismissRef = useRef(onDismiss);
-  useEffect(() => {
-    onDismissRef.current = onDismiss;
-  }, [onDismiss]);
-
-  useEffect(() => {
-    if (autoDismiss === undefined) return undefined;
-    const timer = setTimeout(() => onDismissRef.current?.(), autoDismiss);
-    return () => clearTimeout(timer);
-    // Only the delay restarts the countdown. To restart it for a NEW message, give the Alert a
-    // `key` tied to that message so it remounts — otherwise the second message would inherit
-    // whatever was left of the first one's timer.
-  }, [autoDismiss]);
-
   return (
     <div
       role={tone === 'danger' ? 'alert' : 'status'}
@@ -102,13 +67,10 @@ export function Alert({
         <button
           type="button"
           onClick={onDismiss}
-          // Named rather than left as a bare icon: "Close" alone does not say what is closing,
-          // which matters when a screen has more than one thing that could be.
-          aria-label="Dismiss message"
-          className={cn(
-            '-mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors',
-            DISMISS_CLASSES[tone],
-          )}
+          aria-label={dismissLabel}
+          // Inherits the banner's colour rather than picking its own, so one control works
+          // on all three tones without a per-tone class map.
+          className="-mr-1 shrink-0 rounded-md p-1 text-current opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-current"
         >
           <X className="h-4 w-4" aria-hidden />
         </button>

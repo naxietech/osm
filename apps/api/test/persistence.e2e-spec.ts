@@ -53,11 +53,38 @@ describeDb('auth persistence + seed (integration)', () => {
   });
 
   it('Evaluator grants are exactly marking.mark + dashboard.view — no PII', async () => {
+    // Grants point at a permission id now, so the readable action comes from a join.
     const rows = await dataSource
       .getRepository(RoleGrantEntity)
-      .find({ where: { roleId: SYSTEM_ROLE_IDS.checker }, select: ['action'] });
+      .createQueryBuilder('grant')
+      .innerJoin(PermissionEntity, 'permission', 'permission.id = grant.permissionId')
+      .select('permission.action', 'action')
+      .where('grant.roleId = :roleId', { roleId: SYSTEM_ROLE_IDS.checker })
+      .getRawMany<{ action: string }>();
+
     expect(rows.map((r) => r.action).sort()).toEqual(['dashboard.view', 'marking.mark']);
     expect(rows.map((r) => r.action)).not.toContain('students.viewPII');
+  });
+
+  it('gives every role a uuid id and a readable code', async () => {
+    const rows = await dataSource.getRepository(RoleEntity).find();
+
+    expect(rows.every((r) => /^[0-9a-f-]{36}$/.test(r.id))).toBe(true);
+    expect(rows.map((r) => r.code).sort()).toEqual([
+      'admin',
+      'checker',
+      'controller',
+      'institute',
+      'super_admin',
+    ]);
+  });
+
+  it('gives every permission a uuid id while keeping the action as a unique code', async () => {
+    const rows = await dataSource.getRepository(PermissionEntity).find();
+
+    expect(rows).toHaveLength(ALL_PERMISSION_ACTIONS.length);
+    expect(rows.every((p) => /^[0-9a-f-]{36}$/.test(p.id))).toBe(true);
+    expect(new Set(rows.map((p) => p.action)).size).toBe(rows.length);
   });
 
   it('bootstraps an active Super Admin with a verifiable argon2id hash', async () => {
