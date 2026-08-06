@@ -1,9 +1,26 @@
 /**
  * Mock academic-structure service (frontend only). Serves the Admin-managed reference
  * data — Levels, Groups/Programs, Subjects/Courses and the Curriculum — that Students
- * and Exams reference. Seeded for schools (Class 9–12). The CRUD screens to manage this
- * data are a follow-up; here it is read-only seed used by the student/exam forms.
- * TODO: Replace with a real academicApi + Admin management screens.
+ * and Exams reference. Seeded for schools (Class 9–12).
+ *
+ * ## Which list is live and which is not
+ *
+ * **Classes are live.** They come from `GET /classes` via `classes.service.ts` and the
+ * `useClasses()` hook, and the Classes screen writes to the database. The `levels` array
+ * below is the *mock* of that same data and is **no longer the source of truth** — it starts
+ * drifting the moment an admin adds or renames a class. It survives only because the exam,
+ * checker, student and SLO forms still read from it; each one moves to `useClasses()` as its
+ * own module is wired up, and `levels` goes when the last of them has.
+ *
+ * **The `groups` catalogue below is mock-only and has no live counterpart, by decision.** Two
+ * group systems exist here and only one can be real: the per-class tree the TRD describes and
+ * the Classes screen authors (now `class_groups` in the database), and this flat cross-class
+ * catalogue. The per-class tree won. Do not build anything new against `groups`.
+ *
+ * `subjects` and `curriculum` are mock-only too — subjects have their own module plan, and
+ * curriculum is the module that will finally join classes to subjects.
+ *
+ * TODO: retire `levels`/`groups` as each consuming screen migrates to `useClasses()`.
  */
 import {
   type ClassGroup,
@@ -22,7 +39,7 @@ function delay<T>(value: T): Promise<T> {
   return new Promise<T>((resolve) => setTimeout(() => resolve(value), LATENCY));
 }
 
-// ---- levels (school) — each carries the inline Class → Group → Subgroup structure ----
+// ---- levels (school) — MOCK MIRROR of the live `classes` table; see the file header ----
 export const levels: Level[] = [
   {
     id: 'lvl_9',
@@ -91,7 +108,7 @@ export const levels: Level[] = [
   },
 ];
 
-// ---- groups / streams ----
+// ---- groups / streams — MOCK-ONLY, no live counterpart; the per-class tree replaced this ----
 export const groups: Group[] = [
   {
     id: 'grp_science',
@@ -369,7 +386,6 @@ export const academicService = {
 
 // ---- mutations (super-admin reference-data management) ----
 let subjectCounter = subjects.length;
-let levelCounter = levels.length;
 let groupCounter = groups.length;
 
 export function createSubject(input: {
@@ -404,99 +420,14 @@ export function toggleSubjectActive(id: string): void {
   if (subject) subject.isActive = !subject.isActive;
 }
 
-export function createLevel(input: {
-  name: string;
-  ordinal: number;
-  description?: string;
-  kind?: InstitutionKind;
-}): Level {
-  levelCounter += 1;
-  const level: Level = {
-    id: `lvl_new_${levelCounter}`,
-    kind: input.kind ?? InstitutionKind.SCHOOL,
-    name: input.name,
-    ordinal: input.ordinal,
-    isActive: true,
-    classGroups: [],
-    ...(input.description ? { description: input.description } : {}),
-  };
-  levels.push(level);
-  return level;
-}
-export function updateLevel(
-  id: string,
-  input: { name?: string; ordinal?: number; description?: string },
-): Level | undefined {
-  const level = levels.find((l) => l.id === id);
-  if (!level) return undefined;
-  if (input.name !== undefined) level.name = input.name;
-  if (input.ordinal !== undefined) level.ordinal = input.ordinal;
-  if (input.description !== undefined) level.description = input.description;
-  return level;
-}
-export function toggleLevelActive(id: string): void {
-  const level = levels.find((l) => l.id === id);
-  if (level) level.isActive = !level.isActive;
-}
-
-// ---- class hierarchy mutations (Class → Group → Subgroup management) ----
-let classGroupCounter = 0;
-let subgroupCounter = 0;
-
-/** Input shape for authoring a class's group/subgroup tree in one submit. */
-export interface SubgroupInput {
-  /** Existing subgroup id to preserve on edit; omit for a new subgroup. */
-  id?: string;
-  name: string;
-  code?: string;
-}
-export interface ClassGroupInput {
-  /** Existing group id to preserve on edit; omit for a new group. */
-  id?: string;
-  name: string;
-  code?: string;
-  subgroups: SubgroupInput[];
-}
-
-/**
- * Replace a class's entire group/subgroup tree from the Class form (single submit).
- * Blank names are dropped. Ids passed on inputs are PRESERVED (so students/exams that
- * reference an existing group/subgroup keep pointing at it); only new rows get fresh ids.
- */
-export function replaceClassGroups(classId: string, groups: ClassGroupInput[]): void {
-  const level = findLevel(classId);
-  if (!level) return;
-  level.classGroups = groups
-    .filter((g) => g.name.trim().length > 0)
-    .map((g): ClassGroup => {
-      let groupId = g.id;
-      if (!groupId) {
-        classGroupCounter += 1;
-        groupId = `cg_${classGroupCounter}`;
-      }
-      return {
-        id: groupId,
-        name: g.name.trim(),
-        isActive: true,
-        ...(g.code ? { code: g.code } : {}),
-        subgroups: g.subgroups
-          .filter((s) => s.name.trim().length > 0)
-          .map((s): Subgroup => {
-            let subgroupId = s.id;
-            if (!subgroupId) {
-              subgroupCounter += 1;
-              subgroupId = `sg_${subgroupCounter}`;
-            }
-            return {
-              id: subgroupId,
-              name: s.name.trim(),
-              isActive: true,
-              ...(s.code ? { code: s.code } : {}),
-            };
-          }),
-      };
-    });
-}
+// ---- NOTE, about what is NOT here any more ----
+// Level mutations used to live at this point in the file, alongside a replaceClassGroups()
+// that rewrote a class tree in memory. They were removed when the Classes screen moved to the
+// live API: a second write path to data the database now owns can only diverge from it. The
+// level READS (findLevel, classGroupOptions, …) stay until the last screen migrates.
+//
+// The group mutations below are a different thing entirely — they belong to the flat,
+// mock-only `groups` catalogue, which has no live counterpart and is not going to get one.
 
 export function createGroup(input: { code: string; name: string; kind?: InstitutionKind }): Group {
   groupCounter += 1;

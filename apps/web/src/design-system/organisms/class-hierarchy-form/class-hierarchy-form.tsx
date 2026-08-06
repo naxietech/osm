@@ -9,6 +9,10 @@
  * existing group/subgroup carries its original `id` so the parent's save PRESERVES
  * references (students/exams pointing at a group/subgroup are not orphaned by an edit).
  *
+ * Saving is the page's job, not this form's — it imports no service. `submitting` and `error`
+ * are how the page reports back what happened, which is all the form needs to know now that a
+ * save crosses the network and can fail.
+ *
  * Rows use Formik's FieldArray but keep their own `key`: Formik does not solve React
  * keying, and an index key loses focus/state when rows are added or removed.
  */
@@ -21,7 +25,12 @@ import { Button } from '@/design-system/atoms/button';
 import { Checkbox } from '@/design-system/atoms/checkbox';
 import { Plus, X } from '@/design-system/atoms/icon';
 import { Input } from '@/design-system/atoms/input';
+import { Alert } from '@/design-system/molecules/alert';
 import { FormField } from '@/design-system/molecules/form-field';
+
+/** Mirrors the API's `ordinal` range, so an impossible value fails before the round trip. */
+const MIN_ORDINAL = 1;
+const MAX_ORDINAL = 99;
 
 /** Group/subgroup as emitted on save (id preserved for existing rows, omitted for new). */
 export interface ClassHierarchyGroup {
@@ -41,24 +50,46 @@ export interface ClassHierarchyFormProps {
   mode: 'create' | 'edit';
   onSave: (value: ClassHierarchyValue) => void;
   onCancel: () => void;
+  /** A save is in flight: the buttons lock so one click cannot become two saves. */
+  submitting?: boolean;
+  /**
+   * Why the last save failed, in the server's own words. Shown above the buttons, where the
+   * click that caused it happened — rather than at the top of a form the user may have
+   * scrolled past.
+   */
+  error?: string | null;
 }
 
+/**
+ * `touched` gates only whether a row's error is *shown*, never whether it counts. A row added
+ * by ticking a checkbox starts empty, and flagging it red before the user has typed a
+ * character is scolding them for a field they just asked for. It goes true on the first change
+ * or blur — matching how the class-name field above uses Formik's own `touched`.
+ */
 interface SubgroupDraft {
   key: number;
   id?: string;
   name: string;
+  touched?: boolean;
 }
 interface GroupDraft {
   key: number;
   id?: string;
   name: string;
+  touched?: boolean;
   hasSubgroup: boolean;
   subgroups: SubgroupDraft[];
 }
 
 interface ClassFormValues {
   name: string;
-  ordinal: string;
+  /**
+   * **Not always a string.** Formik's `handleChange` parses the value of an
+   * `<input type="number">` before storing it, so this holds a `number` once the user types
+   * and `''` before that. Typing it as `string` and calling `.trim()` on it threw inside
+   * Formik's submit handler, which swallows the error — the save button simply did nothing.
+   */
+  ordinal: number | string;
   description: string;
   hasGroup: boolean;
   groups: GroupDraft[];
@@ -118,7 +149,14 @@ function asGroups(value: unknown): GroupDraft[] {
 
 const validationSchema = Yup.object({
   name: Yup.string().trim().required('Class name is required'),
-  ordinal: Yup.string(),
+  // Required, and a whole number in range. Sorted by name "Class 10" comes before "Class 9",
+  // so the order cannot be derived — only the admin knows where a new class belongs.
+  ordinal: Yup.number()
+    .typeError('Order must be a number')
+    .required('Order is required')
+    .integer('Order must be a whole number')
+    .min(MIN_ORDINAL, `Order must be between ${MIN_ORDINAL} and ${MAX_ORDINAL}`)
+    .max(MAX_ORDINAL, `Order must be between ${MIN_ORDINAL} and ${MAX_ORDINAL}`),
   description: Yup.string(),
   hasGroup: Yup.boolean(),
   groups: Yup.mixed().test('groups-valid', 'Fix the group names.', (value, ctx) => {
@@ -133,6 +171,8 @@ export function ClassHierarchyForm({
   mode,
   onSave,
   onCancel,
+  submitting = false,
+  error = null,
 }: ClassHierarchyFormProps): React.ReactElement {
   const keyRef = useRef(0);
   const nextKey = (): number => {
@@ -181,7 +221,8 @@ export function ClassHierarchyForm({
         : [];
       onSave({
         name: values.name.trim(),
-        ordinal: values.ordinal.trim(),
+        // Stringified rather than trimmed directly — see the note on ClassFormValues.ordinal.
+        ordinal: String(values.ordinal).trim(),
         description: values.description.trim(),
         groups: cleanGroups,
       });
@@ -220,11 +261,15 @@ export function ClassHierarchyForm({
 
   const addSubgroup = (gi: number): void =>
     setSubgroups(gi, [...(groups[gi]?.subgroups ?? []), newSubgroup()]);
-  const setSubgroupName = (gi: number, si: number, value: string): void =>
+  const patchSubgroup = (gi: number, si: number, patch: Partial<SubgroupDraft>): void =>
     setSubgroups(
       gi,
-      (groups[gi]?.subgroups ?? []).map((s, j) => (j === si ? { ...s, name: value } : s)),
+      (groups[gi]?.subgroups ?? []).map((s, j) => (j === si ? { ...s, ...patch } : s)),
     );
+
+  const setSubgroupName = (gi: number, si: number, value: string): void =>
+    patchSubgroup(gi, si, { name: value, touched: true });
+  const touchSubgroup = (gi: number, si: number): void => patchSubgroup(gi, si, { touched: true });
   const removeSubgroup = (gi: number, si: number): void =>
     setSubgroups(
       gi,
@@ -253,7 +298,8 @@ export function ClassHierarchyForm({
             value={formik.values.ordinal}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
-            required={false}
+            error={formik.touched.ordinal ? formik.errors.ordinal : undefined}
+            required
           />
           <FormField
             id="class-description"
@@ -280,7 +326,9 @@ export function ClassHierarchyForm({
               {(helpers) => (
                 <div className="mt-3 space-y-4">
                   {groups.map((group, gi) => {
-                    const gErr = groupNameError(groups, gi);
+                    // The rule still runs for every row — it is what gates the save button.
+                    // `touched` only decides whether the user is shown the result yet.
+                    const gErr = group.touched ? groupNameError(groups, gi) : '';
                     return (
                       <div key={group.key} className="rounded-lg border border-border p-4">
                         <div className="flex items-center gap-2">
@@ -289,7 +337,10 @@ export function ClassHierarchyForm({
                             placeholder="Group (e.g. Science)"
                             value={group.name}
                             error={Boolean(gErr)}
-                            onChange={(e) => mutateGroup(gi, { name: e.target.value })}
+                            onChange={(e) =>
+                              mutateGroup(gi, { name: e.target.value, touched: true })
+                            }
+                            onBlur={() => mutateGroup(gi, { touched: true })}
                           />
                           <Button
                             type="button"
@@ -314,7 +365,7 @@ export function ClassHierarchyForm({
                             <div className="mt-2">
                               <ul className="space-y-2">
                                 {group.subgroups.map((sg, si) => {
-                                  const sErr = subgroupNameError(groups, gi, si);
+                                  const sErr = sg.touched ? subgroupNameError(groups, gi, si) : '';
                                   return (
                                     <li key={sg.key}>
                                       <div className="flex items-center gap-2">
@@ -327,6 +378,7 @@ export function ClassHierarchyForm({
                                           value={sg.name}
                                           error={Boolean(sErr)}
                                           onChange={(e) => setSubgroupName(gi, si, e.target.value)}
+                                          onBlur={() => touchSubgroup(gi, si)}
                                         />
                                         <Button
                                           type="button"
@@ -379,11 +431,22 @@ export function ClassHierarchyForm({
           )}
         </div>
 
+        {error && (
+          <Alert tone="danger" className="mt-6">
+            {error}
+          </Alert>
+        )}
+
         <div className="mt-6 flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={onCancel}>
+          <Button type="button" variant="ghost" onClick={onCancel} disabled={submitting}>
             Cancel
           </Button>
-          <Button type="submit" variant="primary" disabled={!formik.isValid}>
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={!formik.isValid || submitting}
+            isLoading={submitting}
+          >
             {mode === 'edit' ? 'Save Changes' : 'Add Class'}
           </Button>
         </div>

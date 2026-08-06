@@ -1,4 +1,6 @@
 import { AuthAuditLogEntity } from './auth-audit-log.entity';
+import { ClassGroupEntity } from './class-group.entity';
+import { ClassEntity } from './class.entity';
 import { InstituteCategoryQuestionEntity } from './institute-category-question.entity';
 import { InstituteCategoryEntity } from './institute-category.entity';
 import { PermissionEntity } from './permission.entity';
@@ -8,6 +10,8 @@ import { SessionEntity } from './session.entity';
 import { UserEntity } from './user.entity';
 
 export { AuthAuditLogEntity } from './auth-audit-log.entity';
+export { ClassGroupEntity } from './class-group.entity';
+export { ClassEntity } from './class.entity';
 export { InstituteCategoryQuestionEntity } from './institute-category-question.entity';
 export { InstituteCategoryEntity } from './institute-category.entity';
 export { PermissionEntity } from './permission.entity';
@@ -29,5 +33,8 @@ export const AUTH_ENTITIES = [
 /** Super-admin-managed reference data (institute categories + their dynamic questions). */
 export const REFERENCE_ENTITIES = [InstituteCategoryEntity, InstituteCategoryQuestionEntity];
 
+/** The Class → Group → Subgroup hierarchy. One aggregate, so both tables travel together. */
+export const ACADEMIC_ENTITIES = [ClassEntity, ClassGroupEntity];
+
 /** Everything the DataSource must know about. Feature modules still scope their own forFeature. */
-export const ALL_ENTITIES = [...AUTH_ENTITIES, ...REFERENCE_ENTITIES];
+export const ALL_ENTITIES = [...AUTH_ENTITIES, ...REFERENCE_ENTITIES, ...ACADEMIC_ENTITIES];

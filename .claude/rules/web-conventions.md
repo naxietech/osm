@@ -43,6 +43,21 @@ React 18 + TypeScript + Vite. **Auth, users and roles are live; everything else 
   controlled-input state or ad-hoc validation. Dynamic/conditional fields fold into the Formik
   values + Yup schema (see the exam form for the reference).
 
+## Confirming an action — always a modal
+
+- **Any action worth pausing on is confirmed through `ConfirmDialog`** — never an inline banner,
+  an `Alert` with buttons, a second click on the same control, or `window.confirm`. It lives in
+  `design-system/molecules/modal`. One component means one look, one focus trap, one busy
+  state, and one place to fix a bug in all of them.
+- Confirm the **destructive direction only**. Deactivating, suspending, deleting, revoking,
+  de-anonymising and overwriting all ask first; activating, restoring and re-enabling just
+  happen — a dialog on a harmless action trains people to click through the dangerous one.
+- Pass `tone="danger"` when the action takes something away, and `busy` while the request is in
+  flight so the dialog cannot be double-submitted or dismissed mid-write.
+- Say what will actually happen, including anything the user cannot undo, in `description` —
+  not just "Are you sure?". Reference: `users-list.page.tsx` (suspend) and
+  `setup/classes.page.tsx` (deactivate).
+
 ## Styling — Tailwind v4 tokens
 
 - Tailwind **v4** with CSS-variable design tokens (defined in `src/index.css` / the theme). Style
