@@ -24,7 +24,7 @@ import {
 
 import { Button } from '@/design-system/atoms/button';
 import { Checkbox } from '@/design-system/atoms/checkbox';
-import { ChevronDown, ChevronUp, Plus, Upload, X } from '@/design-system/atoms/icon';
+import { ChevronDown, ChevronUp, Plus, Trash2, Upload, X } from '@/design-system/atoms/icon';
 import { Input } from '@/design-system/atoms/input';
 import { FormField } from '@/design-system/molecules/form-field';
 import { SelectField, type SelectOption } from '@/design-system/molecules/select-field';
@@ -62,6 +62,15 @@ export interface InstituteCategoryFormProps {
   mode: 'create' | 'edit';
   onSave: (value: InstituteCategoryFormValue) => void;
   onCancel: () => void;
+  /**
+   * Delete this category. Edit mode only, and rendered apart from Save — deleting is not a
+   * variation on saving, and a destructive control sitting beside the one people press by
+   * habit is how it gets pressed by accident.
+   *
+   * Omit it and no delete is offered, which is how a caller without the manage grant renders
+   * the form. The parent still owns the confirmation and the call; this only asks.
+   */
+  onDelete?: () => void;
 }
 
 const TYPE_OPTIONS: SelectOption[] = [
@@ -129,6 +138,7 @@ const validationSchema = Yup.object({
 export function InstituteCategoryForm({
   initialValue,
   mode,
+  onDelete,
   onSave,
   onCancel,
 }: InstituteCategoryFormProps): React.ReactElement {
@@ -428,13 +438,22 @@ export function InstituteCategoryForm({
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button type="submit" variant="primary" disabled={!formik.isValid}>
-            {mode === 'edit' ? 'Save Changes' : 'Add Category'}
-          </Button>
+        <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-border pt-6">
+          {mode === 'edit' && onDelete && (
+            <Button type="button" variant="danger" onClick={onDelete}>
+              <Trash2 className="mr-2 h-4 w-4" aria-hidden />
+              Delete Category
+            </Button>
+          )}
+          {/* Pushes save/cancel to the far end, so the destructive button is never adjacent. */}
+          <div className="ml-auto flex gap-2">
+            <Button type="button" variant="ghost" onClick={onCancel}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" disabled={!formik.isValid}>
+              {mode === 'edit' ? 'Save Changes' : 'Add Category'}
+            </Button>
+          </div>
         </div>
       </form>
     </FormikProvider>

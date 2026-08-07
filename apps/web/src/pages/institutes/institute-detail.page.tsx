@@ -13,15 +13,20 @@ import { useNavigate, useParams } from 'react-router-dom';
 import type { CreateInstituteDto, InstituteDetail, UpdateInstituteDto } from '@oses/types';
 
 import { Button } from '@/design-system/atoms/button';
+import { Checkbox } from '@/design-system/atoms/checkbox';
 import { Building2, ChevronLeft } from '@/design-system/atoms/icon';
+import { Label } from '@/design-system/atoms/label';
 import { Spinner } from '@/design-system/atoms/spinner';
+import { Textarea } from '@/design-system/atoms/textarea';
 import { Alert } from '@/design-system/molecules/alert';
 import { ConfirmDialog } from '@/design-system/molecules/modal';
 import { StatusBadge } from '@/design-system/molecules/status-badge';
 import { InstituteForm } from '@/design-system/organisms/institute-form';
+import { usePermissions } from '@/hooks';
 import { useInstituteCategories } from '@/hooks/use-institute-categories';
 import {
   useApproveInstitute,
+  useCreateInstitute,
   useDeleteInstitute,
   useInstitute,
   useRejectInstitute,
@@ -30,7 +35,6 @@ import {
 } from '@/hooks/use-institutes';
 import { ROUTES } from '@/router/routes';
 import { apiErrorMessage } from '@/services/api-client';
-import { institutesService } from '@/services/institutes.service';
 
 type Decision = 'approve' | 'reject' | 'deactivate' | 'reactivate' | 'delete' | null;
 
@@ -61,7 +65,17 @@ export function InstituteDetailPage(): React.ReactElement {
   const [decision, setDecision] = useState<Decision>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [createLogin, setCreateLogin] = useState(true);
-  const [isCreating, setIsCreating] = useState(false);
+
+  /**
+   * An Admin holds `institutes.view` but not `institutes.manage`: they can look an institute up
+   * while working on students and exams, but approving, deactivating or deleting one is a Super
+   * Admin decision. Every control that changes something is withheld rather than disabled — a
+   * greyed-out Approve button only invites "why can't I?".
+   *
+   * This is presentation only. The API refuses the same calls with a 403 regardless.
+   */
+  const { can } = usePermissions();
+  const canManage = can('institutes.manage');
 
   const instituteQuery = useInstitute(id ?? '', isEdit);
   const institute = instituteQuery.data;
@@ -71,6 +85,7 @@ export function InstituteDetailPage(): React.ReactElement {
   const setStatus = useSetInstituteStatus();
   const update = useUpdateInstitute();
   const remove = useDeleteInstitute();
+  const createInstitute = useCreateInstitute();
 
   /**
    * Only active categories are offered: a deactivated one is closed to new registrations, and
@@ -81,9 +96,9 @@ export function InstituteDetailPage(): React.ReactElement {
    * server rejects with a 400 for a category that does not exist.
    */
   const categoriesQuery = useInstituteCategories();
-  const categoryOptions = (categoriesQuery.data ?? [])
-    .filter((c) => c.isActive)
-    .map((c) => ({ value: c.id, label: c.name }));
+  // The whole record, not `{value,label}`: the form needs each category's questions to ask them.
+  // Passing option pairs is why picking a category showed its name and none of its questions.
+  const activeCategories = (categoriesQuery.data ?? []).filter((c) => c.isActive);
 
   const closeDecision = (): void => {
     setDecision(null);
@@ -112,17 +127,20 @@ export function InstituteDetailPage(): React.ReactElement {
         .catch((err: unknown) => setActionError(apiErrorMessage(err)));
       return;
     }
-    setIsCreating(true);
-    void institutesService
-      .createInstitute(dto)
-      .then((created) =>
-        navigate(`${ROUTES.admin.institutes}/${created.id}`, {
+    // Through the hook, not the service directly: every other mutation on this page invalidates
+    // the institutes cache on success, and a create that skipped it would leave the directory
+    // and the approval queue serving a page that omits the new record.
+    void createInstitute
+      .mutateAsync(dto)
+      .then((result) =>
+        navigate(`${ROUTES.admin.institutes}/${result.institute.id}`, {
           replace: true,
-          state: { notice: 'Institute created and approved.' },
+          // The API's own wording, which says whether the login was created — restating it here
+          // would go stale the moment that behaviour changes, and it just did.
+          state: { notice: result.message },
         }),
       )
-      .catch((err: unknown) => setActionError(apiErrorMessage(err)))
-      .finally(() => setIsCreating(false));
+      .catch((err: unknown) => setActionError(apiErrorMessage(err)));
   };
 
   if (isEdit && instituteQuery.isLoading) {
@@ -159,6 +177,12 @@ export function InstituteDetailPage(): React.ReactElement {
           {banner}
         </Alert>
       )}
+      {categoriesQuery.isError && (
+        <Alert tone="danger" className="mb-4">
+          {apiErrorMessage(categoriesQuery.error)}
+        </Alert>
+      )}
+
       {actionError && (
         <Alert
           tone="danger"
@@ -188,7 +212,7 @@ export function InstituteDetailPage(): React.ReactElement {
         </Alert>
       )}
 
-      {institute?.status === 'pending' && (
+      {institute?.status === 'pending' && canManage && (
         <div className="mb-6 flex flex-wrap gap-2 rounded-lg border border-border bg-card p-4 shadow-sm">
           <Button variant="primary" onClick={() => setDecision('approve')}>
             Approve &amp; Register
@@ -201,7 +225,8 @@ export function InstituteDetailPage(): React.ReactElement {
 
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm md:p-8">
         <InstituteForm
-          categories={categoryOptions}
+          categories={activeCategories}
+          readOnly={!canManage}
           initialValues={
             isEdit && institute
               ? {
@@ -221,13 +246,14 @@ export function InstituteDetailPage(): React.ReactElement {
                 }
               : undefined
           }
+          {...(isEdit && canManage ? { onDelete: () => setDecision('delete') } : {})}
           onSubmit={handleSubmit}
           onCancel={() => void navigate(ROUTES.admin.institutes)}
-          isSubmitting={update.isPending || isCreating}
+          isSubmitting={update.isPending || createInstitute.isPending}
           mode={isEdit ? 'edit' : 'create'}
         />
 
-        {isEdit && (
+        {isEdit && canManage && (
           <p className="mt-4 border-t border-border pt-4 text-xs text-muted-foreground">
             Changing the contact email here does <strong>not</strong> change any login. Recommended:
             also change the login email for this institute on the Users screen.
@@ -235,36 +261,39 @@ export function InstituteDetailPage(): React.ReactElement {
         )}
       </div>
 
-      {institute && institute.status !== 'pending' && institute.status !== 'rejected' && (
-        <div className="mt-6 rounded-lg border border-danger/40 bg-danger-subtle/30 p-6">
-          <h2 className="text-sm font-semibold text-foreground">
-            {institute.status === 'approved'
-              ? 'Deactivate this institute'
-              : 'This institute is off'}
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {institute.status === 'approved'
-              ? "Deactivating stops the institute's accounts signing in and blocks it from future exams. An exam already running is not disturbed, and results are never affected. It can be switched back on."
-              : 'Its accounts cannot sign in. Reactivating opens the institute again, but each account has to be switched back on individually — one may have been disabled for its own reasons.'}
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button
-              variant={institute.status === 'approved' ? 'danger' : 'primary'}
-              onClick={() =>
-                setDecision(institute.status === 'approved' ? 'deactivate' : 'reactivate')
-              }
-            >
-              {institute.status === 'approved' ? 'Deactivate' : 'Reactivate'}
-            </Button>
-            <Button variant="ghost" onClick={() => setDecision('delete')}>
-              Delete
-            </Button>
+      {institute &&
+        canManage &&
+        institute.status !== 'pending' &&
+        institute.status !== 'rejected' && (
+          <div className="mt-6 rounded-lg border border-danger/40 bg-danger-subtle/30 p-6">
+            <h2 className="text-sm font-semibold text-foreground">
+              {institute.status === 'approved'
+                ? 'Deactivate this institute'
+                : 'This institute is off'}
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {institute.status === 'approved'
+                ? "Deactivating stops the institute's accounts signing in and blocks it from future exams. An exam already running is not disturbed, and results are never affected. It can be switched back on."
+                : 'Its accounts cannot sign in. Reactivating opens the institute again, but each account has to be switched back on individually — one may have been disabled for its own reasons.'}
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button
+                variant={institute.status === 'approved' ? 'danger' : 'primary'}
+                onClick={() =>
+                  setDecision(institute.status === 'approved' ? 'deactivate' : 'reactivate')
+                }
+              >
+                {institute.status === 'approved' ? 'Deactivate' : 'Reactivate'}
+              </Button>
+              <Button variant="ghost" onClick={() => setDecision('delete')}>
+                Delete
+              </Button>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Delete is only possible while nothing is attached — no accounts, students or exams.
+            </p>
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Delete is only possible while nothing is attached — no accounts, students or exams.
-          </p>
-        </div>
-      )}
+        )}
 
       {/* ---- decisions ---- */}
 
@@ -282,19 +311,20 @@ export function InstituteDetailPage(): React.ReactElement {
         confirmLabel="Approve & Register"
         busy={approve.isPending}
       >
-        <label className="flex items-start gap-2 text-sm text-foreground">
-          <input
-            type="checkbox"
-            checked={createLogin}
-            onChange={(e) => setCreateLogin(e.target.checked)}
-            className="mt-0.5"
-          />
-          <span>
-            Also create the login for <span className="font-medium">{institute?.contactEmail}</span>
-            , using the password chosen at registration. Untick if this institute&rsquo;s accounts
-            are managed separately.
-          </span>
-        </label>
+        <Checkbox
+          checked={createLogin}
+          onChange={(e) => setCreateLogin(e.target.checked)}
+          className="mt-0.5"
+          labelClassName="w-full items-start"
+          label={
+            <span>
+              Also create the login for{' '}
+              <span className="font-medium">{institute?.contactEmail}</span>, using the password
+              chosen at registration. Untick if this institute&rsquo;s accounts are managed
+              separately.
+            </span>
+          }
+        />
       </ConfirmDialog>
 
       <ConfirmDialog
@@ -308,16 +338,14 @@ export function InstituteDetailPage(): React.ReactElement {
         busy={reject.isPending}
         confirmDisabled={rejectReason.trim().length === 0}
       >
-        <label htmlFor="reject-reason" className="mb-1.5 block text-sm font-medium text-foreground">
+        <Label htmlFor="reject-reason" className="mb-1.5">
           Reason
-        </label>
-        <textarea
+        </Label>
+        <Textarea
           id="reject-reason"
           value={rejectReason}
           onChange={(e) => setRejectReason(e.target.value)}
-          rows={3}
           placeholder="e.g. The government code does not match board records"
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         />
       </ConfirmDialog>
 

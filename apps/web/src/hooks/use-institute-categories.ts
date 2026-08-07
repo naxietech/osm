@@ -16,18 +16,42 @@ import {
 import type {
   CreateInstituteCategoryDto,
   InstituteCategory,
+  PublicInstituteCategory,
   UpdateInstituteCategoryDto,
 } from '@oses/types';
 
 import { instituteCategoriesService } from '@/services/institute-categories.service';
+import { publicInstitutesService } from '@/services/institutes.service';
 
 export const INSTITUTE_CATEGORIES_KEY = ['institute-categories'] as const;
+
+/**
+ * Deliberately a different key from the admin list above. The public route returns only what an
+ * anonymous applicant may see, so sharing one cache entry would let whichever screen loaded first
+ * decide what the other one shows — including, in the wrong order, showing the trimmed public
+ * shape on the admin screen.
+ */
+export const PUBLIC_INSTITUTE_CATEGORIES_KEY = ['public', 'institute-categories'] as const;
 
 export function useInstituteCategories(enabled = true): UseQueryResult<InstituteCategory[]> {
   return useQuery({
     queryKey: INSTITUTE_CATEGORIES_KEY,
     queryFn: () => instituteCategoriesService.listCategories(),
     enabled,
+  });
+}
+
+/**
+ * The categories offered on the open registration link. No credentials are sent, so there is no
+ * session to go stale — the list changes about as often as the taxonomy itself, and re-fetching
+ * it on every window focus would be a request an anonymous visitor never asked for.
+ */
+export function usePublicInstituteCategories(): UseQueryResult<PublicInstituteCategory[]> {
+  return useQuery({
+    queryKey: PUBLIC_INSTITUTE_CATEGORIES_KEY,
+    queryFn: () => publicInstitutesService.listPublicCategories(),
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
   });
 }
 

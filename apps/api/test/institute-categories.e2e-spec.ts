@@ -5,6 +5,7 @@ import { DataSource } from 'typeorm';
 
 import { configureApp } from '../src/app-setup';
 import { AppModule } from '../src/app.module';
+import { VERSION_CONFLICT_ERROR } from '../src/modules/institute-categories/institute-categories.service';
 import { createDataSource } from '../src/persistence/typeorm/data-source';
 import { UserEntity } from '../src/persistence/typeorm/entities';
 import { seedDatabase } from '../src/persistence/typeorm/seed/seed';
@@ -44,6 +45,9 @@ interface CategoryBody {
     options: string[];
   }>;
 }
+
+/** A syntactically valid uuid that matches nothing — the guard must refuse before the lookup. */
+const FAKE_ID = '11111111-1111-4111-8111-111111111111';
 
 describe('Institute categories (e2e)', () => {
   let app: INestApplication;
@@ -139,8 +143,25 @@ describe('Institute categories (e2e)', () => {
         .set('Cookie', evaluatorCookie)
         .expect(403));
 
-    it('rejects an Admin with 403 — reference data is Super Admin only', () =>
-      request(server()).get('/api/v1/institute-categories').set('Cookie', adminCookie).expect(403));
+    it('lets an Admin read the taxonomy', () =>
+      request(server()).get('/api/v1/institute-categories').set('Cookie', adminCookie).expect(200));
+
+    it('refuses an Admin every route that changes a category', async () => {
+      // Reading and editing reference data are two different capabilities: an Admin needs to see
+      // which categories exist while working on institutes, but the taxonomy itself is a Super
+      // Admin decision. Enforced by the grant, never by a role check in the controller.
+      const as = (method: 'post' | 'patch' | 'delete', url: string) =>
+        request(server())[method](url).set('Cookie', adminCookie);
+
+      await as('post', '/api/v1/institute-categories').send({ code: 'X', name: 'X' }).expect(403);
+      await as('patch', `/api/v1/institute-categories/${FAKE_ID}`)
+        .send({ version: 1, name: 'X' })
+        .expect(403);
+      await as('patch', `/api/v1/institute-categories/${FAKE_ID}/status`)
+        .send({ isActive: false })
+        .expect(403);
+      await as('delete', `/api/v1/institute-categories/${FAKE_ID}`).expect(403);
+    });
 
     it('allows a Super Admin', () => asSuper('get', '/api/v1/institute-categories').expect(200));
   });
@@ -243,6 +264,32 @@ describe('Institute categories (e2e)', () => {
       await asSuper('patch', `/api/v1/institute-categories/${created.id}`)
         .send({ version: created.version, name: 'Second writer loses' })
         .expect(409);
+    });
+
+    /**
+     * Three different failures answer 409 on this route, and only this one is fixed by reloading.
+     * The web app branches on the `error` code to decide whether to say so, and the two sides
+     * agree on a bare string — assert it here, or a rename ships a screen giving advice that
+     * cannot work.
+     */
+    it('codes the optimistic-lock 409 apart from the conflicts reloading cannot fix', async () => {
+      const created = await createSchool();
+      await asSuper('patch', `/api/v1/institute-categories/${created.id}`)
+        .send({ version: created.version, name: 'First writer wins' })
+        .expect(200);
+
+      const lost = await asSuper('patch', `/api/v1/institute-categories/${created.id}`)
+        .send({ version: created.version, name: 'Second writer loses' })
+        .expect(409);
+      expect(lost.body.error).toBe(VERSION_CONFLICT_ERROR);
+      expect(VERSION_CONFLICT_ERROR).toBe('CategoryVersionConflict');
+
+      // A taken code is the caller's own submission being refused — it must NOT carry the code,
+      // or the screen would tell them to reload for something reloading does not change.
+      const taken = await asSuper('post', '/api/v1/institute-categories')
+        .send({ code: created.code, name: 'Duplicate' })
+        .expect(409);
+      expect(taken.body.error).not.toBe(VERSION_CONFLICT_ERROR);
     });
 
     it('answers 400 for a question id from another category', async () => {

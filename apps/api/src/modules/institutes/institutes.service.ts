@@ -6,8 +6,17 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
+import type {
+  AvailabilityResult,
+  Institute,
+  InstituteDetail,
+  PaginatedInstitutes,
+  RegistrationReceipt,
+} from '@oses/types';
+
 import { hashPassword } from '../../shared/crypto';
 import { validateAnswers } from './answer-validator';
+import { type ApprovalResult, ApprovalService } from './approval.service';
 import type {
   CheckAvailabilityDto,
   CreateInstituteRequestDto,
@@ -15,12 +24,7 @@ import type {
   RegisterInstituteRequestDto,
   UpdateInstituteRequestDto,
 } from './dto';
-import {
-  type AdminInstitute,
-  type DuplicateWarning,
-  toAdminInstitute,
-  toDuplicateWarning,
-} from './institute-mapper';
+import { toAdminInstitute, toDuplicateWarning } from './institute-mapper';
 import {
   ACCOUNT_LOOKUP,
   type AccountLookup,
@@ -31,30 +35,18 @@ import {
   INSTITUTE_REPOSITORY,
   type InstituteAnswerRecord,
   InstituteCodeAlreadyExistsError,
+  InstituteContactEmailAlreadyExistsError,
   type InstituteDependantCounts,
   type InstituteDependants,
   type InstituteDetailsInput,
   type InstituteRecord,
   type InstituteRepository,
 } from './ports';
-import {
-  type AvailabilityResult,
-  type RegistrationReceipt,
-  toRegistrationReceipt,
-} from './public-institute-mapper';
+import { toRegistrationReceipt } from './public-institute-mapper';
 
 /** One wording for both routes to it: the pre-check, and the database losing the race. */
 const CODE_TAKEN = 'An institute is already registered with that code.';
-
-export interface PaginatedInstitutes {
-  items: AdminInstitute[];
-  total: number;
-}
-
-export interface InstituteDetail extends AdminInstitute {
-  /** Live institutes with the same name and city. A prompt for a human, never a block. */
-  possibleDuplicates: DuplicateWarning[];
-}
+const EMAIL_TAKEN = 'That email address is already in use. Use a different one.';
 
 /**
  * Institute registration and the directory around it.
@@ -70,6 +62,7 @@ export class InstitutesService {
     @Inject(CATEGORY_LOOKUP) private readonly categories: CategoryLookup,
     @Inject(ACCOUNT_LOOKUP) private readonly accounts: AccountLookup,
     @Inject(INSTITUTE_DEPENDANTS) private readonly dependants: InstituteDependants,
+    private readonly approval: ApprovalService,
   ) {}
 
   /**
@@ -77,7 +70,12 @@ export class InstitutesService {
    * permission, no access — until a super admin approves it.
    */
   async register(dto: RegisterInstituteRequestDto): Promise<RegistrationReceipt> {
-    const answers = await this.validateSubmission(dto.categoryId, dto.instituteCode, dto.answers);
+    const answers = await this.validateSubmission(
+      dto.categoryId,
+      dto.instituteCode,
+      dto.contactEmail,
+      dto.answers,
+    );
     const passwordHash = await hashPassword(dto.password);
 
     const record = await this.insert({
@@ -92,20 +90,54 @@ export class InstitutesService {
   }
 
   /**
-   * A super admin entering an institute directly. Lands `approved` immediately: making the
-   * approver approve their own entry is ceremony, not a control.
+   * A super admin entering an institute directly — the record *and*, given a password, the login
+   * that goes with it.
+   *
+   * **Why this takes the long way round.** With a password it inserts the institute `pending`,
+   * exactly as a public registration does, and then runs the ordinary approval. That looks like
+   * ceremony and is not: approval is where the numeric code is drawn, where the address is
+   * re-checked against accounts, where the account is created inside one transaction with the
+   * status change, and where the audit entry is written. Creating an account here instead would
+   * be a second implementation of all four, and the two would drift.
+   *
+   * Without a password it lands `approved` with no login, which is what it always did. That path
+   * is legitimate — an institute whose accounts are managed separately — but it is also how an
+   * institute ends up approved with nobody able to sign in, so the message says so plainly.
    */
-  async createByAdmin(dto: CreateInstituteRequestDto, actorId: string): Promise<AdminInstitute> {
-    const answers = await this.validateSubmission(dto.categoryId, dto.instituteCode, dto.answers);
+  async createByAdmin(dto: CreateInstituteRequestDto, actorId: string): Promise<ApprovalResult> {
+    const answers = await this.validateSubmission(
+      dto.categoryId,
+      dto.instituteCode,
+      dto.contactEmail,
+      dto.answers,
+    );
+    if (dto.password === undefined) {
+      const record = await this.insert({
+        details: toDetails(dto),
+        answers,
+        status: 'approved',
+        source: 'admin',
+        passwordHash: null,
+        actorId,
+      });
+      return {
+        institute: toAdminInstitute(record),
+        userId: null,
+        message:
+          'Institute registered. No login was created — nobody can sign in as this institute ' +
+          'until an account is made for it.',
+      };
+    }
+
     const record = await this.insert({
       details: toDetails(dto),
       answers,
-      status: 'approved',
+      status: 'pending',
       source: 'admin',
-      passwordHash: null,
+      passwordHash: await hashPassword(dto.password),
       actorId,
     });
-    return toAdminInstitute(record);
+    return this.approval.approve(record.id, { createLogin: true }, actorId);
   }
 
   /** A page of institutes, newest first, plus the total under the same filters. */
@@ -145,7 +177,7 @@ export class InstitutesService {
     id: string,
     dto: UpdateInstituteRequestDto,
     actorId: string,
-  ): Promise<AdminInstitute> {
+  ): Promise<Institute> {
     await this.requireInstitute(id);
     const updated = await this.institutes.update(id, dto, actorId);
     if (!updated) throw new NotFoundException('Institute not found');
@@ -170,9 +202,8 @@ export class InstitutesService {
       );
     }
 
-    const deleted = await this.institutes.softDelete(record.id);
+    const deleted = await this.institutes.softDelete(record.id, actorId);
     if (!deleted) throw new NotFoundException('Institute not found');
-    void actorId;
     return { message: 'Institute deleted.' };
   }
 
@@ -192,7 +223,7 @@ export class InstitutesService {
         : this.institutes.isCodeTaken(dto.instituteCode),
       dto.contactEmail === undefined
         ? Promise.resolve(null)
-        : this.accounts.isEmailTaken(dto.contactEmail),
+        : this.isEmailSpokenFor(dto.contactEmail),
     ]);
     return {
       codeAvailable: codeTaken === null ? null : !codeTaken,
@@ -204,6 +235,7 @@ export class InstitutesService {
   private async validateSubmission(
     categoryId: string,
     instituteCode: string,
+    contactEmail: string,
     answers: RegisterInstituteRequestDto['answers'],
   ): Promise<InstituteAnswerRecord[]> {
     const category = await this.requireActiveCategory(categoryId);
@@ -216,7 +248,29 @@ export class InstitutesService {
     if (await this.institutes.isCodeTaken(instituteCode)) {
       throw new ConflictException(CODE_TAKEN);
     }
+    if (await this.isEmailSpokenFor(contactEmail)) {
+      throw new ConflictException(EMAIL_TAKEN);
+    }
     return validation.answers;
+  }
+
+  /**
+   * Whether an address is unusable for a new institute — held by an account, or by another
+   * institute that has not been approved into one yet.
+   *
+   * Both halves matter. Checking only accounts (which is all this did) let two institutes
+   * register the same address: the first to be approved takes the login, and the second is left
+   * approved with no possible way in, discovered weeks later by someone on the phone.
+   */
+  private async isEmailSpokenFor(
+    contactEmail: string,
+    excludeInstituteId?: string,
+  ): Promise<boolean> {
+    const [byAccount, byInstitute] = await Promise.all([
+      this.accounts.isEmailTaken(contactEmail),
+      this.institutes.isContactEmailTaken(contactEmail, excludeInstituteId),
+    ]);
+    return byAccount || byInstitute;
   }
 
   private async insert(input: {
@@ -239,6 +293,9 @@ export class InstitutesService {
     } catch (err) {
       if (err instanceof InstituteCodeAlreadyExistsError) {
         throw new ConflictException(CODE_TAKEN);
+      }
+      if (err instanceof InstituteContactEmailAlreadyExistsError) {
+        throw new ConflictException(EMAIL_TAKEN);
       }
       throw err;
     }

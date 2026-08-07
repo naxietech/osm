@@ -130,6 +130,18 @@ export class InstituteCodeAlreadyExistsError extends Error {
   }
 }
 
+/**
+ * The contact-address uniqueness index fired — same race as the code, different field. Separate
+ * from {@link InstituteCodeAlreadyExistsError} so the applicant is told which field to change;
+ * one shared error would name whichever the handler guessed.
+ */
+export class InstituteContactEmailAlreadyExistsError extends Error {
+  constructor(public readonly contactEmail: string) {
+    super(`An institute with contact email "${contactEmail}" already exists`);
+    this.name = 'InstituteContactEmailAlreadyExistsError';
+  }
+}
+
 /** A submitted answer points at a question that is not in the chosen category. */
 export class UnknownQuestionError extends Error {
   constructor(public readonly questionId: string) {
@@ -150,6 +162,19 @@ export interface InstituteRepository {
    */
   isCodeTaken(instituteCode: string): Promise<boolean>;
   /**
+   * Whether a contact email is already an institute's, on the same terms as {@link isCodeTaken}
+   * — a rejected or deleted institute releases its address so the applicant can try again.
+   *
+   * Separate from {@link AccountLookup.isEmailTaken}, which asks about *accounts*. An address can
+   * be free of any account and still be spoken for: the institute holding it has not been
+   * approved yet, so no user exists, and approving them both would leave the second one approved
+   * with no possible login.
+   *
+   * @param excludeInstituteId ignore this institute — an edit keeping its own address is not a
+   *   clash with itself.
+   */
+  isContactEmailTaken(contactEmail: string, excludeInstituteId?: string): Promise<boolean>;
+  /**
    * Insert the institute, its answers and (for the public path) its credential in ONE
    * transaction, drawing the numeric code from the sequence when the row arrives approved.
    * Throws {@link InstituteCodeAlreadyExistsError}.
@@ -161,8 +186,8 @@ export interface InstituteRepository {
     patch: InstitutePatch,
     actorId: string | null,
   ): Promise<InstituteRecord | null>;
-  /** Soft delete. The service checks dependants first; this only writes `deleted_at`. */
-  softDelete(id: string): Promise<boolean>;
+  /** Soft delete, recording who did it. The service checks dependants first. */
+  softDelete(id: string, actorId: string): Promise<boolean>;
   /** Live institutes whose name and city both match, for the approval screen's warning. */
   findDuplicateCandidates(
     instituteName: string,

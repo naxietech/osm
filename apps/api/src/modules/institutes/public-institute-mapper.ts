@@ -1,3 +1,5 @@
+import type { RegistrationReceipt } from '@oses/types';
+
 import type { InstituteRecord } from './ports';
 
 /**
@@ -11,13 +13,6 @@ import type { InstituteRecord } from './ports';
  * has two controllers: widening what the public sees should require editing a file whose entire
  * purpose is public output, not adding a line to a mapper that serves both audiences.
  */
-export interface RegistrationReceipt {
-  id: string;
-  instituteCode: string;
-  instituteName: string;
-  status: 'pending';
-}
-
 export function toRegistrationReceipt(record: InstituteRecord): RegistrationReceipt {
   return {
     id: record.id,
@@ -27,13 +22,4 @@ export function toRegistrationReceipt(record: InstituteRecord): RegistrationRece
     // that ever stopped being true this line would have to be changed deliberately.
     status: 'pending',
   };
-}
-
-/**
- * The availability answer. Two booleans and nothing else — never the institute that holds the
- * code, never whose account owns the email.
- */
-export interface AvailabilityResult {
-  codeAvailable: boolean | null;
-  emailAvailable: boolean | null;
 }

@@ -9,12 +9,15 @@ import { useCallback, useEffect, useState } from 'react';
  * and a token that is itself a small credential, all to solve a problem the browser already
  * solves for free.
  *
- * `sessionStorage`, not `localStorage`: the form holds a password the applicant just chose, and
- * that should not outlive the tab. It also means a shared machine does not offer the next person
- * a half-filled application.
+ * `sessionStorage`, not `localStorage`: a half-filled application should not outlive the tab, and
+ * a shared machine must not offer it to the next person. The registration form's two password
+ * fields are excluded from what it stores at all — see `InstituteRegistrationDraft`, which omits
+ * them from the type so a caller cannot persist them by accident.
  *
  * Storage can throw — Safari's private mode, a full quota, a hardened browser. Every access is
  * guarded, and a failure degrades to ordinary in-memory state rather than breaking the form.
+ * Degrading quietly for the *applicant* is right; degrading quietly for whoever has to explain
+ * why a draft vanished is not, so each failure is traced to the console with the key that failed.
  */
 export function usePersistedState<T>(
   key: string,
@@ -25,17 +28,21 @@ export function usePersistedState<T>(
   useEffect(() => {
     try {
       window.sessionStorage.setItem(key, JSON.stringify(value));
-    } catch {
+    } catch (err) {
       // Nothing to do and nothing worth telling the user: their work is still on screen, it just
-      // will not survive a refresh. Failing loudly here would be worse than the problem.
+      // will not survive a refresh. Failing loudly here would be worse than the problem — but it
+      // is the one trace of "my form emptied itself" anyone will ever get, so it is not silent.
+      console.error(`usePersistedState: could not save "${key}" to sessionStorage.`, err);
     }
   }, [key, value]);
 
   const clear = useCallback(() => {
     try {
       window.sessionStorage.removeItem(key);
-    } catch {
-      // Same reasoning as above.
+    } catch (err) {
+      // Same reasoning as above. A failure here leaves a stale draft behind, which a later visit
+      // would silently reopen — worth knowing about even though nothing can be done in the moment.
+      console.error(`usePersistedState: could not clear "${key}" from sessionStorage.`, err);
     }
   }, [key]);
 
@@ -48,14 +55,23 @@ export function usePersistedState<T>(
  * Anything stored under an older version of the form is unparseable or the wrong shape, and a
  * malformed value would crash the form on load — the one moment the applicant has no way to
  * recover. Treating it as absent is the safe read.
+ *
+ * This is the catch most worth tracing. A key that is bumped but not cleaned up, or a shape that
+ * changed without its version, shows up here as every applicant quietly starting from an empty
+ * form — indistinguishable from the feature simply not working.
  */
 function readStored<T>(key: string): T | null {
   try {
     const raw = window.sessionStorage.getItem(key);
     if (raw === null) return null;
     const parsed: unknown = JSON.parse(raw);
-    return parsed !== null && typeof parsed === 'object' ? (parsed as T) : null;
-  } catch {
+    if (parsed !== null && typeof parsed === 'object') return parsed as T;
+    console.error(
+      `usePersistedState: stored value for "${key}" is not an object — ignoring it and starting fresh.`,
+    );
+    return null;
+  } catch (err) {
+    console.error(`usePersistedState: could not read "${key}" from sessionStorage.`, err);
     return null;
   }
 }

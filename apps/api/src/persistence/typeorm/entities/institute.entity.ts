@@ -101,6 +101,13 @@ export class InstituteEntity {
   @Column({ name: 'deleted_at', type: 'timestamptz', nullable: true })
   deletedAt!: Date | null;
 
+  /**
+   * Who removed it. The row is kept precisely so the record survives, and a record that cannot
+   * say who ended it is not much of one — every other state change here names its actor.
+   */
+  @Column({ name: 'deleted_by', type: 'uuid', nullable: true })
+  deletedBy!: string | null;
+
   @OneToMany(() => InstituteQuestionAnswerEntity, (answer) => answer.institute)
   answers!: InstituteQuestionAnswerEntity[];
 }

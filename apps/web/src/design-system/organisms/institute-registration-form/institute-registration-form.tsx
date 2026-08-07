@@ -18,18 +18,15 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 
 import {
-  type CategoryQuestionType,
-  type InstituteCategory,
   type InstituteQuestionAnswer,
   InstitutionType,
   Province,
+  type PublicInstituteCategory,
   type RegisterInstituteDto,
 } from '@oses/types';
 
 import { Button } from '@/design-system/atoms/button';
-import { Checkbox } from '@/design-system/atoms/checkbox';
-import { Input } from '@/design-system/atoms/input';
-import { Radio } from '@/design-system/atoms/radio';
+import { CategoryQuestionField } from '@/design-system/molecules/category-question-field';
 import { FormField } from '@/design-system/molecules/form-field';
 import { SelectField, type SelectOption } from '@/design-system/molecules/select-field';
 
@@ -110,9 +107,26 @@ const REQUIRED_TEXT: Array<[keyof FormState, string]> = [
   ['contactPersonDesignation', 'Designation is required'],
 ];
 
+/**
+ * Everything the form holds except the two password fields — what the page persists so a
+ * refresh does not cost the applicant fifteen answers.
+ *
+ * The password is deliberately absent from this type, not merely omitted at the call site: a
+ * chosen password sitting in browser storage is a real exposure on a shared machine, and the
+ * cost of leaving it out is retyping two fields. Making it structurally impossible to persist
+ * beats remembering not to.
+ */
+export type InstituteRegistrationDraft = Omit<FormState, 'password' | 'confirmPassword'>;
+
 export interface InstituteRegistrationFormProps {
-  /** Active categories (with their dynamic questions) the institute can register under. */
-  categories: InstituteCategory[];
+  /**
+   * Categories (with their dynamic questions) the institute can register under.
+   *
+   * `PublicInstituteCategory` — the shape the open registration route actually returns. It has
+   * no `isActive`, because that route only ever sends active ones; asking for the admin shape
+   * here is what let the page filter on a field that is never present and offer an empty list.
+   */
+  categories: PublicInstituteCategory[];
   /**
    * Code and email, already checked for availability by the page before this form is shown.
    * They are pre-filled and left editable — a typo caught here is better than one caught by the
@@ -120,6 +134,10 @@ export interface InstituteRegistrationFormProps {
    */
   initialCode?: string;
   initialEmail?: string;
+  /** A draft restored from browser storage — everything except the passwords. */
+  initialDraft?: InstituteRegistrationDraft | undefined;
+  /** Fires as the applicant types, so the page can keep the draft current. */
+  onDraftChange?: ((draft: InstituteRegistrationDraft) => void) | undefined;
   isSubmitting?: boolean;
   onSubmit: (dto: RegisterInstituteDto) => void;
 }
@@ -128,6 +146,8 @@ export function InstituteRegistrationForm({
   categories,
   initialCode = '',
   initialEmail = '',
+  initialDraft,
+  onDraftChange,
   isSubmitting = false,
   onSubmit,
 }: InstituteRegistrationFormProps): React.ReactElement {
@@ -176,7 +196,14 @@ export function InstituteRegistrationForm({
   }, [categories]);
 
   const formik = useFormik<FormState>({
-    initialValues: { ...EMPTY, instituteCode: initialCode, contactEmail: initialEmail },
+    // The gate's two fields win over anything restored: the applicant may have changed them on
+    // the way back through, and those are the two the server has already vetted.
+    initialValues: {
+      ...EMPTY,
+      ...initialDraft,
+      instituteCode: initialCode,
+      contactEmail: initialEmail,
+    },
     validationSchema,
     // The submit button reflects validity from the first render, before any field is touched.
     validateOnMount: true,
@@ -216,6 +243,32 @@ export function InstituteRegistrationForm({
    */
   const errorFor = (key: keyof Omit<FormState, 'answers'>): string | undefined =>
     formik.touched[key] || formik.values[key].length > 0 ? formik.errors[key] : undefined;
+
+  /**
+   * Publish the draft on every change. Stripping the passwords here rather than at the call
+   * site means a caller cannot accidentally persist them, however it stores what it receives.
+   */
+  const values = formik.values;
+  React.useEffect(() => {
+    if (!onDraftChange) return;
+    const draft: InstituteRegistrationDraft = {
+      instituteName: values.instituteName,
+      branch: values.branch,
+      instituteCode: values.instituteCode,
+      categoryId: values.categoryId,
+      institutionType: values.institutionType,
+      address: values.address,
+      province: values.province,
+      city: values.city,
+      postalCode: values.postalCode,
+      contactPersonName: values.contactPersonName,
+      contactPersonDesignation: values.contactPersonDesignation,
+      contactEmail: values.contactEmail,
+      contactPhone: values.contactPhone,
+      answers: values.answers,
+    };
+    onDraftChange(draft);
+  }, [values, onDraftChange]);
 
   const setValue = (key: keyof FormState, value: string): void =>
     void formik.setFieldValue(key, value, true);
@@ -298,7 +351,7 @@ export function InstituteRegistrationForm({
           </h2>
           <div className="space-y-5">
             {questions.map((q) => (
-              <QuestionField
+              <CategoryQuestionField
                 key={q.id}
                 id={q.id}
                 text={q.text}
@@ -450,85 +503,6 @@ export function InstituteRegistrationForm({
         </Button>
       </div>
     </form>
-  );
-}
-
-/** Renders one category question with the control its answer type calls for. */
-function QuestionField({
-  id,
-  text,
-  type,
-  required,
-  options,
-  values,
-  onSingle,
-  onToggle,
-}: {
-  id: string;
-  text: string;
-  type: CategoryQuestionType;
-  required: boolean;
-  options: string[];
-  values: string[];
-  onSingle: (value: string) => void;
-  onToggle: (option: string, checked: boolean) => void;
-}): React.ReactElement {
-  return (
-    <div>
-      <p className="mb-2 text-sm font-medium text-foreground">
-        {text}
-        {required && <span className="ml-0.5 text-danger-foreground">*</span>}
-      </p>
-      {type === 'text' && (
-        <Input
-          aria-label={text}
-          value={values[0] ?? ''}
-          onChange={(e) => onSingle(e.target.value)}
-          placeholder="Your answer"
-        />
-      )}
-      {type === 'file' && (
-        <input
-          type="file"
-          aria-label={text}
-          className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-brand-subtle file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-foreground hover:file:bg-brand-subtle/80"
-          onChange={(e) => onSingle(e.target.files?.[0]?.name ?? '')}
-        />
-      )}
-      {type === 'select' && (
-        <SelectField
-          label="Select"
-          options={options.map((o) => ({ value: o, label: o }))}
-          value={values[0] ?? ''}
-          onChange={onSingle}
-        />
-      )}
-      {type === 'radio' && (
-        <div className="flex flex-wrap gap-4">
-          {options.map((opt) => (
-            <Radio
-              key={opt}
-              name={id}
-              label={opt}
-              checked={values[0] === opt}
-              onChange={() => onSingle(opt)}
-            />
-          ))}
-        </div>
-      )}
-      {type === 'checkbox' && (
-        <div className="flex flex-wrap gap-4">
-          {options.map((opt) => (
-            <Checkbox
-              key={opt}
-              checked={values.includes(opt)}
-              onChange={(e) => onToggle(opt, e.target.checked)}
-              label={opt}
-            />
-          ))}
-        </div>
-      )}
-    </div>
   );
 }
 

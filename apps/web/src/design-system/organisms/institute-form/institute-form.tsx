@@ -9,25 +9,56 @@ import React from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 
-import { type CreateInstituteDto, InstitutionType, Province } from '@oses/types';
+import {
+  type CreateInstituteDto,
+  type InstituteCategory,
+  type InstituteQuestionAnswer,
+  InstitutionType,
+  Province,
+} from '@oses/types';
 
 import { Button } from '@/design-system/atoms/button';
-import { Building2, type LucideIcon, MapPin, User } from '@/design-system/atoms/icon';
+import {
+  Building2,
+  ClipboardList,
+  KeyRound,
+  type LucideIcon,
+  MapPin,
+  Trash2,
+  User,
+} from '@/design-system/atoms/icon';
+import { CategoryQuestionField } from '@/design-system/molecules/category-question-field';
 import { FormField } from '@/design-system/molecules/form-field';
 import { SelectField, type SelectOption } from '@/design-system/molecules/select-field';
+import { MIN_PASSWORD_LENGTH } from '@/lib/constants';
 
 export interface InstituteFormProps {
   /**
-   * Categories to choose from. Required rather than optional: every institute has one, and the
-   * API refuses a registration without it — a form that could not set it was quietly producing
-   * requests the server would reject.
+   * Categories to choose from — the whole record, not just `{value,label}`.
+   *
+   * A category carries the questions an institute must answer, and this form used to take only
+   * the option pair. It could therefore never ask them: picking "School" showed its name and
+   * nothing else, and the institute was created with no answers to questions the category
+   * requires. The dropdown options are derived from this list here.
    */
-  categories: SelectOption[];
+  categories: InstituteCategory[];
   initialValues?: Partial<CreateInstituteDto>;
   onSubmit: (data: CreateInstituteDto) => void;
   onCancel?: () => void;
   isSubmitting: boolean;
   mode: 'create' | 'edit';
+  /**
+   * Show the record without offering to change it — for a caller who holds `institutes.view`
+   * but not `institutes.manage`. Every field is disabled and Save is withheld entirely: a
+   * disabled Save button only invites "why can't I?", whereas an absent one is unambiguous.
+   */
+  readOnly?: boolean;
+  /**
+   * Delete this institute. Edit mode only, and rendered apart from Save — the same placement as
+   * the category form, for the same reason: a destructive control beside the button people press
+   * by habit is how it gets pressed by accident.
+   */
+  onDelete?: () => void;
 }
 
 /** All-string shape used by the form controls; cast to CreateInstituteDto on submit. */
@@ -45,6 +76,15 @@ interface InstituteFormValues {
   contactPersonDesignation: string;
   contactEmail: string;
   contactPhone: string;
+  /**
+   * The institute's own sign-in password, create mode only. Supplying it is what makes the
+   * account exist: without one the API stores the institute and nobody can ever sign in as it,
+   * which is precisely the state this field was added to stop happening silently.
+   */
+  password: string;
+  confirmPassword: string;
+  /** Answers to the selected category's questions, keyed by question id. Always a list. */
+  answers: Record<string, string[]>;
 }
 
 const INSTITUTION_TYPE_OPTIONS: SelectOption[] = [
@@ -116,6 +156,23 @@ const validationSchema = Yup.object({
     .required('Contact phone is required'),
 });
 
+/**
+ * Create mode adds the password pair on top. Separate schemas rather than conditional rules:
+ * editing an institute never touches its password — that is the users screen's reset flow — and
+ * a `.when('mode')` here would put a field in the schema that the edit form does not render.
+ *
+ * The minimum matches the API exactly. Stricter here would reject passwords the server accepts;
+ * looser would let an admin fill the whole form and be refused at the end.
+ */
+const createValidationSchema = validationSchema.shape({
+  password: Yup.string()
+    .min(MIN_PASSWORD_LENGTH, `Password must be at least ${MIN_PASSWORD_LENGTH} characters`)
+    .required('Choose a password for this institute'),
+  confirmPassword: Yup.string()
+    .oneOf([Yup.ref('password')], 'The two passwords do not match')
+    .required('Confirm the password'),
+});
+
 /** Iconed section heading used to group related fields. */
 function SectionHeading({
   icon: Icon,
@@ -136,6 +193,8 @@ function SectionHeading({
 
 export function InstituteForm({
   categories,
+  readOnly = false,
+  onDelete,
   initialValues,
   onSubmit,
   onCancel,
@@ -158,8 +217,11 @@ export function InstituteForm({
       contactPersonDesignation: initialValues?.contactPersonDesignation ?? '',
       contactEmail: initialValues?.contactEmail ?? '',
       contactPhone: initialValues?.contactPhone ?? '',
+      password: '',
+      confirmPassword: '',
+      answers: {},
     },
-    validationSchema,
+    validationSchema: mode === 'create' ? createValidationSchema : validationSchema,
     onSubmit: (values) => {
       const dto: CreateInstituteDto = {
         instituteCode: values.instituteCode,
@@ -176,27 +238,77 @@ export function InstituteForm({
         contactPhone: values.contactPhone,
       };
       if (values.postalCode) dto.postalCode = values.postalCode;
+
+      if (mode === 'create') {
+        dto.password = values.password;
+        // Only the selected category's questions travel. Answers left over from a category the
+        // admin picked and then changed their mind about would be refused by the API as
+        // questions that do not belong — and rightly so.
+        const answers: InstituteQuestionAnswer[] = questions
+          .map((q) => ({ questionId: q.id, values: values.answers[q.id] ?? [] }))
+          .filter((a) => a.values.length > 0 && a.values.some((v) => v.trim() !== ''));
+        if (answers.length > 0) dto.answers = answers;
+      }
       onSubmit(dto);
     },
   });
 
+  const categoryOptions: SelectOption[] = categories.map((c) => ({
+    value: c.id,
+    label: c.name,
+  }));
+
+  /**
+   * The questions to ask, driven by the category currently selected.
+   *
+   * Create mode only. On an edit the category is locked and the API refuses `answers` outright,
+   * so an editable question block would be a control that cannot do anything — worse than its
+   * absence, because it looks like it saved.
+   */
+  const selectedCategory = categories.find((c) => c.id === formik.values.categoryId);
+  const questions = mode === 'create' ? (selectedCategory?.questions ?? []) : [];
+
+  const setSingle = (questionId: string, value: string): void => {
+    void formik.setFieldValue('answers', {
+      ...formik.values.answers,
+      [questionId]: value === '' ? [] : [value],
+    });
+  };
+
+  const toggleMulti = (questionId: string, option: string, checked: boolean): void => {
+    const current = formik.values.answers[questionId] ?? [];
+    void formik.setFieldValue('answers', {
+      ...formik.values.answers,
+      [questionId]: checked ? [...current, option] : current.filter((v) => v !== option),
+    });
+  };
+
+  /**
+   * The plain string fields. `answers` is a record of lists, so it has neither a single error
+   * string nor a single value — excluding it here is what keeps both helpers below honest
+   * instead of casting at each call site.
+   */
+  type TextField = Exclude<keyof InstituteFormValues, 'answers'>;
+
   /** Shared error resolver — only show an error once the field is touched. */
-  const fieldError = (name: keyof InstituteFormValues): string | undefined =>
+  const fieldError = (name: TextField): string | undefined =>
     formik.touched[name] ? formik.errors[name] : undefined;
 
   /** Wires the custom SelectField (value + onChange/onBlur/error) to Formik. */
   const selectProps = (
-    name: keyof InstituteFormValues,
+    name: TextField,
   ): {
     value: string;
     onChange: (value: string) => void;
     onBlur: () => void;
     error: string | undefined;
+    disabled: boolean;
   } => ({
     value: formik.values[name],
     onChange: (value: string) => void formik.setFieldValue(name, value),
     onBlur: () => void formik.setFieldTouched(name, true),
     error: fieldError(name),
+    disabled: readOnly,
   });
 
   const gridClass = 'grid grid-cols-1 gap-x-6 gap-y-2 md:grid-cols-2 lg:grid-cols-3';
@@ -214,6 +326,7 @@ export function InstituteForm({
             value={formik.values.instituteName}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
+            disabled={readOnly}
             error={fieldError('instituteName')}
             required
           />
@@ -226,7 +339,7 @@ export function InstituteForm({
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
             error={fieldError('instituteCode')}
-            disabled={mode === 'edit'}
+            disabled={readOnly || mode === 'edit'}
             required
           />
 
@@ -237,6 +350,7 @@ export function InstituteForm({
             value={formik.values.branch}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
+            disabled={readOnly}
             error={fieldError('branch')}
           />
 
@@ -244,7 +358,7 @@ export function InstituteForm({
             id="categoryId"
             name="categoryId"
             label="Category"
-            options={categories}
+            options={categoryOptions}
             required
             {...selectProps('categoryId')}
           />
@@ -260,6 +374,27 @@ export function InstituteForm({
         </div>
       </section>
 
+      {questions.length > 0 && (
+        <section>
+          <SectionHeading icon={ClipboardList}>{selectedCategory?.name} questions</SectionHeading>
+          <div className="space-y-5">
+            {questions.map((q) => (
+              <CategoryQuestionField
+                key={q.id}
+                id={q.id}
+                text={q.text}
+                type={q.type}
+                required={q.required}
+                options={q.options}
+                values={formik.values.answers[q.id] ?? []}
+                onSingle={(v) => setSingle(q.id, v)}
+                onToggle={(opt, checked) => toggleMulti(q.id, opt, checked)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
       <section>
         <SectionHeading icon={MapPin}>Address</SectionHeading>
         <div className={gridClass}>
@@ -271,6 +406,7 @@ export function InstituteForm({
             value={formik.values.address}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
+            disabled={readOnly}
             error={fieldError('address')}
             required
           />
@@ -282,6 +418,7 @@ export function InstituteForm({
             value={formik.values.city}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
+            disabled={readOnly}
             error={fieldError('city')}
             required
           />
@@ -303,6 +440,7 @@ export function InstituteForm({
             value={formik.values.postalCode}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
+            disabled={readOnly}
             error={fieldError('postalCode')}
           />
         </div>
@@ -318,6 +456,7 @@ export function InstituteForm({
             value={formik.values.contactPersonName}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
+            disabled={readOnly}
             error={fieldError('contactPersonName')}
             required
           />
@@ -329,6 +468,7 @@ export function InstituteForm({
             value={formik.values.contactPersonDesignation}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
+            disabled={readOnly}
             error={fieldError('contactPersonDesignation')}
             required
           />
@@ -341,6 +481,7 @@ export function InstituteForm({
             value={formik.values.contactEmail}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
+            disabled={readOnly}
             error={fieldError('contactEmail')}
             required
           />
@@ -353,21 +494,68 @@ export function InstituteForm({
             value={formik.values.contactPhone}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
+            disabled={readOnly}
             error={fieldError('contactPhone')}
             required
           />
         </div>
       </section>
 
-      <div className="flex gap-3 border-t border-border pt-6">
-        <Button type="submit" size="lg" isLoading={isSubmitting}>
-          {mode === 'create' ? 'Create Institute' : 'Save Changes'}
-        </Button>
-        {onCancel && (
-          <Button type="button" variant="ghost" size="lg" onClick={onCancel}>
-            Cancel
+      {mode === 'create' && !readOnly && (
+        <section>
+          <SectionHeading icon={KeyRound}>Sign-in</SectionHeading>
+          <p className="mb-5 -mt-2 text-sm text-muted-foreground">
+            The institute signs in with its contact email and this password. Creating it here
+            registers the account at the same time — without it the institute exists but nobody can
+            sign in as it.
+          </p>
+          <div className={gridClass}>
+            <FormField
+              id="password"
+              name="password"
+              type="password"
+              label="Password"
+              value={formik.values.password}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={fieldError('password')}
+              required
+            />
+            <FormField
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              label="Confirm Password"
+              value={formik.values.confirmPassword}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={fieldError('confirmPassword')}
+              required
+            />
+          </div>
+        </section>
+      )}
+
+      <div className="flex flex-wrap items-center gap-3 border-t border-border pt-6">
+        {mode === 'edit' && !readOnly && onDelete && (
+          <Button type="button" variant="danger" size="lg" onClick={onDelete}>
+            <Trash2 className="mr-2 h-4 w-4" aria-hidden />
+            Delete Institute
           </Button>
         )}
+        {/* Pushes save/cancel away, so the destructive button is never adjacent to Save. */}
+        <div className="ml-auto flex gap-3">
+          {!readOnly && (
+            <Button type="submit" size="lg" isLoading={isSubmitting}>
+              {mode === 'create' ? 'Create & Register Institute' : 'Save Changes'}
+            </Button>
+          )}
+          {onCancel && (
+            <Button type="button" variant="ghost" size="lg" onClick={onCancel}>
+              {readOnly ? 'Back' : 'Cancel'}
+            </Button>
+          )}
+        </div>
       </div>
     </form>
   );

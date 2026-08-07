@@ -29,6 +29,7 @@ const SUPER = {
   fullName: 'System Administrator',
 };
 const EVALUATOR = { email: 'checker-ira@oses.pk', password: 'checker-strong-pass-123' };
+const ADMIN = { email: 'admin-ira@oses.pk', password: 'admin-strong-pass-123' };
 
 interface Envelope<T> {
   success: boolean;
@@ -50,6 +51,7 @@ describe('Institutes (e2e)', () => {
   let questionId: string;
   let superCookie: string;
   let evaluatorCookie: string;
+  let adminCookie: string;
   let publicRegistrations = 0;
 
   const server = () => app.getHttpServer();
@@ -94,8 +96,16 @@ describe('Institutes (e2e)', () => {
   }
 
   /** An institute created straight in the database, so it costs nothing against the rate limit. */
+  /**
+   * One live institute per contact address is a unique index now, so the fixture derives the
+   * address from the code rather than reusing one constant. A caller that overrides the code to
+   * get a second institute gets a second address for free — which is what every one of them
+   * meant, and what they were silently not getting before.
+   */
   async function seedInstitute(over: Partial<InstituteEntity> = {}): Promise<InstituteEntity> {
+    const code = over.instituteCode ?? 'SEED1';
     return dataSource.getRepository(InstituteEntity).save({
+      contactEmail: `${code.toLowerCase()}-seed@example.pk`,
       instituteCode: 'SEED1',
       instituteName: 'Seeded School',
       branch: null,
@@ -107,7 +117,6 @@ describe('Institutes (e2e)', () => {
       postalCode: null,
       contactPersonName: 'Seed Contact',
       contactPersonDesignation: 'Principal',
-      contactEmail: 'seed-ira@example.pk',
       contactPhone: '+92-42-7654321',
       status: 'pending',
       registrationSource: 'public',
@@ -124,13 +133,22 @@ describe('Institutes (e2e)', () => {
     );
     await seedDatabase(dataSource, { superAdmin: SUPER });
 
-    await dataSource.getRepository(UserEntity).insert({
-      email: EVALUATOR.email,
-      passwordHash: await hashPassword(EVALUATOR.password),
-      roleId: SYSTEM_ROLE_IDS.checker,
-      fullName: 'Evaluator One',
-      status: 'active',
-    });
+    await dataSource.getRepository(UserEntity).insert([
+      {
+        email: EVALUATOR.email,
+        passwordHash: await hashPassword(EVALUATOR.password),
+        roleId: SYSTEM_ROLE_IDS.checker,
+        fullName: 'Evaluator One',
+        status: 'active',
+      },
+      {
+        email: ADMIN.email,
+        passwordHash: await hashPassword(ADMIN.password),
+        roleId: SYSTEM_ROLE_IDS.admin,
+        fullName: 'Admin One',
+        status: 'active',
+      },
+    ]);
 
     const category = await dataSource
       .getRepository(InstituteCategoryEntity)
@@ -153,6 +171,7 @@ describe('Institutes (e2e)', () => {
 
     superCookie = await cookieFor(SUPER);
     evaluatorCookie = await cookieFor(EVALUATOR);
+    adminCookie = await cookieFor(ADMIN);
   });
 
   afterAll(async () => {
@@ -250,6 +269,29 @@ describe('Institutes (e2e)', () => {
 
       await asEvaluator('get', '/api/v1/institutes').expect(403);
       await asEvaluator('post', '/api/v1/institutes').send(registrationBody()).expect(403);
+    });
+
+    it('lets an Admin read institutes', async () => {
+      // An Admin looks institutes up while working on students, exams and registrations.
+      await request(server()).get('/api/v1/institutes').set('Cookie', adminCookie).expect(200);
+    });
+
+    it('refuses an Admin every route that changes an institute', async () => {
+      // Approving, deactivating and deleting are Super Admin decisions. This is enforced by the
+      // grant, not by a role check in the controller — so a future custom role holding
+      // institutes.manage would work without a code change.
+      const inst = await seedInstitute({ instituteCode: 'ADMINGATE' });
+      const as = (method: 'post' | 'patch' | 'delete', url: string) =>
+        request(server())[method](url).set('Cookie', adminCookie);
+
+      await as('post', '/api/v1/institutes').send(registrationBody()).expect(403);
+      await as('patch', `/api/v1/institutes/${inst.id}`).send({ city: 'Nope' }).expect(403);
+      await as('post', `/api/v1/institutes/${inst.id}/approve`).send({}).expect(403);
+      await as('post', `/api/v1/institutes/${inst.id}/reject`).send({ reason: 'x' }).expect(403);
+      await as('patch', `/api/v1/institutes/${inst.id}/status`)
+        .send({ status: 'deactivated' })
+        .expect(403);
+      await as('delete', `/api/v1/institutes/${inst.id}`).expect(403);
     });
 
     it('refuses an anonymous caller on the admin routes', async () => {

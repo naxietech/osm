@@ -12,11 +12,14 @@ import { INSTITUTE_STATUSES, type Institute, type InstituteStatus } from '@oses/
 
 import { PageHeader } from '@/components/widgets';
 import { Button } from '@/design-system/atoms/button';
+import { Eye, Pencil } from '@/design-system/atoms/icon';
+import { IconButton } from '@/design-system/atoms/icon-button';
 import { Spinner } from '@/design-system/atoms/spinner';
 import { Alert } from '@/design-system/molecules/alert';
 import { FilterBar } from '@/design-system/molecules/filter-bar';
 import { StatusBadge } from '@/design-system/molecules/status-badge';
 import { type ColumnDef, DataTable } from '@/design-system/organisms/data-table';
+import { usePermissions } from '@/hooks';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useInstitutes } from '@/hooks/use-institutes';
 import { ROUTES } from '@/router/routes';
@@ -99,6 +102,10 @@ export function InstitutesListPage(): React.ReactElement {
   const isNarrowed = q.trim().length > 0 || status !== undefined;
   const listError = institutesQuery.isError ? apiErrorMessage(institutesQuery.error) : null;
 
+  /** An Admin holds `institutes.view` only — they may look, not edit. */
+  const { can } = usePermissions();
+  const canManage = can('institutes.manage');
+
   const columns: ColumnDef<Institute>[] = [
     {
       key: 'instituteName',
@@ -128,19 +135,40 @@ export function InstitutesListPage(): React.ReactElement {
     {
       key: 'actions',
       header: 'Actions',
-      render: (row) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            void navigate(`${ROUTES.admin.institutes}/${row.id}`);
-          }}
-        >
-          View
-        </Button>
-      ),
-      width: '100px',
+      /**
+       * Icon buttons, the same pattern as the institute-categories table. Each carries the
+       * institute's name in its label, so a screen reader hears which row it belongs to rather
+       * than the fifth identical "Edit" on the page.
+       *
+       * The pair here is deliberately narrow. Deactivating, approving and deleting all need
+       * confirmation and context that only the detail screen has — offering them a click away
+       * from a list of forty rows is how the wrong institute gets switched off.
+       */
+      render: (row) => {
+        const open = (e: React.MouseEvent): void => {
+          e.stopPropagation();
+          void navigate(`${ROUTES.admin.institutes}/${row.id}`);
+        };
+        return (
+          <div className="flex justify-end gap-2">
+            <IconButton
+              size="sm"
+              label={`View ${row.instituteName}`}
+              icon={<Eye className="h-4 w-4" aria-hidden />}
+              onClick={open}
+            />
+            {canManage && (
+              <IconButton
+                size="sm"
+                label={`Edit ${row.instituteName}`}
+                icon={<Pencil className="h-4 w-4" aria-hidden />}
+                onClick={open}
+              />
+            )}
+          </div>
+        );
+      },
+      width: '120px',
     },
   ];
 

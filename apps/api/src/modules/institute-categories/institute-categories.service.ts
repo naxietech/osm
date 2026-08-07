@@ -44,6 +44,12 @@ const NO_QUESTION_CHANGES: QuestionMutationPlan = {
 const PUBLIC_CACHE_TTL_MS = 60_000;
 
 /** One wording for both routes to it: the pre-check, and the database losing the race. */
+/**
+ * Response `error` code for the optimistic-lock 409. Exported so the e2e suite asserts the exact
+ * string the web app branches on — a rename that broke the client would otherwise pass silently.
+ */
+export const VERSION_CONFLICT_ERROR = 'CategoryVersionConflict';
+
 const CATEGORY_IN_USE =
   'This category is in use by one or more institutes. Deactivate it instead of deleting it.';
 
@@ -187,9 +193,13 @@ export class InstituteCategoriesService {
       case 'not-found':
         throw new NotFoundException('Institute category not found');
       case 'version-conflict':
-        throw new ConflictException(
-          'This category was changed by someone else. Reload it and try again.',
-        );
+        // Coded, because this is the only 409 here that reloading actually fixes. The other two —
+        // a taken code, an answered question — are the caller's own submission being refused, and
+        // telling them to reload would send them round a loop that changes nothing.
+        throw new ConflictException({
+          error: VERSION_CONFLICT_ERROR,
+          message: 'This category was changed by someone else. Reload it and try again.',
+        });
       case 'updated':
         this.invalidatePublicCache();
         return toAdminCategory(outcome.category);

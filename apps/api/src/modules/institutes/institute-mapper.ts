@@ -1,41 +1,16 @@
-import type { InstituteStatus, InstitutionType, Province, RegistrationSource } from '@oses/types';
+import type { DuplicateWarning, Institute } from '@oses/types';
 
 import type { DuplicateCandidate, InstituteRecord } from './ports';
 
-/** The admin view of an institute — every field the directory and detail screen show. */
-export interface AdminInstitute {
-  id: string;
-  instituteCode: string;
-  numericCode: number | null;
-  instituteName: string;
-  branch: string | null;
-  categoryId: string;
-  institutionType: InstitutionType;
-  address: string;
-  city: string;
-  province: Province;
-  postalCode: string | null;
-  contactPersonName: string;
-  contactPersonDesignation: string;
-  contactEmail: string;
-  contactPhone: string;
-  status: InstituteStatus;
-  rejectionReason: string | null;
-  registrationSource: RegistrationSource;
-  approvedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-  answers: Array<{ questionId: string; values: string[] }>;
-}
-
 /**
- * Field by field, deliberately — never a spread of the record.
+ * The admin view of an institute — the shared `Institute` shape from `@oses/types`, built field
+ * by field.
  *
- * A spread would mean every column added to `institutes` from now on is published automatically,
- * which is how an internal field ends up in an API response a year later. Listing them is the
- * one place a reviewer can see exactly what leaves the server.
+ * Deliberately not a spread of the record. A spread would publish every column added to
+ * `institutes` from now on automatically, which is how an internal field ends up in an API
+ * response a year later. Listing them is the one place a reviewer can see what leaves the server.
  */
-export function toAdminInstitute(record: InstituteRecord): AdminInstitute {
+export function toAdminInstitute(record: InstituteRecord): Institute {
   return {
     id: record.id,
     instituteCode: record.instituteCode,
@@ -63,15 +38,6 @@ export function toAdminInstitute(record: InstituteRecord): AdminInstitute {
       values: [...answer.values],
     })),
   };
-}
-
-/** A possible duplicate, as the approval screen shows it. */
-export interface DuplicateWarning {
-  id: string;
-  instituteName: string;
-  branch: string | null;
-  city: string;
-  status: InstituteStatus;
 }
 
 export function toDuplicateWarning(candidate: DuplicateCandidate): DuplicateWarning {

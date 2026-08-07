@@ -173,6 +173,38 @@ describe('reconcileQuestions', () => {
   });
 
   describe('protecting questions that already have answers', () => {
+    /**
+     * The message goes on screen unchanged. An editor looking at a list of questions they wrote
+     * cannot turn a uuid back into one of them, so naming the question is the difference between
+     * a message they can act on and one they can only forward to a developer.
+     */
+    it('names the question in words, not by id', () => {
+      expect(() =>
+        reconcileQuestions(
+          [stored({ id: ID_A, options: ['Yes', 'No', 'Other'] })],
+          [submitted({ id: ID_A, options: ['Yes', 'No'] })],
+          new Set([ID_A]),
+        ),
+      ).toThrow(
+        'The question "Are you an ed-tech institute?" already has answers, so these options cannot be removed: Other.',
+      );
+    });
+
+    it('keeps the id on the error for logs and callers', () => {
+      try {
+        reconcileQuestions(
+          [stored({ id: ID_A, type: 'radio' })],
+          [submitted({ id: ID_A, type: 'checkbox' })],
+          new Set([ID_A]),
+        );
+        throw new Error('expected reconcileQuestions to throw');
+      } catch (err) {
+        expect(err).toBeInstanceOf(AnsweredQuestionChangeError);
+        expect((err as AnsweredQuestionChangeError).questionId).toBe(ID_A);
+        expect((err as Error).message).not.toContain(ID_A);
+      }
+    });
+
     it('rejects a type change', () => {
       expect(() =>
         reconcileQuestions(

@@ -1,6 +1,16 @@
 import { z } from 'zod';
 
-import { INSTITUTE_STATUSES, InstitutionType, Province } from '@oses/types';
+import {
+  type ApproveInstituteDto as ApproveInstituteShape,
+  type CreateInstituteDto as CreateInstituteShape,
+  INSTITUTE_STATUSES,
+  InstitutionType,
+  Province,
+  type RegisterInstituteDto as RegisterInstituteShape,
+  type RejectInstituteDto as RejectInstituteShape,
+  type UpdateInstituteDto as UpdateInstituteShape,
+  type UpdateInstituteStatusDto as UpdateInstituteStatusShape,
+} from '@oses/types';
 
 /**
  * The public registration route accepts these from anyone on the internet, so every field is
@@ -107,14 +117,27 @@ export const RegisterInstituteSchema = z
       .min(MIN_PASSWORD_LENGTH, `Password must be at least ${MIN_PASSWORD_LENGTH} characters`)
       .max(200, 'Password must be at most 200 characters'),
   })
-  .strict();
+  .strict() satisfies z.ZodType<RegisterInstituteShape>;
 export type RegisterInstituteRequestDto = z.infer<typeof RegisterInstituteSchema>;
 
 /**
- * A super admin entering an institute directly. No password: this row lands `approved`, and its
- * login is created through the Users screen, which already handles temporary passwords properly.
+ * A super admin entering an institute directly.
+ *
+ * The password is optional but expected: supplying one registers the institute *and* its login in
+ * one action, which is what an admin filling this form means to do. Omitting it leaves a record
+ * nobody can sign in to until an account is created by hand — legitimate when the institute's
+ * accounts are managed separately, and a trap otherwise, so the response says which happened.
  */
-export const CreateInstituteSchema = z.object(instituteDetails).strict();
+export const CreateInstituteSchema = z
+  .object({
+    ...instituteDetails,
+    password: z
+      .string()
+      .min(MIN_PASSWORD_LENGTH, `Password must be at least ${MIN_PASSWORD_LENGTH} characters`)
+      .max(200, 'Password must be at most 200 characters')
+      .optional(),
+  })
+  .strict() satisfies z.ZodType<CreateInstituteShape>;
 export type CreateInstituteRequestDto = z.infer<typeof CreateInstituteSchema>;
 
 /**
@@ -138,7 +161,10 @@ export const UpdateInstituteSchema = z
     contactPhone: phoneField.optional(),
   })
   .strict()
-  .refine((patch) => Object.keys(patch).length > 0, 'Send at least one field to change');
+  .refine(
+    (patch) => Object.keys(patch).length > 0,
+    'Send at least one field to change',
+  ) satisfies z.ZodType<UpdateInstituteShape>;
 export type UpdateInstituteRequestDto = z.infer<typeof UpdateInstituteSchema>;
 
 /** Answers `{ codeAvailable, emailAvailable }` and nothing else. Both fields optional. */
@@ -185,11 +211,13 @@ export const ApproveInstituteSchema = z
       .max(200, 'Password must be at most 200 characters')
       .optional(),
   })
-  .strict();
+  .strict() satisfies z.ZodType<ApproveInstituteShape>;
 export type ApproveInstituteDto = z.infer<typeof ApproveInstituteSchema>;
 
 /** A reason is mandatory: without one nobody can tell the institute what to fix. */
-export const RejectInstituteSchema = z.object({ reason: text(500, 'Reason') }).strict();
+export const RejectInstituteSchema = z
+  .object({ reason: text(500, 'Reason') })
+  .strict() satisfies z.ZodType<RejectInstituteShape>;
 export type RejectInstituteDto = z.infer<typeof RejectInstituteSchema>;
 
 /**
@@ -198,5 +226,5 @@ export type RejectInstituteDto = z.infer<typeof RejectInstituteSchema>;
  */
 export const UpdateInstituteStatusSchema = z
   .object({ status: z.enum(['approved', 'deactivated']) })
-  .strict();
+  .strict() satisfies z.ZodType<UpdateInstituteStatusShape>;
 export type UpdateInstituteStatusDto = z.infer<typeof UpdateInstituteStatusSchema>;

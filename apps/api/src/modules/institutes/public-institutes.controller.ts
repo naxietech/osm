@@ -2,6 +2,8 @@ import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 
+import type { AvailabilityResult, RegistrationReceipt } from '@oses/types';
+
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import {
   type CheckAvailabilityDto,
@@ -10,7 +12,6 @@ import {
   RegisterInstituteSchema,
 } from './dto';
 import { InstitutesService } from './institutes.service';
-import type { AvailabilityResult, RegistrationReceipt } from './public-institute-mapper';
 
 /**
  * The open registration link — two routes, no authentication.

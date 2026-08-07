@@ -6,6 +6,8 @@ import { InstituteCategories1754000000000 } from './migrations/1754000000000-ins
 import { RbacUuidKeys1756000000000 } from './migrations/1756000000000-rbac-uuid-keys';
 import { RenameSuspendedToDeactivate1757000000000 } from './migrations/1757000000000-rename-suspended-to-deactivate';
 import { Institutes1758000000000 } from './migrations/1758000000000-institutes';
+import { InstituteViewGrants1759000000000 } from './migrations/1759000000000-institute-view-grants';
+import { InstituteContactEmailUnique1760000000000 } from './migrations/1760000000000-institute-contact-email-unique';
 
 /**
  * Migrations are listed explicitly (not a filesystem glob) so the set resolves identically
@@ -24,6 +26,8 @@ export function buildDataSourceOptions(url: string): DataSourceOptions {
       RbacUuidKeys1756000000000,
       RenameSuspendedToDeactivate1757000000000,
       Institutes1758000000000,
+      InstituteViewGrants1759000000000,
+      InstituteContactEmailUnique1760000000000,
     ],
     synchronize: false,
     logging: false,

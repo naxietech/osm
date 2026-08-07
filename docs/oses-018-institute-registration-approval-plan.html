@@ -318,7 +318,7 @@
           </table>
         </div>
 
-        <div class="note good"><span class="lbl">Two seams were left open for exactly this module</span><p>The categories module ships a <code>CategoryAnswerProbe</code> port whose <code>hasAnswers(questionId)</code> always answers <b>no</b> — a real, tested interface with a placeholder body, waiting for institute answers to exist. And <code>users.institute_id</code> is a text column holding ids like <code>sch_001</code> that refer to nothing. <b>This is the module that makes both of them honest.</b></p></div>
+        <div class="note good"><span class="lbl">Two seams were left open for exactly this module</span><p>The categories module ships a <code>CategoryReferenceProbe</code> port whose <code>hasAnswers(questionId)</code> always answers <b>no</b> — a real, tested interface with a placeholder body, waiting for institute answers to exist. And <code>users.institute_id</code> is a text column holding ids like <code>sch_001</code> that refer to nothing. <b>This is the module that makes both of them honest.</b></p></div>
 
         <h3>Who will read an institute</h3>
         <div class="scroll">
@@ -435,7 +435,7 @@
         <pre class="code"><b>InstituteRepository</b>              <span class="c">· the interface, owned by the module</span>
 <b>InstituteCredentialRepository</b>    <span class="c">· the isolated password store</span>
 <b>InstituteDependants</b>             <span class="c">· the cascade seam described above</span>
-<b>CategoryAnswerProbe</b>             <span class="c">· NOW REAL — Module 1's placeholder gets its body</span>
+<b>CategoryReferenceProbe</b>             <span class="c">· NOW REAL — Module 1's placeholder gets its body</span>
    └─ all implemented in <b>persistence/typeorm/repositories/</b>
 
 <span class="c">The service only ever talks to these interfaces. That is what made branch 014</span>
@@ -537,7 +537,7 @@ erDiagram
               <tr>
                 <td>An answered question can never be deleted</td>
                 <td><code>ON DELETE RESTRICT</code> from <code>institute_question_answers.question_id</code></td>
-                <td>This is the constraint that makes Module 1's <code>CategoryAnswerProbe</code> real. Without it an admin editing a category could strand every answer to it.</td>
+                <td>This is the constraint that makes Module 1's <code>CategoryReferenceProbe</code> real. Without it an admin editing a category could strand every answer to it.</td>
               </tr>
               <tr>
                 <td>One answer per question per institute</td>
@@ -828,7 +828,7 @@ flowchart TD
 
         <div class="phase">
           <div class="phase-head"><span class="phase-num">02</span><span class="phase-title">Ports, repositories, service, DTOs</span><span class="phase-where">apps/api</span></div>
-          <p>The three port interfaces and their adapters, the service, and Zod DTOs with <code>.strict()</code> so unknown fields are rejected rather than silently dropped. <b>Module 1's <code>CategoryAnswerProbe</code> gets its real body here</b> — the first time that protection actually protects anything.</p>
+          <p>The three port interfaces and their adapters, the service, and Zod DTOs with <code>.strict()</code> so unknown fields are rejected rather than silently dropped. <b>Module 1's <code>CategoryReferenceProbe</code> gets its real body here</b> — the first time that protection actually protects anything.</p>
           <div class="done-when"><b>Done when</b> — unit tests cover both entry paths, the locked-field rules, the duplicate-code path, the <code>file</code>-question refusal and the delete-only-when-empty rule; <code>npx jest</code> green.</div>
         </div>
 
@@ -923,7 +923,7 @@ flowchart TD
           </details>
           <details>
             <summary>What happens to answers if the category's questions change later?</summary>
-            <div class="a"><p>Nothing, and that is the point. Answers reference permanent question ids, never positions, so reordering or re-wording a question leaves every stored answer meaning what it meant.</p><p>The database refuses to delete an answered question outright — <code>ON DELETE RESTRICT</code>. Module 1 already anticipated this: it retires an answered question instead of deleting it, and the check that decides which is the <code>CategoryAnswerProbe</code> that finally becomes real in this branch.</p></div>
+            <div class="a"><p>Nothing, and that is the point. Answers reference permanent question ids, never positions, so reordering or re-wording a question leaves every stored answer meaning what it meant.</p><p>The database refuses to delete an answered question outright — <code>ON DELETE RESTRICT</code>. Module 1 already anticipated this: it retires an answered question instead of deleting it, and the check that decides which is the <code>CategoryReferenceProbe</code> that finally becomes real in this branch.</p></div>
           </details>
           <details>
             <summary>Why tell a stranger that an email is already registered?</summary>

@@ -31,9 +31,21 @@ export const PERMISSION_CATALOG: PermissionMeta[] = [
   { action: 'roles.manage', module: 'Platform', label: 'Manage roles', scopeable: true },
   { action: 'users.manage', module: 'Platform', label: 'Manage users', scopeable: true },
   {
+    action: 'institutes.view',
+    module: 'Institutes',
+    label: 'View institutes',
+    scopeable: false,
+  },
+  {
     action: 'institutes.manage',
     module: 'Institutes',
-    label: 'Manage institutes',
+    label: 'Manage institutes (approve, deactivate, delete)',
+    scopeable: false,
+  },
+  {
+    action: 'institute-categories.view',
+    module: 'Institutes',
+    label: 'View institute categories',
     scopeable: false,
   },
   {

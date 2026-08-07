@@ -58,12 +58,14 @@ export class Institutes1758000000000 implements MigrationInterface {
         "created_at" timestamptz not null default now(),
         "updated_at" timestamptz not null default now(),
         "deleted_at" timestamptz,
+        "deleted_by" uuid,
         constraint "institutes_numeric_code_uq" unique ("numeric_code"),
         constraint "institutes_category_fk" foreign key ("category_id")
           references "institute_categories" ("id") on delete restrict,
         constraint "institutes_approved_by_fk" foreign key ("approved_by") references "users" ("id"),
         constraint "institutes_created_by_fk" foreign key ("created_by") references "users" ("id"),
         constraint "institutes_updated_by_fk" foreign key ("updated_by") references "users" ("id"),
+        constraint "institutes_deleted_by_fk" foreign key ("deleted_by") references "users" ("id"),
         constraint "institutes_status_chk"
           check ("status" in ('pending', 'approved', 'rejected', 'deactivated')),
         constraint "institutes_type_chk"
@@ -127,7 +129,7 @@ export class Institutes1758000000000 implements MigrationInterface {
         "created_at" timestamptz not null default now(),
         constraint "iqa_institute_fk" foreign key ("institute_id")
           references "institutes" ("id") on delete cascade,
-        -- RESTRICT, not CASCADE: this is the constraint that makes Module 1's CategoryAnswerProbe
+        -- RESTRICT, not CASCADE: this is the constraint that makes Module 1's CategoryReferenceProbe
         -- real. Deleting an answered question would strand every answer to it, silently.
         constraint "iqa_question_fk" foreign key ("question_id")
           references "institute_category_questions" ("id") on delete restrict,

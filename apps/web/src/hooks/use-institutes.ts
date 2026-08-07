@@ -12,6 +12,7 @@ import {
 
 import type {
   ApproveInstituteDto,
+  CreateInstituteDto,
   InstituteDetail,
   PaginatedInstitutes,
   UpdateInstituteDto,
@@ -61,6 +62,14 @@ function useInstituteMutation<TArgs, TResult>(
     mutationFn,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: INSTITUTES_KEY }),
   });
+}
+
+export function useCreateInstitute(): UseMutationResult<
+  ApprovalResponse,
+  unknown,
+  CreateInstituteDto
+> {
+  return useInstituteMutation((dto: CreateInstituteDto) => institutesService.createInstitute(dto));
 }
 
 export function useApproveInstitute(): UseMutationResult<

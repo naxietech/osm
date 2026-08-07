@@ -142,7 +142,17 @@ export interface RegisterInstituteDto extends InstituteDetailsDto {
 }
 
 /** `POST /institutes` — a super admin entering one directly. It lands approved. */
-export type CreateInstituteDto = InstituteDetailsDto;
+export type CreateInstituteDto = InstituteDetailsDto & {
+  /**
+   * Password for the institute's own login, created alongside the record.
+   *
+   * Optional, and the difference is visible in the response: with it the institute can sign in
+   * immediately; without it the row exists and nobody can get into it until an account is made
+   * by hand. Admin-entered institutes used to have no way to supply one at all, which is how
+   * they ended up approved with no login and nobody noticing.
+   */
+  password?: string;
+};
 
 /**
  * `PATCH /institutes/:id`.
@@ -169,9 +179,15 @@ export interface UpdateInstituteDto {
   contactPhone?: string;
 }
 
-/** `POST /institutes/:id/approve` — Approve & Register. */
+/**
+ * `POST /institutes/:id/approve` — Approve & Register.
+ *
+ * `createLogin` is optional and defaults to **true** server-side: creating the login is the whole
+ * point of the single button, so omitting the field asks for the common case. Send `false` only
+ * for an institute whose accounts are managed separately.
+ */
 export interface ApproveInstituteDto {
-  createLogin: boolean;
+  createLogin?: boolean;
   fullName?: string;
   /** Only needed when no password is on file, i.e. an institute entered by an admin. */
   password?: string;
@@ -261,6 +277,19 @@ export interface InstituteCategory {
    */
   version: number;
 }
+
+/**
+ * A category as an anonymous caller sees it, from `GET /public/institute-categories`.
+ *
+ * `isActive` and `version` are absent **by construction** — the public route returns only active
+ * categories, and an anonymous caller has nothing to do with an optimistic-lock counter.
+ *
+ * It lives here rather than beside the API's mapper because both apps depend on it, and the one
+ * time it did not, the web typed the response as a full {@link InstituteCategory} and filtered
+ * the list on `isActive` — a field that is never sent. Every category was dropped and the
+ * registration form offered an empty dropdown.
+ */
+export type PublicInstituteCategory = Omit<InstituteCategory, 'isActive' | 'version'>;
 
 export interface CreateInstituteCategoryDto {
   code: string;

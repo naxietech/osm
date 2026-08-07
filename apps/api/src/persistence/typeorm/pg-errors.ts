@@ -14,6 +14,23 @@ export function isUniqueViolation(err: unknown): boolean {
 }
 
 /**
+ * Which constraint a `23505` came from.
+ *
+ * Needed as soon as one table carries more than one unique index: without it every violation on
+ * `institutes` reads as the first one the code happens to check, and a duplicate email is
+ * reported to the applicant as a duplicate code — a message about a field they got right.
+ *
+ * Postgres puts the index name in `constraint`; TypeORM keeps it on the wrapped driver error.
+ * Returns undefined when the driver did not supply one, so callers must still have a fallback.
+ */
+export function violatedConstraint(err: unknown): string | undefined {
+  if (typeof err !== 'object' || err === null) return undefined;
+  const candidate = err as { constraint?: unknown; driverError?: { constraint?: unknown } };
+  const name = candidate.constraint ?? candidate.driverError?.constraint;
+  return typeof name === 'string' ? name : undefined;
+}
+
+/**
  * A foreign key refused the statement.
  *
  * Two SQLSTATEs, because Postgres 18 changed which one it uses: an `ON DELETE RESTRICT` refusal

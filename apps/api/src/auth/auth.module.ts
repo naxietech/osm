@@ -10,7 +10,7 @@ import { AUTH_ENTITIES } from '../persistence/typeorm/entities';
 import { AUTH_REPOSITORY_PROVIDERS } from '../persistence/typeorm/repositories';
 import { AuthController } from './auth.controller';
 import { ActiveUserGuard, PermissionsGuard, RolesGuard } from './guards';
-import { USER_REPOSITORY } from './ports';
+import { AUTH_AUDIT_REPOSITORY, USER_REPOSITORY } from './ports';
 import { RolesController } from './roles.controller';
 import {
   AuthService,
@@ -68,6 +68,10 @@ import { UsersController } from './users.controller';
     PermissionsGuard,
     ActiveUserGuard,
     USER_REPOSITORY,
+    // Feature modules write to the audit trail too — approving an institute creates an account,
+    // and an account created outside this module must still land in the same log as one created
+    // inside it. Exported so those modules record it rather than each keeping its own trail.
+    AUTH_AUDIT_REPOSITORY,
   ],
 })
 export class AuthModule {}

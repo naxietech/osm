@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 
 import { InstitutionType, Province } from '@oses/types';
 
+import type { ApprovalService } from './approval.service';
 import { InstitutesService } from './institutes.service';
 import {
   type AccountLookup,
@@ -81,6 +82,7 @@ function record(over: Partial<InstituteRecord> = {}): InstituteRecord {
 }
 
 interface Harness {
+  approval: jest.Mocked<ApprovalService>;
   service: InstitutesService;
   institutes: jest.Mocked<InstituteRepository>;
   categories: jest.Mocked<CategoryLookup>;
@@ -94,6 +96,7 @@ function build(over: { category?: CategorySummary | null } = {}): Harness {
     count: jest.fn().mockResolvedValue(0),
     findById: jest.fn().mockResolvedValue(record()),
     isCodeTaken: jest.fn().mockResolvedValue(false),
+    isContactEmailTaken: jest.fn().mockResolvedValue(false),
     create: jest.fn().mockImplementation((input) => Promise.resolve(record(input))),
     update: jest.fn().mockImplementation((_id, patch) => Promise.resolve(record(patch))),
     softDelete: jest.fn().mockResolvedValue(true),
@@ -108,6 +111,16 @@ function build(over: { category?: CategorySummary | null } = {}): Harness {
     isEmailTaken: jest.fn().mockResolvedValue(false),
   } as unknown as jest.Mocked<AccountLookup>;
 
+  const approval = {
+    approve: jest.fn().mockImplementation((id: string) =>
+      Promise.resolve({
+        institute: { id, status: 'approved' },
+        userId: 'user-1',
+        message: 'Institute registered.',
+      }),
+    ),
+  } as unknown as jest.Mocked<ApprovalService>;
+
   const dependants = {
     count: jest.fn().mockResolvedValue({ users: 0, students: 0, exams: 0 }),
     deactivateUsers: jest.fn().mockResolvedValue(0),
@@ -117,7 +130,8 @@ function build(over: { category?: CategorySummary | null } = {}): Harness {
   } as unknown as jest.Mocked<InstituteDependants>;
 
   return {
-    service: new InstitutesService(institutes, categories, accounts, dependants),
+    approval,
+    service: new InstitutesService(institutes, categories, accounts, dependants, approval),
     institutes,
     categories,
     accounts,
@@ -218,20 +232,44 @@ describe('InstitutesService', () => {
   });
 
   describe('super admin creates one directly', () => {
-    it('lands approved rather than pending', async () => {
-      const { service, institutes } = build();
-      await service.createByAdmin(registration(), 'actor-1');
+    /**
+     * The defect this replaces: an admin-entered institute landed `approved` with no account,
+     * so the institute it named could never sign in — and nothing said so. Given a password it
+     * now takes the same road a public registration does, because approval is where the numeric
+     * code, the account, the audit entry and the atomicity already live.
+     */
+    it('registers the login alongside the record when a password is supplied', async () => {
+      const { service, institutes, approval } = build();
+      const result = await service.createByAdmin(registration(), 'actor-1');
 
       expect(institutes.create).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 'approved', registrationSource: 'admin' }),
+        expect.objectContaining({ status: 'pending', registrationSource: 'admin' }),
       );
+      expect(approval.approve).toHaveBeenCalledWith('inst-1', { createLogin: true }, 'actor-1');
+      expect(result.userId).toBe('user-1');
     });
 
-    it('stores no credential — that account is made through the users screen', async () => {
+    it('hashes that password before it reaches the repository', async () => {
       const { service, institutes } = build();
-      await service.createByAdmin(registration(), 'actor-1');
+      await service.createByAdmin(registration({ password: 'a-strong-password' }), 'actor-1');
 
-      expect(institutes.create.mock.calls[0]![0].passwordHash).toBeNull();
+      const stored = institutes.create.mock.calls[0]![0].passwordHash;
+      expect(stored).not.toBeNull();
+      expect(stored).not.toContain('a-strong-password');
+    });
+
+    it('lands approved with no login when no password is given, and says so', async () => {
+      // Legitimate — an institute whose accounts are managed separately — but it is also how one
+      // ends up approved with nobody able to get in, so the message must not be silent about it.
+      const { service, institutes, approval } = build();
+      const result = await service.createByAdmin(registration({ password: undefined }), 'actor-1');
+
+      expect(institutes.create).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'approved', passwordHash: null }),
+      );
+      expect(approval.approve).not.toHaveBeenCalled();
+      expect(result.userId).toBeNull();
+      expect(result.message).toMatch(/no login/i);
     });
 
     it('applies exactly the same validation as the public path', async () => {
@@ -299,7 +337,8 @@ describe('InstitutesService', () => {
       await expect(service.deleteInstitute('inst-1', 'actor-1')).resolves.toEqual({
         message: 'Institute deleted.',
       });
-      expect(institutes.softDelete).toHaveBeenCalledWith('inst-1');
+      // The actor is recorded on the row — a record that cannot say who ended it is not one.
+      expect(institutes.softDelete).toHaveBeenCalledWith('inst-1', 'actor-1');
     });
 
     it('refuses once anything is attached, and says what', async () => {
@@ -346,6 +385,56 @@ describe('InstitutesService', () => {
       const result = await service.checkAvailability({ instituteCode: 'S01' });
       expect(result.emailAvailable).toBeNull();
       expect(accounts.isEmailTaken).not.toHaveBeenCalled();
+    });
+
+    /**
+     * The bug this covers: the probe asked only about accounts. An institute that has registered
+     * but not been approved yet holds its address without any account existing, so a second
+     * applicant was told the address was free — and the two of them could not both be given a
+     * login, which nobody would discover until approval, weeks later, by phone.
+     */
+    it('reports an address held by an unapproved institute as taken', async () => {
+      const { service, institutes, accounts } = build();
+      accounts.isEmailTaken.mockResolvedValue(false);
+      institutes.isContactEmailTaken.mockResolvedValue(true);
+
+      await expect(service.checkAvailability({ contactEmail: 'a@b.pk' })).resolves.toEqual({
+        codeAvailable: null,
+        emailAvailable: false,
+      });
+    });
+
+    it('reports an address held by an account as taken, with no institute row needed', async () => {
+      const { service, institutes, accounts } = build();
+      accounts.isEmailTaken.mockResolvedValue(true);
+      institutes.isContactEmailTaken.mockResolvedValue(false);
+
+      await expect(service.checkAvailability({ contactEmail: 'a@b.pk' })).resolves.toEqual({
+        codeAvailable: null,
+        emailAvailable: false,
+      });
+    });
+  });
+
+  describe('refusing a duplicate address', () => {
+    it('409s a public registration whose address another institute already holds', async () => {
+      const { service, institutes } = build();
+      institutes.isContactEmailTaken.mockResolvedValue(true);
+
+      await expect(service.register(registration())).rejects.toThrow(ConflictException);
+      expect(institutes.create).not.toHaveBeenCalled();
+    });
+
+    it('409s an admin-created institute on the same terms', async () => {
+      // Same rule, both doors. An admin typing a duplicate address by hand produces exactly the
+      // stranded institute the public check exists to prevent.
+      const { service, institutes } = build();
+      institutes.isContactEmailTaken.mockResolvedValue(true);
+
+      await expect(service.createByAdmin(registration(), 'actor-1')).rejects.toThrow(
+        ConflictException,
+      );
+      expect(institutes.create).not.toHaveBeenCalled();
     });
   });
 

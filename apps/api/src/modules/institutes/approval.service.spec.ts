@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 
 import { InstitutionType, Province } from '@oses/types';
 
+import type { AuthAuditRepository } from '../../auth/ports';
 import { SYSTEM_ROLE_IDS } from '../../rbac/system-roles';
 import { ApprovalService } from './approval.service';
 import type {
@@ -46,6 +47,7 @@ function record(over: Partial<InstituteRecord> = {}): InstituteRecord {
 
 interface Harness {
   service: ApprovalService;
+  audit: jest.Mocked<AuthAuditRepository>;
   institutes: jest.Mocked<InstituteRepository>;
   approvals: jest.Mocked<InstituteApprovalRepository>;
   credentials: jest.Mocked<InstituteCredentialRepository>;
@@ -112,8 +114,13 @@ function build(
     deactivateUsers: track('deactivateUsers', 2),
   } as unknown as jest.Mocked<InstituteDependants>;
 
+  const audit = {
+    record: jest.fn().mockResolvedValue(undefined),
+  } as unknown as jest.Mocked<AuthAuditRepository>;
+
   return {
-    service: new ApprovalService(institutes, approvals, credentials, accounts, dependants),
+    service: new ApprovalService(institutes, approvals, credentials, accounts, dependants, audit),
+    audit,
     institutes,
     approvals,
     credentials,
@@ -229,6 +236,28 @@ describe('ApprovalService', () => {
         NotFoundException,
       );
     });
+
+    it('records the new account, the same way a hand-made one is recorded', async () => {
+      const { service, audit } = build();
+      await service.approve('inst-1', { createLogin: true }, 'admin-1');
+
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({ event: 'user.created', actorId: 'admin-1', userId: 'user-1' }),
+      );
+    });
+
+    it('records nothing when no account was created', async () => {
+      const { service, audit } = build({
+        approveOutcome: {
+          outcome: 'approved',
+          institute: record({ status: 'approved' }),
+          userId: null,
+        },
+      });
+      await service.approve('inst-1', { createLogin: false }, 'admin-1');
+
+      expect(audit.record).not.toHaveBeenCalled();
+    });
   });
 
   describe('reject', () => {
@@ -295,6 +324,21 @@ describe('ApprovalService', () => {
         'database down',
       );
       expect(approvals.setStatus).not.toHaveBeenCalled();
+    });
+
+    it('records the accounts it switched off', async () => {
+      // The single-user path is audited; without this the bulk path would not be, and the bulk
+      // one is the harder to reconstruct afterwards.
+      const { service, audit } = build({ institute: record({ status: 'approved' }) });
+      await service.setStatus('inst-1', { status: 'deactivated' }, 'admin-1');
+
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: 'account.status',
+          actorId: 'admin-1',
+          metadata: expect.objectContaining({ accounts: 2, status: 'deactivate' }),
+        }),
+      );
     });
 
     it('runs no cascade when reactivating', async () => {

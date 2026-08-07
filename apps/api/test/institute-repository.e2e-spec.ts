@@ -20,6 +20,9 @@ import { requireTestDatabaseUrl } from './test-database';
 // the oses_test database. Skips cleanly when neither is set.
 const TEST_URL = requireTestDatabaseUrl();
 
+/** Any uuid — the FK is to users, and these tests seed no users, so it stays null-checked below. */
+const ACTOR_ID = null as unknown as string;
+
 describe('Institute persistence (integration)', () => {
   let dataSource: DataSource;
   let repo: TypeOrmInstituteRepository;
@@ -27,7 +30,13 @@ describe('Institute persistence (integration)', () => {
   let categoryId: string;
   let questionId: string;
 
+  /**
+   * The address follows the code. One live institute per contact address is a unique index, so a
+   * test asking for a second institute by overriding the code was asking for a duplicate address
+   * without meaning to.
+   */
   const details = (over: Partial<CreateInstituteInput> = {}): CreateInstituteInput => ({
+    contactEmail: `${(over.instituteCode ?? 'S01').toLowerCase()}@example.pk`,
     instituteCode: 'S01',
     instituteName: 'Government High School',
     branch: null,
@@ -39,7 +48,6 @@ describe('Institute persistence (integration)', () => {
     postalCode: null,
     contactPersonName: 'Ayesha Khan',
     contactPersonDesignation: 'Principal',
-    contactEmail: 'principal@example.pk',
     contactPhone: '+92-42-1234567',
     answers: [],
     status: 'pending',
@@ -138,13 +146,13 @@ describe('Institute persistence (integration)', () => {
 
     it('frees the code once the institute is soft-deleted', async () => {
       const record = await repo.create(details());
-      await repo.softDelete(record.id);
+      await repo.softDelete(record.id, ACTOR_ID);
       await expect(repo.isCodeTaken('S01')).resolves.toBe(false);
     });
 
     it('lets a second institute register the freed code', async () => {
       const first = await repo.create(details());
-      await repo.softDelete(first.id);
+      await repo.softDelete(first.id, ACTOR_ID);
       await expect(repo.create(details())).resolves.toMatchObject({ instituteCode: 'S01' });
     });
   });
@@ -152,13 +160,13 @@ describe('Institute persistence (integration)', () => {
   describe('reads', () => {
     it('hides a soft-deleted institute from findById', async () => {
       const record = await repo.create(details());
-      await repo.softDelete(record.id);
+      await repo.softDelete(record.id, ACTOR_ID);
       await expect(repo.findById(record.id)).resolves.toBeNull();
     });
 
     it('hides a soft-deleted institute from the listing and its total', async () => {
       const record = await repo.create(details());
-      await repo.softDelete(record.id);
+      await repo.softDelete(record.id, ACTOR_ID);
       await expect(repo.list({ limit: 25, offset: 0 })).resolves.toEqual([]);
       await expect(repo.count({})).resolves.toBe(0);
     });
@@ -222,7 +230,7 @@ describe('Institute persistence (integration)', () => {
       // The row is retained deliberately, and it still points at the category. Letting the
       // category go would break the record we chose to keep.
       const record = await repo.create(details());
-      await repo.softDelete(record.id);
+      await repo.softDelete(record.id, ACTOR_ID);
       await expect(probe.isCategoryInUse(categoryId)).resolves.toBe(true);
     });
 

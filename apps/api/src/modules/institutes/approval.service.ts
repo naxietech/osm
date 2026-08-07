@@ -7,10 +7,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
+import type { Institute } from '@oses/types';
+
+import { AUTH_AUDIT_REPOSITORY, type AuthAuditRepository } from '../../auth/ports';
 import { SYSTEM_ROLE_IDS } from '../../rbac/system-roles';
 import { hashPassword } from '../../shared/crypto';
 import type { ApproveInstituteDto, RejectInstituteDto, UpdateInstituteStatusDto } from './dto';
-import { type AdminInstitute, toAdminInstitute } from './institute-mapper';
+import { toAdminInstitute } from './institute-mapper';
 import {
   ACCOUNT_LOOKUP,
   type AccountLookup,
@@ -27,7 +30,7 @@ import {
 } from './ports';
 
 export interface ApprovalResult {
-  institute: AdminInstitute;
+  institute: Institute;
   /** The account created alongside the approval, or null when none was asked for. */
   userId: string | null;
   message: string;
@@ -53,6 +56,7 @@ export class ApprovalService {
     private readonly credentials: InstituteCredentialRepository,
     @Inject(ACCOUNT_LOOKUP) private readonly accounts: AccountLookup,
     @Inject(INSTITUTE_DEPENDANTS) private readonly dependants: InstituteDependants,
+    @Inject(AUTH_AUDIT_REPOSITORY) private readonly audit: AuthAuditRepository,
   ) {}
 
   /**
@@ -87,6 +91,18 @@ export class ApprovalService {
             'email, or approve without creating a login and link the existing account.',
         );
       case 'approved':
+        // The account this just minted is an auth event by the table's own charter, and the
+        // same one `users.service.ts` writes when an admin creates a login by hand. The
+        // institute's own lifecycle is recorded on its row (approved_by / approved_at); a
+        // general audit log for non-auth events is deliberately its own piece of work.
+        if (result.userId) {
+          await this.audit.record({
+            event: 'user.created',
+            actorId,
+            userId: result.userId,
+            metadata: { instituteId, via: 'institute.approval' },
+          });
+        }
         return {
           institute: toAdminInstitute(result.institute),
           userId: result.userId,
@@ -106,7 +122,7 @@ export class ApprovalService {
     instituteId: string,
     dto: RejectInstituteDto,
     actorId: string,
-  ): Promise<{ institute: AdminInstitute; message: string }> {
+  ): Promise<{ institute: Institute; message: string }> {
     await this.requirePending(instituteId);
     const result = await this.approvals.reject({
       instituteId,
@@ -147,7 +163,7 @@ export class ApprovalService {
     instituteId: string,
     dto: UpdateInstituteStatusDto,
     actorId: string,
-  ): Promise<{ institute: AdminInstitute; message: string }> {
+  ): Promise<{ institute: Institute; message: string }> {
     const institute = await this.requireInstitute(instituteId);
     if (institute.status === 'pending' || institute.status === 'rejected') {
       throw new BadRequestException(
@@ -161,6 +177,21 @@ export class ApprovalService {
       await this.dependants.deactivateStudents(instituteId);
       const users = await this.dependants.deactivateUsers(instituteId, 'institute_deactivated');
       this.logger.log(`Institute ${instituteId} deactivated; ${users} account(s) switched off.`);
+      // Switching off a batch of accounts is an account-status change, which this table exists
+      // to record. Without it the single-user path is audited and the bulk path is not — and
+      // the bulk one is the harder to reconstruct afterwards.
+      if (users > 0) {
+        await this.audit.record({
+          event: 'account.status',
+          actorId,
+          metadata: {
+            instituteId,
+            status: 'deactivate',
+            accounts: users,
+            via: 'institute.deactivation',
+          },
+        });
+      }
     }
 
     const updated = await this.approvals.setStatus(instituteId, dto.status, actorId);

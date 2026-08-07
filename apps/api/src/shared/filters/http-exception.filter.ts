@@ -18,7 +18,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     const isHttp = exception instanceof HttpException;
     const statusCode = isHttp ? exception.getStatus() : 500;
-    const errorName = isHttp ? exception.name : 'InternalServerError';
+    // A thrower may supply its own `error` code to tell two failures with the same status apart.
+    // Two different 409s on one route — "someone else saved first" and "that option is already
+    // answered" — need opposite advice, and a client that sees only `ConflictException` for both
+    // has to guess. Falls back to the exception class name, which is what every other route uses.
+    const errorName = isHttp ? (extractError(exception) ?? exception.name) : 'InternalServerError';
 
     // For expected HttpExceptions, surface their message; for anything unexpected, keep the
     // client message generic (don't leak internals) but log the real error + stack.
@@ -42,6 +46,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
       timestamp: new Date().toISOString(),
     });
   }
+}
+
+function extractError(exception: HttpException): string | undefined {
+  const res = exception.getResponse();
+  if (typeof res === 'object' && res !== null && 'error' in res) {
+    const error = (res as { error?: unknown }).error;
+    if (typeof error === 'string') return error;
+  }
+  return undefined;
 }
 
 function extractMessage(exception: HttpException): string | string[] {

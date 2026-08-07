@@ -126,13 +126,19 @@ export class DuplicateQuestionIdError extends Error {
 /**
  * A change that would invalidate answers already stored against a question — changing its type,
  * or withdrawing an option institutes could already have chosen.
+ *
+ * The message names the question by its **text**, not its id. This one reaches a person: it is
+ * shown verbatim on the categories screen, where an editor looking at a list of questions they
+ * wrote has no way to turn `c08014fc-…` back into one of them. The id stays on the error as a
+ * property for logs and tests, where it is the useful handle.
  */
 export class AnsweredQuestionChangeError extends Error {
   constructor(
     public readonly questionId: string,
+    questionText: string,
     reason: string,
   ) {
-    super(`Question ${questionId} already has answers: ${reason}`);
+    super(`The question "${questionText}" already has answers, so ${reason}.`);
     this.name = 'AnsweredQuestionChangeError';
   }
 }

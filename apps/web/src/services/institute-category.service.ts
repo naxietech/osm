@@ -132,7 +132,7 @@ export function toggleInstituteCategoryActive(id: string): void {
 
 /**
  * Remove a category outright. Only safe when no institute references it — callers must
- * check {@link countInstitutesInCategory} first. Returns whether a row was removed.
+ * count the institutes filed under it first. Returns whether a row was removed.
  */
 export function deleteInstituteCategory(id: string): boolean {
   const index = instituteCategories.findIndex((c) => c.id === id);

@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { InstituteCategory } from '@oses/types';
+
 import { InstituteForm } from './institute-form';
 
 const defaultProps = {
@@ -41,10 +43,43 @@ function fillValidForm(): void {
   });
 }
 
-const CATEGORIES = [
-  { value: 'cat_school', label: 'School' },
-  { value: 'cat_college', label: 'College' },
+/**
+ * Whole category records, not `{value,label}` pairs — a category carries the questions the form
+ * has to ask. School asks two; College asks none, which is what makes the "only the selected
+ * category's questions" assertions below mean something.
+ */
+const CATEGORIES: InstituteCategory[] = [
+  {
+    id: 'cat_school',
+    code: 'SCH',
+    name: 'School',
+    isActive: true,
+    version: 1,
+    questions: [
+      {
+        id: 'q_board',
+        text: 'Which board are you affiliated with?',
+        type: 'radio',
+        required: true,
+        options: ['Federal', 'Punjab'],
+      },
+      {
+        id: 'q_notes',
+        text: 'Anything else we should know?',
+        type: 'text',
+        required: false,
+        options: [],
+      },
+    ],
+  },
+  { id: 'cat_college', code: 'COL', name: 'College', isActive: true, version: 1, questions: [] },
 ];
+
+/** The two create-mode-only fields, filled with a matching pair. */
+function fillPasswords(value = 'a-strong-password'): void {
+  fireEvent.change(screen.getByLabelText(/^Password/i), { target: { value } });
+  fireEvent.change(screen.getByLabelText(/Confirm Password/i), { target: { value } });
+}
 
 describe('InstituteForm', () => {
   it('renders the text fields and dropdowns', () => {
@@ -70,7 +105,9 @@ describe('InstituteForm', () => {
     render(<InstituteForm categories={CATEGORIES} {...defaultProps} onSubmit={handleSubmit} />);
 
     fillValidForm();
-    fireEvent.click(screen.getByText('Create Institute'));
+    fillPasswords();
+    fireEvent.click(screen.getByRole('radio', { name: 'Federal' }));
+    fireEvent.click(screen.getByText('Create & Register Institute'));
 
     await waitFor(() =>
       expect(handleSubmit).toHaveBeenCalledWith({
@@ -86,6 +123,8 @@ describe('InstituteForm', () => {
         contactPersonDesignation: 'Principal',
         contactEmail: 'test@institute.pk',
         contactPhone: '+92-51-1234567',
+        password: 'a-strong-password',
+        answers: [{ questionId: 'q_board', values: ['Federal'] }],
       }),
     );
   });
@@ -94,7 +133,7 @@ describe('InstituteForm', () => {
     const handleSubmit = vi.fn();
     render(<InstituteForm categories={CATEGORIES} {...defaultProps} onSubmit={handleSubmit} />);
 
-    fireEvent.click(screen.getByText('Create Institute'));
+    fireEvent.click(screen.getByText('Create & Register Institute'));
 
     await waitFor(() => {
       expect(screen.getByText('Institute code is required')).toBeInTheDocument();
@@ -104,7 +143,7 @@ describe('InstituteForm', () => {
 
   it('disables submit button when isSubmitting is true', () => {
     render(<InstituteForm categories={CATEGORIES} {...defaultProps} isSubmitting />);
-    expect(screen.getByText('Create Institute').closest('button')).toBeDisabled();
+    expect(screen.getByText('Create & Register Institute').closest('button')).toBeDisabled();
   });
 
   it('shows instituteCode field as disabled in edit mode', () => {
@@ -122,5 +161,128 @@ describe('InstituteForm', () => {
     );
     expect(screen.getByLabelText(/Institution Name/i)).toHaveValue('Existing Institute');
     expect(screen.getByLabelText(/City/i)).toHaveValue('Lahore');
+  });
+
+  describe('category questions', () => {
+    /**
+     * The defect: this form took `{value,label}` pairs, so it had no questions to render. An
+     * admin picked "School", saw its name and nothing else, and created an institute with no
+     * answers to questions the category requires.
+     */
+    it("asks the selected category's questions, and only those", () => {
+      render(<InstituteForm categories={CATEGORIES} {...defaultProps} />);
+
+      // Nothing to ask before a category is chosen.
+      expect(screen.queryByText(/Which board are you affiliated with/i)).not.toBeInTheDocument();
+
+      choose(/Category/i, 'School');
+
+      expect(screen.getByText(/Which board are you affiliated with/i)).toBeInTheDocument();
+      expect(screen.getByText(/Anything else we should know/i)).toBeInTheDocument();
+      expect(screen.getByRole('radio', { name: 'Federal' })).toBeInTheDocument();
+    });
+
+    it('drops the questions when the category is changed to one with none', () => {
+      render(<InstituteForm categories={CATEGORIES} {...defaultProps} />);
+      choose(/Category/i, 'School');
+      expect(screen.getByText(/Which board are you affiliated with/i)).toBeInTheDocument();
+
+      choose(/Category/i, 'College');
+
+      expect(screen.queryByText(/Which board are you affiliated with/i)).not.toBeInTheDocument();
+    });
+
+    it('sends no answers from a category the admin changed their mind about', async () => {
+      // The API refuses an answer whose question is not in the chosen category, and it is right
+      // to — so the form must not carry the abandoned one along.
+      const handleSubmit = vi.fn();
+      render(<InstituteForm categories={CATEGORIES} {...defaultProps} onSubmit={handleSubmit} />);
+
+      fillValidForm();
+      fillPasswords();
+      fireEvent.click(screen.getByRole('radio', { name: 'Federal' }));
+      choose(/Category/i, 'College');
+      fireEvent.click(screen.getByText('Create & Register Institute'));
+
+      await waitFor(() => expect(handleSubmit).toHaveBeenCalled());
+      expect(handleSubmit.mock.calls[0]?.[0]).not.toHaveProperty('answers');
+    });
+
+    it('asks nothing on an edit, because the API refuses to change answers', () => {
+      render(<InstituteForm categories={CATEGORIES} {...defaultProps} mode="edit" />);
+      choose(/Category/i, 'School');
+
+      expect(screen.queryByText(/Which board are you affiliated with/i)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('sign-in details', () => {
+    it('collects a password on create — without one nobody can sign in as the institute', () => {
+      render(<InstituteForm categories={CATEGORIES} {...defaultProps} />);
+
+      expect(screen.getByLabelText(/^Password/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Confirm Password/i)).toBeInTheDocument();
+    });
+
+    it('refuses a mismatched pair', async () => {
+      const handleSubmit = vi.fn();
+      render(<InstituteForm categories={CATEGORIES} {...defaultProps} onSubmit={handleSubmit} />);
+
+      fillValidForm();
+      fireEvent.change(screen.getByLabelText(/^Password/i), { target: { value: 'password-one' } });
+      fireEvent.change(screen.getByLabelText(/Confirm Password/i), {
+        target: { value: 'password-two' },
+      });
+      fireEvent.click(screen.getByText('Create & Register Institute'));
+
+      await waitFor(() =>
+        expect(screen.getByText(/two passwords do not match/i)).toBeInTheDocument(),
+      );
+      expect(handleSubmit).not.toHaveBeenCalled();
+    });
+
+    it('asks for no password on an edit — that is the reset flow, not this form', () => {
+      render(<InstituteForm categories={CATEGORIES} {...defaultProps} mode="edit" />);
+      expect(screen.queryByLabelText(/^Password/i)).not.toBeInTheDocument();
+    });
+
+    it('asks for no password from a caller who may only look', () => {
+      render(<InstituteForm categories={CATEGORIES} {...defaultProps} readOnly />);
+      expect(screen.queryByLabelText(/^Password/i)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('deleting', () => {
+    it('offers delete on an edit, apart from Save', () => {
+      const onDelete = vi.fn();
+      render(
+        <InstituteForm categories={CATEGORIES} {...defaultProps} mode="edit" onDelete={onDelete} />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /Delete Institute/i }));
+      expect(onDelete).toHaveBeenCalled();
+    });
+
+    it('offers no delete while creating — there is nothing to delete yet', () => {
+      const onDelete = vi.fn();
+      render(<InstituteForm categories={CATEGORIES} {...defaultProps} onDelete={onDelete} />);
+
+      expect(screen.queryByRole('button', { name: /Delete Institute/i })).not.toBeInTheDocument();
+    });
+
+    it('withholds delete from a caller who may only look', () => {
+      const onDelete = vi.fn();
+      render(
+        <InstituteForm
+          categories={CATEGORIES}
+          {...defaultProps}
+          mode="edit"
+          readOnly
+          onDelete={onDelete}
+        />,
+      );
+
+      expect(screen.queryByRole('button', { name: /Delete Institute/i })).not.toBeInTheDocument();
+    });
   });
 });

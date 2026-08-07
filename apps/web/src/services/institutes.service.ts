@@ -15,10 +15,10 @@ import type {
   AvailabilityResult,
   CreateInstituteDto,
   Institute,
-  InstituteCategory,
   InstituteDetail,
   InstituteStatus,
   PaginatedInstitutes,
+  PublicInstituteCategory,
   RegisterInstituteDto,
   RegistrationReceipt,
   UpdateInstituteDto,
@@ -84,8 +84,14 @@ function getInstitute(id: string): Promise<InstituteDetail> {
  * A super admin entering an institute directly. It lands `approved` with its numeric code
  * already drawn — no login is created, because that is the Users screen's job.
  */
-function createInstitute(dto: CreateInstituteDto): Promise<Institute> {
-  return apiRequest<Institute>(institutes.create, { method: 'POST', body: dto });
+/**
+ * Returns the same `{ institute, userId, message }` as approval, because that is literally what
+ * it does: with a password the API registers the institute *and* its login in one action, taking
+ * the ordinary approval path to get there. `userId` says whether an account was created, and the
+ * message is the server's own wording for it — do not restate it here.
+ */
+function createInstitute(dto: CreateInstituteDto): Promise<ApprovalResponse> {
+  return apiRequest<ApprovalResponse>(institutes.create, { method: 'POST', body: dto });
 }
 
 /**
@@ -164,8 +170,14 @@ export const institutesService = {
 // ---- the open registration link (no credentials) --------------------------------------
 
 /** Active categories and their questions, so the public form can draw itself. */
-function listPublicCategories(): Promise<InstituteCategory[]> {
-  return apiRequest<InstituteCategory[]>(publicApi.instituteCategories);
+/**
+ * `PublicInstituteCategory`, not `InstituteCategory`. The public route returns only active
+ * categories and omits `isActive` and `version` entirely — typing it as the admin shape let the
+ * page filter on `isActive`, which is never sent, so every category was dropped and the
+ * registration form showed an empty dropdown.
+ */
+function listPublicCategories(): Promise<PublicInstituteCategory[]> {
+  return apiRequest<PublicInstituteCategory[]>(publicApi.instituteCategories);
 }
 
 /**

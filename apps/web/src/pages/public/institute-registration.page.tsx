@@ -6,47 +6,79 @@
  *
  * Three things here are deliberate rather than incidental:
  *
- * - **Progress is kept in the browser.** The form is long, and losing it to an accidental
- *   refresh is the worst thing that can happen to an applicant. Saving drafts on the server
- *   would need a table, an expiry policy and a resume token that is itself a small credential —
- *   all to solve something `sessionStorage` already solves. See `usePersistedState`.
+ * - **Progress is kept in the browser** — the gate's two fields and every field of the long form,
+ *   minus the two passwords, which are excluded from the draft type by construction. Losing a
+ *   fifteen-field form to an accidental refresh is the worst thing that can happen to an
+ *   applicant. Saving drafts on the server would need a table, an expiry policy and a resume
+ *   token that is itself a small credential — all to solve something `sessionStorage` already
+ *   solves. See `usePersistedState`.
  * - **The code and email are checked before the long part.** With no email service, an applicant
  *   who clashes would otherwise find out days later, by phone, that the whole thing was never
  *   viable. The check is one request at the step boundary, not on every keystroke.
  * - **The confirmation names the institute code.** There is no reference number to invent: the
  *   code is unique, they typed it themselves, and it is what they will quote when they ring up.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 
-import type { InstituteCategory, RegisterInstituteDto, RegistrationReceipt } from '@oses/types';
+import type { RegisterInstituteDto, RegistrationReceipt } from '@oses/types';
 
 import { Button } from '@/design-system/atoms/button';
 import { Building2, Check } from '@/design-system/atoms/icon';
 import { Spinner } from '@/design-system/atoms/spinner';
 import { Alert } from '@/design-system/molecules/alert';
 import { FormField } from '@/design-system/molecules/form-field';
-import { InstituteRegistrationForm } from '@/design-system/organisms/institute-registration-form';
+import {
+  type InstituteRegistrationDraft,
+  InstituteRegistrationForm,
+} from '@/design-system/organisms/institute-registration-form';
+import { usePublicInstituteCategories } from '@/hooks/use-institute-categories';
 import { usePersistedState } from '@/hooks/use-persisted-state';
 import { apiErrorMessage } from '@/services/api-client';
 import { publicInstitutesService } from '@/services/institutes.service';
 
 /** Namespaced and versioned: a value stored by an older form must not be read back into a new one. */
-const DRAFT_KEY = 'oses.institute-registration.v1';
+const GATE_KEY = 'oses.institute-registration.gate.v1';
+const DRAFT_KEY = 'oses.institute-registration.draft.v1';
 
 interface Gate {
   instituteCode: string;
   contactEmail: string;
+  /**
+   * Whether these two cleared the availability check, kept beside them rather than in memory.
+   *
+   * A refresh used to drop the applicant back to step one with all fifteen fields saved but
+   * unreachable — the one thing this persistence exists to prevent, undone at the last step.
+   *
+   * It lives *inside* the gate object on purpose. `usePersistedState` only restores objects (a
+   * bare `true` would be read as malformed and discarded), and the flag means nothing apart from
+   * the two fields it describes, so one key holds both and they cannot fall out of step.
+   *
+   * Not a permission. The API re-checks both on submit and answers 409 either way; this only
+   * decides which half of the form is on screen.
+   */
+  passed?: boolean;
 }
 
 export function InstituteRegistrationPage(): React.ReactElement {
-  const [categories, setCategories] = useState<InstituteCategory[] | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const categoriesQuery = usePublicInstituteCategories();
 
-  const [gate, setGate, clearGate] = usePersistedState<Gate>(DRAFT_KEY, {
+  const [gate, setGate, clearGate] = usePersistedState<Gate>(GATE_KEY, {
     instituteCode: '',
     contactEmail: '',
+    passed: false,
   });
-  const [gatePassed, setGatePassed] = useState(false);
+  const gatePassed = gate.passed === true;
+  const setGatePassed = (passed: boolean): void => setGate((current) => ({ ...current, passed }));
+
+  /**
+   * The rest of the form, so a refresh costs nothing. The two password fields are absent from
+   * `InstituteRegistrationDraft` by construction — a chosen password must not sit in browser
+   * storage on a shared machine, and retyping two fields is the price.
+   */
+  const [draft, setDraft, clearDraft] = usePersistedState<InstituteRegistrationDraft | null>(
+    DRAFT_KEY,
+    null,
+  );
   const [checking, setChecking] = useState(false);
   const [gateError, setGateError] = useState<string | null>(null);
 
@@ -54,17 +86,12 @@ export function InstituteRegistrationPage(): React.ReactElement {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  React.useEffect(() => {
-    publicInstitutesService
-      .listPublicCategories()
-      .then(setCategories)
-      .catch((err: unknown) => setLoadError(apiErrorMessage(err)));
-  }, []);
-
-  const activeCategories = useMemo(
-    () => (categories ?? []).filter((c) => c.isActive),
-    [categories],
-  );
+  /**
+   * No `isActive` filter: the public route returns active categories and nothing else, and the
+   * shape it sends has no such field. Filtering on it dropped every category and left the
+   * dropdown empty — the bug this replaces.
+   */
+  const categories = categoriesQuery.data ?? [];
 
   /**
    * The step boundary. Both fields are checked in one request, and the answer is shown here
@@ -105,8 +132,9 @@ export function InstituteRegistrationPage(): React.ReactElement {
     publicInstitutesService
       .registerInstitute(dto)
       .then((result) => {
-        // The draft has served its purpose, and it holds a password. Nothing keeps it now.
+        // Both drafts have served their purpose. Nothing about this application stays behind.
         clearGate();
+        clearDraft();
         setReceipt(result);
       })
       .catch((err: unknown) => setSubmitError(apiErrorMessage(err)))
@@ -149,9 +177,9 @@ export function InstituteRegistrationPage(): React.ReactElement {
         </div>
       </div>
 
-      {loadError && (
+      {categoriesQuery.isError && (
         <Alert tone="danger" className="mb-4">
-          {loadError}
+          {apiErrorMessage(categoriesQuery.error)}
         </Alert>
       )}
 
@@ -206,7 +234,7 @@ export function InstituteRegistrationPage(): React.ReactElement {
             </Button>
           </div>
         </div>
-      ) : categories === null ? (
+      ) : categoriesQuery.isPending ? (
         <div className="flex items-center justify-center py-16">
           <Spinner size="lg" />
         </div>
@@ -229,9 +257,11 @@ export function InstituteRegistrationPage(): React.ReactElement {
           )}
 
           <InstituteRegistrationForm
-            categories={activeCategories}
+            categories={categories}
             initialCode={gate.instituteCode.trim()}
             initialEmail={gate.contactEmail.trim()}
+            initialDraft={draft ?? undefined}
+            onDraftChange={setDraft}
             isSubmitting={submitting}
             onSubmit={handleSubmit}
           />

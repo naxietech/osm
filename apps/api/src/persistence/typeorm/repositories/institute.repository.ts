@@ -6,6 +6,7 @@ import {
   type CreateInstituteInput,
   type DuplicateCandidate,
   InstituteCodeAlreadyExistsError,
+  InstituteContactEmailAlreadyExistsError,
   type InstitutePatch,
   type InstituteRecord,
   type InstituteRepository,
@@ -17,7 +18,7 @@ import {
   InstituteEntity,
   InstituteQuestionAnswerEntity,
 } from '../entities';
-import { isUniqueViolation } from '../pg-errors';
+import { isUniqueViolation, violatedConstraint } from '../pg-errors';
 
 /** Entity row -> the record the domain sees. Shared with the approval repository. */
 export function toInstituteRecord(institute: InstituteEntity): InstituteRecord {
@@ -109,6 +110,19 @@ export class TypeOrmInstituteRepository implements InstituteRepository {
     return count > 0;
   }
 
+  /** Same terms as {@link isCodeTaken}: rejected and deleted rows release their address. */
+  async isContactEmailTaken(contactEmail: string, excludeInstituteId?: string): Promise<boolean> {
+    const qb = this.institutes
+      .createQueryBuilder('i')
+      // Addresses are compared case-insensitively. Nobody registering FOO@x.pk after
+      // foo@x.pk thinks they have picked a different address, and the mail server agrees.
+      .where('lower(i.contact_email) = lower(:email)', { email: contactEmail })
+      .andWhere('i.status <> :rejected', { rejected: 'rejected' })
+      .andWhere('i.deleted_at is null');
+    if (excludeInstituteId) qb.andWhere('i.id <> :id', { id: excludeInstituteId });
+    return (await qb.getCount()) > 0;
+  }
+
   async create(input: CreateInstituteInput): Promise<InstituteRecord> {
     try {
       return await this.dataSource.transaction(async (manager) => {
@@ -173,9 +187,15 @@ export class TypeOrmInstituteRepository implements InstituteRepository {
         return toInstituteRecord(saved);
       });
     } catch (err) {
-      // Two submissions can both pass the service's pre-check; the partial unique index catches
-      // the loser. A 409 is the honest answer, not a 500.
-      if (isUniqueViolation(err)) throw new InstituteCodeAlreadyExistsError(input.instituteCode);
+      // Two submissions can both pass the service's pre-check; the partial unique indexes catch
+      // the loser. A 409 is the honest answer, not a 500 — and it must name the field that
+      // actually clashed, so the applicant is not asked to change one they got right.
+      if (isUniqueViolation(err)) {
+        if (violatedConstraint(err) === 'institutes_contact_email_live_uq') {
+          throw new InstituteContactEmailAlreadyExistsError(input.contactEmail);
+        }
+        throw new InstituteCodeAlreadyExistsError(input.instituteCode);
+      }
       throw err;
     }
   }
@@ -199,11 +219,11 @@ export class TypeOrmInstituteRepository implements InstituteRepository {
     return result.affected === 0 ? null : this.findById(id);
   }
 
-  async softDelete(id: string): Promise<boolean> {
+  async softDelete(id: string, actorId: string): Promise<boolean> {
     const result = await this.institutes
       .createQueryBuilder()
       .update(InstituteEntity)
-      .set({ deletedAt: new Date() })
+      .set({ deletedAt: new Date(), deletedBy: actorId })
       .where('id = :id', { id })
       .andWhere('deleted_at is null')
       .execute();

@@ -14,7 +14,12 @@ import {
 } from '@nestjs/common';
 import { ApiCookieAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
-import { INSTITUTE_STATUSES } from '@oses/types';
+import {
+  INSTITUTE_STATUSES,
+  type Institute,
+  type InstituteDetail,
+  type PaginatedInstitutes,
+} from '@oses/types';
 
 import { ActiveUserGuard } from '../../auth/guards/active-user.guard';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -38,16 +43,15 @@ import {
   type UpdateInstituteStatusDto,
   UpdateInstituteStatusSchema,
 } from './dto';
-import type { AdminInstitute } from './institute-mapper';
-import {
-  type InstituteDetail,
-  InstitutesService,
-  type PaginatedInstitutes,
-} from './institutes.service';
+import { InstitutesService } from './institutes.service';
 
 /**
- * Institute administration. Every route requires authentication, a still-active account, and the
- * `institutes.manage` grant.
+ * Institute administration.
+ *
+ * Two grants, deliberately: the reads need `institutes.view`, everything that changes an
+ * institute needs `institutes.manage`. An Admin holds only the first — they look institutes up
+ * while working on students and exams, but approving, deactivating or deleting one is a Super
+ * Admin decision.
  *
  * The two unauthenticated routes used by the open registration link live in their own controller
  * with their own response mapper, so the two audiences can never drift into each other.
@@ -63,7 +67,7 @@ export class InstitutesController {
   ) {}
 
   @Get()
-  @RequirePermissions('institutes.manage')
+  @RequirePermissions('institutes.view')
   @ApiOperation({
     summary: 'List institutes (paginated, newest first)',
     description:
@@ -76,7 +80,7 @@ export class InstitutesController {
   @ApiQuery({ name: 'status', required: false, enum: INSTITUTE_STATUSES })
   @ApiQuery({ name: 'categoryId', required: false, description: 'Exact category id (uuid)' })
   @ApiResponse({ status: 200, description: '{ items: AdminInstitute[], total }' })
-  @ApiResponse({ status: 403, description: 'Missing institutes.manage grant' })
+  @ApiResponse({ status: 403, description: 'Missing institutes.view grant' })
   list(
     @Query(new ZodValidationPipe(ListInstitutesSchema)) query: ListInstitutesQueryDto,
   ): Promise<PaginatedInstitutes> {
@@ -84,7 +88,7 @@ export class InstitutesController {
   }
 
   @Get(':id')
-  @RequirePermissions('institutes.manage')
+  @RequirePermissions('institutes.view')
   @ApiOperation({
     summary: 'One institute, with its answers and any duplicate warning',
     description:
@@ -101,19 +105,24 @@ export class InstitutesController {
   @Post()
   @RequirePermissions('institutes.manage')
   @ApiOperation({
-    summary: 'Register an institute directly (lands approved)',
+    summary: 'Register an institute directly, with its login (lands approved)',
     description:
       'For a super admin entering one themselves. It lands `approved` with its numeric code ' +
       'already drawn — making the approver approve their own entry is ceremony, not a control. ' +
-      'No login is created here; use the Users screen, which handles temporary passwords.',
+      'Supply `password` and the institute account is created in the same action, so it can ' +
+      'sign in immediately; omit it and the record exists with no way in until an account is ' +
+      'made by hand. The response message says which happened.',
   })
-  @ApiResponse({ status: 201, description: 'Created' })
+  @ApiResponse({ status: 201, description: 'Created — `{ institute, userId, message }`' })
   @ApiResponse({ status: 400, description: 'Unknown or inactive category, or an invalid answer' })
-  @ApiResponse({ status: 409, description: 'That institute code is already registered' })
+  @ApiResponse({
+    status: 409,
+    description: 'That institute code, or that contact email, is already registered',
+  })
   create(
     @CurrentUser() actor: AuthPrincipal,
     @Body(new ZodValidationPipe(CreateInstituteSchema)) dto: CreateInstituteRequestDto,
-  ): Promise<AdminInstitute> {
+  ): Promise<ApprovalResult> {
     return this.institutes.createByAdmin(dto, actor.sub);
   }
 
@@ -134,7 +143,7 @@ export class InstitutesController {
     @CurrentUser() actor: AuthPrincipal,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(UpdateInstituteSchema)) dto: UpdateInstituteRequestDto,
-  ): Promise<AdminInstitute> {
+  ): Promise<Institute> {
     return this.institutes.updateInstitute(id, dto, actor.sub);
   }
 
@@ -181,7 +190,7 @@ export class InstitutesController {
     @CurrentUser() actor: AuthPrincipal,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(RejectInstituteSchema)) dto: RejectInstituteDto,
-  ): Promise<{ institute: AdminInstitute; message: string }> {
+  ): Promise<{ institute: Institute; message: string }> {
     return this.approvals.reject(id, dto, actor.sub);
   }
 
@@ -203,7 +212,7 @@ export class InstitutesController {
     @CurrentUser() actor: AuthPrincipal,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(UpdateInstituteStatusSchema)) dto: UpdateInstituteStatusDto,
-  ): Promise<{ institute: AdminInstitute; message: string }> {
+  ): Promise<{ institute: Institute; message: string }> {
     return this.approvals.setStatus(id, dto, actor.sub);
   }
 
