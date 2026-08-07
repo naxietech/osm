@@ -9,6 +9,7 @@ import '@fontsource/poppins/700.css';
 import { QueryClientProvider } from '@tanstack/react-query';
 
 import { ErrorBoundary } from '@/components/error-boundary';
+import { ToastProvider } from '@/design-system/molecules/toast';
 import { ThemeProvider } from '@/design-system/theme';
 import { AuthProvider, ClientProvider } from '@/hooks';
 import { queryClient } from '@/lib/query-client';
@@ -23,17 +24,22 @@ createRoot(rootElement).render(
   <React.StrictMode>
     <ThemeProvider>
       <ErrorBoundary>
-        {/* BrowserRouter sits above AuthProvider so the provider can see which page
-            is open and skip the session check on public routes (see isPublicRoute). */}
-        <QueryClientProvider client={queryClient}>
-          <BrowserRouter>
-            <AuthProvider>
-              <ClientProvider>
-                <App />
-              </ClientProvider>
-            </AuthProvider>
-          </BrowserRouter>
-        </QueryClientProvider>
+        {/* Above the router: a toast raised by a screen must survive the navigation that
+            screen triggers — "Institute approved" is shown on the queue you land on, not on
+            the page you just left. */}
+        <ToastProvider>
+          {/* BrowserRouter sits above AuthProvider so the provider can see which page
+              is open and skip the session check on public routes (see isPublicRoute). */}
+          <QueryClientProvider client={queryClient}>
+            <BrowserRouter>
+              <AuthProvider>
+                <ClientProvider>
+                  <App />
+                </ClientProvider>
+              </AuthProvider>
+            </BrowserRouter>
+          </QueryClientProvider>
+        </ToastProvider>
       </ErrorBoundary>
     </ThemeProvider>
   </React.StrictMode>,

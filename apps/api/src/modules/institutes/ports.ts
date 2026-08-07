@@ -185,6 +185,12 @@ export interface InstituteRepository {
     id: string,
     patch: InstitutePatch,
     actorId: string | null,
+    /**
+     * When given, **replaces** the institute's whole answer set. `undefined` leaves the stored
+     * answers untouched — which is not the same as `[]`, and the difference matters: a caller
+     * changing only a phone number must not silently wipe what the institute declared.
+     */
+    answers?: InstituteAnswerRecord[],
   ): Promise<InstituteRecord | null>;
   /** Soft delete, recording who did it. The service checks dependants first. */
   softDelete(id: string, actorId: string): Promise<boolean>;

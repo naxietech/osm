@@ -5,6 +5,7 @@ import { DataSource, type EntityManager, Repository, type SelectQueryBuilder } f
 import {
   type CreateInstituteInput,
   type DuplicateCandidate,
+  type InstituteAnswerRecord,
   InstituteCodeAlreadyExistsError,
   InstituteContactEmailAlreadyExistsError,
   type InstitutePatch,
@@ -200,23 +201,61 @@ export class TypeOrmInstituteRepository implements InstituteRepository {
     }
   }
 
+  /**
+   * Update the row, and — when `answers` is given — replace its answer set in the same
+   * transaction.
+   *
+   * Delete-then-insert rather than a per-answer diff. The set is small (a category asks a handful
+   * of questions), the unique constraint is on `(institute_id, question_id)` so an upsert would
+   * still need the delete for withdrawn ones, and a partial failure that left half the old
+   * answers beside half the new would be a record nobody could interpret.
+   *
+   * The transaction is what makes that safe: the institute is never observable with its columns
+   * updated and its answers half-written.
+   */
   async update(
     id: string,
     patch: InstitutePatch,
     actorId: string | null,
+    answers?: InstituteAnswerRecord[],
   ): Promise<InstituteRecord | null> {
     const keys = Object.keys(patch);
-    if (keys.length === 0) return this.findById(id);
+    if (keys.length === 0 && answers === undefined) return this.findById(id);
 
-    const result = await this.institutes
-      .createQueryBuilder()
-      .update(InstituteEntity)
-      .set({ ...patch, updatedBy: actorId, updatedAt: new Date() })
-      .where('id = :id', { id })
-      .andWhere('deleted_at is null')
-      .execute();
+    const applied = await this.dataSource.transaction(async (manager) => {
+      const now = new Date();
 
-    return result.affected === 0 ? null : this.findById(id);
+      // Always stamp the row, even when only the answers changed: an edit is an edit, and
+      // `updated_at` that ignores half the edits is worse than none.
+      const result = await manager
+        .createQueryBuilder()
+        .update(InstituteEntity)
+        .set({ ...patch, updatedBy: actorId, updatedAt: now })
+        .where('id = :id', { id })
+        .andWhere('deleted_at is null')
+        .execute();
+
+      if (result.affected === 0) return false;
+
+      if (answers !== undefined) {
+        const repo = manager.getRepository(InstituteQuestionAnswerEntity);
+        await repo.delete({ instituteId: id });
+        if (answers.length > 0) {
+          await repo.insert(
+            answers.map((answer) => ({
+              instituteId: id,
+              questionId: answer.questionId,
+              values: answer.values,
+              createdAt: now,
+            })),
+          );
+        }
+      }
+
+      return true;
+    });
+
+    return applied ? this.findById(id) : null;
   }
 
   async softDelete(id: string, actorId: string): Promise<boolean> {

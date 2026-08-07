@@ -25,6 +25,15 @@ export interface CategoryQuestionFieldProps {
   onSingle: (value: string) => void;
   /** Add or remove one option on a multi-value (checkbox) question. */
   onToggle: (option: string, checked: boolean) => void;
+  /**
+   * Show the answer without offering to change it.
+   *
+   * Used on the institute edit form: the API refuses `answers` on an update outright, because a
+   * stored answer is what an institute declared at registration. Rendering the questions as live
+   * controls there would be a form that looks like it saved and did not; hiding them altogether
+   * loses information the editor came to see. Disabled is the honest middle.
+   */
+  disabled?: boolean;
 }
 
 /**
@@ -47,6 +56,7 @@ export function CategoryQuestionField({
   values,
   onSingle,
   onToggle,
+  disabled = false,
 }: CategoryQuestionFieldProps): React.ReactElement {
   return (
     <div>
@@ -60,6 +70,7 @@ export function CategoryQuestionField({
           value={values[0] ?? ''}
           onChange={(e) => onSingle(e.target.value)}
           placeholder="Your answer"
+          disabled={disabled}
         />
       )}
       {type === 'file' && (
@@ -68,6 +79,7 @@ export function CategoryQuestionField({
           aria-label={text}
           className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-brand-subtle file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-foreground hover:file:bg-brand-subtle/80"
           onChange={(e) => onSingle(e.target.files?.[0]?.name ?? '')}
+          disabled={disabled}
         />
       )}
       {type === 'select' && (
@@ -76,6 +88,7 @@ export function CategoryQuestionField({
           options={options.map((o) => ({ value: o, label: o }))}
           value={values[0] ?? ''}
           onChange={onSingle}
+          disabled={disabled}
         />
       )}
       {type === 'radio' && (
@@ -87,6 +100,7 @@ export function CategoryQuestionField({
               label={opt}
               checked={values[0] === opt}
               onChange={() => onSingle(opt)}
+              disabled={disabled}
             />
           ))}
         </div>
@@ -99,6 +113,7 @@ export function CategoryQuestionField({
               checked={values.includes(opt)}
               onChange={(e) => onToggle(opt, e.target.checked)}
               label={opt}
+              disabled={disabled}
             />
           ))}
         </div>

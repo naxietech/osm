@@ -173,13 +173,36 @@ export class InstitutesService {
    * anything reaches here. That is deliberate: a caller who cannot tell "ignored" from "saved"
    * will believe the change applied.
    */
+  /**
+   * Edit an institute, answers included.
+   *
+   * The answers are checked against the institute's **stored** `categoryId`, never one named in
+   * the request — the category is locked after registration and is absent from the update schema
+   * entirely, so the questions being answered cannot change even though the answers can. A
+   * category is what an institute *is*; an answer is what it said, and a phone number, an address
+   * and a declared board affiliation are all things that legitimately change.
+   *
+   * `answers` is split out of the patch because it is not a column: the rest of the DTO maps to
+   * `institutes`, this maps to `institute_question_answers`, and the repository writes both in
+   * one transaction.
+   */
   async updateInstitute(
     id: string,
     dto: UpdateInstituteRequestDto,
     actorId: string,
   ): Promise<Institute> {
-    await this.requireInstitute(id);
-    const updated = await this.institutes.update(id, dto, actorId);
+    const record = await this.requireInstitute(id);
+    const { answers: submitted, ...patch } = dto;
+
+    let answers: InstituteAnswerRecord[] | undefined;
+    if (submitted !== undefined) {
+      const category = await this.requireActiveCategory(record.categoryId);
+      const validation = validateAnswers(category, submitted);
+      if (!validation.ok) throw new BadRequestException(validation.problem.message);
+      answers = validation.answers;
+    }
+
+    const updated = await this.institutes.update(id, patch, actorId, answers);
     if (!updated) throw new NotFoundException('Institute not found');
     return toAdminInstitute(updated);
   }

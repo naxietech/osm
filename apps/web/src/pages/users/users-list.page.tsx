@@ -30,7 +30,6 @@ import { useRoles } from '@/hooks/use-roles';
 import { MIN_PASSWORD_LENGTH } from '@/lib/constants';
 import { ROUTES } from '@/router/routes';
 import { apiErrorMessage } from '@/services/api-client';
-import { instituteName } from '@/services/institute.service';
 import { USERS_PAGE_SIZE, usersService } from '@/services/users.service';
 
 const STATUS_LABELS: Record<UserStatus, string> = {
@@ -280,7 +279,9 @@ export function UsersListPage(): React.ReactElement {
     {
       key: 'institute',
       header: 'Institute',
-      render: (row) => (row.instituteId ? instituteName(row.instituteId) : '—'),
+      // From the API, not the frontend mock. Resolving the id here against `institute.service`
+      // looked up a list of made-up ids, so this column was blank for every institute account.
+      render: (row) => row.instituteName ?? '—',
       width: '220px',
     },
     {

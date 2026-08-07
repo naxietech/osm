@@ -1,24 +1,40 @@
 /**
- * Institute Approvals (super admin) — the queue of registrations awaiting review.
+ * Pending Institutes (super admin) — the queue of registrations awaiting review.
  *
- * **No decision is taken here.** Each card summarises an application and sends you to its detail
- * screen, where Approve & Register and Reject live behind confirmation modals. Approving creates
- * a login and draws a permanent institute number; that is not an action to leave one careless
- * click away in a list, and the detail screen is where the govt code, contact number and
- * duplicate warning are all in front of you to check first.
+ * **No decision is taken here.** The only action is View, which opens the detail screen where
+ * Approve & Register and Reject live behind confirmations. Approving creates a login and draws a
+ * permanent institute number that is never reissued; that is not an action to leave one careless
+ * click away in a list, and the detail screen is where the government code, the contact number
+ * and the duplicate warning are all in front of you to check first.
  *
- * Gated by `institutes.manage`.
+ * A table rather than cards, matching every other list in the app — and search, a category
+ * filter and pagination for the same reason the directory has them. Pagination is not really
+ * about volume: this screen previously asked for `limit: 100` and rendered whatever came back,
+ * so a registration drive that pushed the queue past a hundred would have silently hidden the
+ * rest with nothing on screen to say so.
+ *
+ * Gated by `institutes.view`; the View action needs nothing more, since the detail screen gates
+ * the decisions themselves.
  */
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+
+import type { Institute } from '@oses/types';
 
 import { PageHeader } from '@/components/widgets';
 import { Button } from '@/design-system/atoms/button';
+import { Eye } from '@/design-system/atoms/icon';
+import { IconButton } from '@/design-system/atoms/icon-button';
 import { Spinner } from '@/design-system/atoms/spinner';
 import { Alert } from '@/design-system/molecules/alert';
+import { FilterBar } from '@/design-system/molecules/filter-bar';
+import { type ColumnDef, DataTable } from '@/design-system/organisms/data-table';
+import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import { useInstituteCategories } from '@/hooks/use-institute-categories';
 import { useInstitutes } from '@/hooks/use-institutes';
 import { ROUTES } from '@/router/routes';
 import { apiErrorMessage } from '@/services/api-client';
+import { INSTITUTES_PAGE_SIZE } from '@/services/institutes.service';
 
 /** How long an application has been waiting, in the roughest useful unit. */
 function waitingFor(createdAt: string): string {
@@ -30,16 +46,122 @@ function waitingFor(createdAt: string): string {
 
 export function InstituteApprovalsPage(): React.ReactElement {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  // Oldest first would be fairer, but the API orders newest-first everywhere and one screen
-  // disagreeing about ordering is more confusing than it is fair.
-  const pendingQuery = useInstitutes({ status: 'pending', limit: 100 });
+  const q = searchParams.get('q') ?? '';
+  const categoryId = searchParams.get('category') ?? '';
+  const page = Math.max(0, Number(searchParams.get('page') ?? '1') - 1);
+
+  const [searchInput, setSearchInput] = useState(q);
+  const debouncedSearch = useDebouncedValue(searchInput);
+
+  const categoriesQuery = useInstituteCategories();
+  const categories = categoriesQuery.data ?? [];
+
+  /** Writes the params, always resetting to page one — narrowing a list invalidates its offset. */
+  const narrow = (next: Record<string, string>): void => {
+    const params = new URLSearchParams(searchParams);
+    for (const [key, value] of Object.entries(next)) {
+      if (value === '') params.delete(key);
+      else params.set(key, value);
+    }
+    params.delete('page');
+    setSearchParams(params, { replace: true });
+  };
+
+  useEffect(() => {
+    if (debouncedSearch !== q) narrow({ q: debouncedSearch });
+    // Only the debounced value drives this; including `narrow`/`q` would re-run it on every
+    // render and fight the user's typing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
+
+  const pendingQuery = useInstitutes({
+    status: 'pending',
+    limit: INSTITUTES_PAGE_SIZE,
+    offset: page * INSTITUTES_PAGE_SIZE,
+    ...(q ? { q } : {}),
+    ...(categoryId ? { categoryId } : {}),
+  });
+
   const pending = pendingQuery.data?.items ?? [];
+  const total = pendingQuery.data?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / INSTITUTES_PAGE_SIZE));
+  const firstShown = total === 0 ? 0 : page * INSTITUTES_PAGE_SIZE + 1;
+  const lastShown = Math.min(total, (page + 1) * INSTITUTES_PAGE_SIZE);
+  const isNarrowed = q.trim().length > 0 || categoryId !== '';
+
+  const goToPage = (oneBased: number): void => {
+    const params = new URLSearchParams(searchParams);
+    params.set('page', String(oneBased));
+    setSearchParams(params, { replace: true });
+  };
+
+  const categoryName = (id: string): string =>
+    categories.find((c) => c.id === id)?.name ?? 'Unknown category';
+
+  const columns: ColumnDef<Institute>[] = [
+    {
+      key: 'instituteName',
+      header: 'Institute',
+      render: (row) => (
+        <div>
+          <span className="font-medium text-foreground">{row.instituteName}</span>
+          {row.branch && <span className="text-muted-foreground"> · {row.branch}</span>}
+          <p className="text-xs text-muted-foreground">
+            {row.contactPersonName} ({row.contactPersonDesignation}) · {row.contactPhone}
+          </p>
+        </div>
+      ),
+    },
+    {
+      key: 'instituteCode',
+      header: 'Code',
+      render: (row) => (
+        <span className="font-mono text-sm text-muted-foreground">{row.instituteCode}</span>
+      ),
+      width: '130px',
+    },
+    {
+      key: 'category',
+      header: 'Category',
+      render: (row) => <span className="text-sm">{categoryName(row.categoryId)}</span>,
+      width: '150px',
+    },
+    { key: 'city', header: 'City', render: (row) => row.city, width: '130px' },
+    {
+      key: 'applied',
+      header: 'Applied',
+      render: (row) => (
+        <span className="text-sm text-muted-foreground">{waitingFor(row.createdAt)}</span>
+      ),
+      width: '120px',
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      // View only. Approve and Reject are on the detail screen on purpose — see the file header.
+      render: (row) => (
+        <div className="flex justify-end">
+          <IconButton
+            size="sm"
+            label={`View ${row.instituteName}`}
+            icon={<Eye className="h-4 w-4" aria-hidden />}
+            onClick={(e) => {
+              e.stopPropagation();
+              void navigate(`${ROUTES.admin.institutes}/${row.id}`);
+            }}
+          />
+        </div>
+      ),
+      width: '100px',
+    },
+  ];
 
   return (
     <>
       <PageHeader
-        title="Institute Approvals"
+        title="Pending Institutes"
         subtitle="Registrations waiting to be checked and approved"
       />
 
@@ -49,69 +171,71 @@ export function InstituteApprovalsPage(): React.ReactElement {
         </Alert>
       )}
 
-      {pendingQuery.isLoading ? (
-        <div className="flex items-center justify-center py-16">
-          <Spinner size="lg" />
-        </div>
-      ) : pending.length === 0 ? (
-        <div className="rounded-lg border border-border bg-card p-10 text-center shadow-sm">
-          <p className="text-sm text-muted-foreground">
-            Nothing waiting. New registrations from the public link appear here.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {pending.map((inst) => {
-            const displayName = inst.branch
-              ? `${inst.instituteName}, ${inst.branch}`
-              : inst.instituteName;
+      <FilterBar
+        className="mb-4"
+        searchValue={searchInput}
+        onSearchChange={setSearchInput}
+        searchLabel="Search pending institutes"
+        searchPlaceholder="Search by name, code or city"
+        filters={[
+          {
+            id: 'category',
+            label: 'Category',
+            value: categoryId,
+            onChange: (value) => narrow({ category: value }),
+            options: categories.map((c) => ({ value: c.id, label: c.name })),
+            allLabel: 'All categories',
+          },
+        ]}
+        onClear={() => {
+          setSearchInput('');
+          narrow({ q: '', category: '' });
+        }}
+      />
 
-            return (
-              <div
-                key={inst.id}
-                className="rounded-lg border border-border bg-card p-5 shadow-sm md:p-6"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h2 className="text-base font-semibold text-foreground">{displayName}</h2>
-                    <p className="mt-0.5 text-sm text-muted-foreground">
-                      <span className="font-mono">{inst.instituteCode}</span> · {inst.city} ·
-                      applied {waitingFor(inst.createdAt)}
-                    </p>
-                  </div>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => void navigate(`${ROUTES.admin.institutes}/${inst.id}`)}
-                  >
-                    Review
-                  </Button>
-                </div>
+      <div className="rounded-lg border border-border bg-card shadow-sm">
+        {pendingQuery.isLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <Spinner size="lg" />
+          </div>
+        ) : (
+          <DataTable<Institute>
+            data={pending}
+            columns={columns}
+            onRowClick={(row) => void navigate(`${ROUTES.admin.institutes}/${row.id}`)}
+            emptyMessage={
+              isNarrowed
+                ? 'No pending registrations match those filters'
+                : 'Nothing waiting. New registrations from the public link appear here.'
+            }
+          />
+        )}
+      </div>
 
-                <dl className="mt-4 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-                  <Detail label="Type" value={inst.institutionType.replace(/_/g, ' ')} />
-                  <Detail label="Province" value={inst.province.toUpperCase()} />
-                  <Detail
-                    label="Contact"
-                    value={`${inst.contactPersonName} (${inst.contactPersonDesignation})`}
-                  />
-                  <Detail label="Phone" value={inst.contactPhone} />
-                </dl>
-              </div>
-            );
-          })}
+      {total > INSTITUTES_PAGE_SIZE && (
+        <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+          <span>
+            Showing {firstShown}–{lastShown} of {total}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" disabled={page === 0} onClick={() => goToPage(page)}>
+              Previous
+            </Button>
+            <span>
+              Page {page + 1} of {pageCount}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={page + 1 >= pageCount}
+              onClick={() => goToPage(page + 2)}
+            >
+              Next
+            </Button>
+          </div>
         </div>
       )}
     </>
-  );
-}
-
-function Detail({ label, value }: { label: string; value: string }): React.ReactElement {
-  return (
-    <div>
-      <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 text-foreground">{value}</dd>
-    </div>
   );
 }
 

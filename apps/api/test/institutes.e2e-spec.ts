@@ -12,6 +12,7 @@ import {
   InstituteCategoryEntity,
   InstituteCategoryQuestionEntity,
   InstituteEntity,
+  InstituteQuestionAnswerEntity,
   UserEntity,
 } from '../src/persistence/typeorm/entities';
 import { seedDatabase } from '../src/persistence/typeorm/seed/seed';
@@ -367,17 +368,63 @@ describe('Institutes (e2e)', () => {
   });
 
   describe('the locked fields', () => {
-    it('refuses to change the institute code, category or answers', async () => {
+    it('refuses to change the institute code, the category or the status', async () => {
       const institute = await seedInstitute({ instituteCode: 'LOCK1' });
 
-      for (const patch of [
-        { instituteCode: 'LOCK2' },
-        { categoryId },
-        { answers: [] },
-        { status: 'approved' },
-      ]) {
+      for (const patch of [{ instituteCode: 'LOCK2' }, { categoryId }, { status: 'approved' }]) {
         await asSuper('patch', `/api/v1/institutes/${institute.id}`).send(patch).expect(400);
       }
+    });
+
+    /**
+     * Answers are editable; the category they answer is not. Asserted here rather than only in a
+     * unit test because the write crosses two tables in one transaction — the institute row and
+     * its answer rows — and nothing below the HTTP layer proves both landed.
+     */
+    it('replaces the answers, checked against the category the institute already has', async () => {
+      const institute = await seedInstitute({ instituteCode: 'ANS1' });
+      await dataSource
+        .getRepository(InstituteQuestionAnswerEntity)
+        .insert({ instituteId: institute.id, questionId, values: ['Yes'] });
+
+      const res = await asSuper('patch', `/api/v1/institutes/${institute.id}`)
+        .send({ answers: [{ questionId, values: ['No'] }] })
+        .expect(200);
+
+      const body = (res.body as Envelope<Record<string, unknown>>).data;
+      expect(body['answers']).toEqual([{ questionId, values: ['No'] }]);
+
+      // Replaced, not appended — one row per question, which the unique constraint also demands.
+      const stored = await dataSource
+        .getRepository(InstituteQuestionAnswerEntity)
+        .find({ where: { instituteId: institute.id } });
+      expect(stored).toHaveLength(1);
+    });
+
+    it('refuses an answer set that leaves a required question unanswered', async () => {
+      const institute = await seedInstitute({ instituteCode: 'ANS2' });
+
+      await asSuper('patch', `/api/v1/institutes/${institute.id}`)
+        .send({ answers: [] })
+        .expect(400);
+    });
+
+    it('leaves the stored answers alone when the patch does not mention them', async () => {
+      // `undefined` and `[]` are different requests. A caller changing a city must not silently
+      // wipe what the institute declared.
+      const institute = await seedInstitute({ instituteCode: 'ANS3' });
+      await dataSource
+        .getRepository(InstituteQuestionAnswerEntity)
+        .insert({ instituteId: institute.id, questionId, values: ['Yes'] });
+
+      await asSuper('patch', `/api/v1/institutes/${institute.id}`)
+        .send({ city: 'Karachi' })
+        .expect(200);
+
+      const stored = await dataSource
+        .getRepository(InstituteQuestionAnswerEntity)
+        .find({ where: { instituteId: institute.id } });
+      expect(stored.map((a) => a.values)).toEqual([['Yes']]);
     });
 
     it('accepts the fields that stay editable, including the contact email', async () => {

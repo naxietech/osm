@@ -7,6 +7,7 @@ import {
 } from './institute.dto';
 
 const CATEGORY_ID = '11111111-1111-4111-8111-111111111111';
+const QUESTION_ID = '22222222-2222-4222-8222-222222222222';
 
 const VALID_REGISTRATION = {
   instituteCode: 'S01',
@@ -69,16 +70,30 @@ describe('RegisterInstituteSchema', () => {
 });
 
 describe('UpdateInstituteSchema — the locked fields', () => {
-  // These four are locked after approval. They are absent from the schema, so `.strict()` answers
-  // 400 naming the field. Accepting and ignoring them would leave the caller believing it saved.
+  // Locked after approval. They are absent from the schema, so `.strict()` answers 400 naming
+  // the field. Accepting and ignoring them would leave the caller believing it saved.
   it.each([
     ['instituteCode', { instituteCode: 'S02' }],
     ['categoryId', { categoryId: CATEGORY_ID }],
-    ['answers', { answers: [] }],
     ['numericCode', { numericCode: 7 }],
     ['status', { status: 'approved' }],
   ])('refuses to change %s', (_label, patch) => {
     expect(UpdateInstituteSchema.safeParse(patch).success).toBe(false);
+  });
+
+  /**
+   * Answers are editable; the category they answer is not. A phone number, an address and a
+   * declared board affiliation all legitimately change — what an institute *is* does not. The
+   * service enforces the second half by validating against the stored `categoryId`, which is
+   * why `categoryId` stays absent from this schema while `answers` is present.
+   */
+  it('accepts an answer set, and an empty one to clear the optional answers', () => {
+    expect(
+      UpdateInstituteSchema.safeParse({
+        answers: [{ questionId: QUESTION_ID, values: ['Yes'] }],
+      }).success,
+    ).toBe(true);
+    expect(UpdateInstituteSchema.safeParse({ answers: [] }).success).toBe(true);
   });
 
   it('accepts the fields that stay editable', () => {

@@ -13,4 +13,5 @@ export * from './modal';
 export * from './multi-select-field';
 export * from './select-field';
 export * from './status-badge';
+export * from './toast';
 export * from './user-menu';

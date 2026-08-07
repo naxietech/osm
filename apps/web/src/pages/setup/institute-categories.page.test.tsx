@@ -6,6 +6,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { ToastProvider } from '@/design-system/molecules/toast';
 import { AuthProvider } from '@/hooks/use-auth';
 
 import { InstituteCategoriesPage } from './institute-categories.page';
@@ -87,13 +88,15 @@ function mockApi(
 function renderPage(): void {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
-        <AuthProvider>
-          <InstituteCategoriesPage />
-        </AuthProvider>
-      </MemoryRouter>
-    </QueryClientProvider>,
+    <ToastProvider>
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <AuthProvider>
+            <InstituteCategoriesPage />
+          </AuthProvider>
+        </MemoryRouter>
+      </QueryClientProvider>
+    </ToastProvider>,
   );
 }
 

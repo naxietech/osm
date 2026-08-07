@@ -26,5 +26,6 @@ export function toAdminUser(user: AuthUserRecord): AdminUser {
     ...toSafeUser(user),
     status: user.status,
     lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
+    instituteName: user.instituteName ?? null,
   };
 }

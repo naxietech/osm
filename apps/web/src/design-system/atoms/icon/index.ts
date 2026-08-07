@@ -14,6 +14,7 @@
  * Keep this list curated — add an icon here only when a component needs it.
  */
 export {
+  AlertTriangle,
   ArrowUpRight,
   Award,
   Ban,
@@ -38,6 +39,7 @@ export {
   GraduationCap,
   Highlighter,
   History,
+  Info,
   Keyboard,
   KeyRound,
   LayoutDashboard,

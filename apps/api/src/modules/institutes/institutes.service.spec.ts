@@ -439,11 +439,46 @@ describe('InstitutesService', () => {
   });
 
   describe('editing', () => {
-    it('writes the patch through', async () => {
+    it('writes the patch through, leaving the answers alone', async () => {
       const { service, institutes } = build();
       await service.updateInstitute('inst-1', { city: 'Karachi' }, 'actor-1');
 
-      expect(institutes.update).toHaveBeenCalledWith('inst-1', { city: 'Karachi' }, 'actor-1');
+      // `undefined`, not `[]` — a caller changing only a city must not wipe what the institute
+      // declared, and the two are what tell the repository which was meant.
+      expect(institutes.update).toHaveBeenCalledWith(
+        'inst-1',
+        { city: 'Karachi' },
+        'actor-1',
+        undefined,
+      );
+    });
+
+    it('replaces the answers when a set is sent', async () => {
+      const { service, institutes } = build();
+      await service.updateInstitute('inst-1', { answers: [VALID_ANSWER] }, 'actor-1');
+
+      expect(institutes.update).toHaveBeenCalledWith('inst-1', {}, 'actor-1', [VALID_ANSWER]);
+    });
+
+    /**
+     * The category is absent from the update schema, so the questions being answered are the
+     * institute's stored ones. Validating against a category named in the request would let an
+     * edit smuggle in answers to questions this institute was never asked.
+     */
+    it('checks the answers against the stored category, not one from the request', async () => {
+      const { service, categories } = build();
+      await service.updateInstitute('inst-1', { answers: [VALID_ANSWER] }, 'actor-1');
+
+      expect(categories.findById).toHaveBeenCalledWith(CATEGORY.id);
+    });
+
+    it('refuses an answer the category does not accept', async () => {
+      const { service, institutes } = build();
+
+      await expect(service.updateInstitute('inst-1', { answers: [] }, 'actor-1')).rejects.toThrow(
+        /must be answered/i,
+      );
+      expect(institutes.update).not.toHaveBeenCalled();
     });
 
     it('404s for an institute that does not exist', async () => {

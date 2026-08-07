@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { InstituteCategory } from '@oses/types';
+import { type InstituteCategory, InstitutionType, Province } from '@oses/types';
 
 import { InstituteForm } from './institute-form';
 
@@ -74,6 +74,21 @@ const CATEGORIES: InstituteCategory[] = [
   },
   { id: 'cat_college', code: 'COL', name: 'College', isActive: true, version: 1, questions: [] },
 ];
+
+/** A complete, valid record — everything the schema requires, so an edit can actually submit. */
+const EDIT_VALUES = {
+  instituteCode: 'ISB-001',
+  instituteName: 'Test Institute',
+  categoryId: 'cat_school',
+  institutionType: InstitutionType.GOVERNMENT,
+  address: 'Street 1, Sector F-8',
+  city: 'Islamabad',
+  province: Province.ICT,
+  contactPersonName: 'Test Person',
+  contactPersonDesignation: 'Principal',
+  contactEmail: 'test@institute.pk',
+  contactPhone: '+92-51-1234567',
+};
 
 /** The two create-mode-only fields, filled with a matching pair. */
 function fillPasswords(value = 'a-strong-password'): void {
@@ -208,11 +223,59 @@ describe('InstituteForm', () => {
       expect(handleSubmit.mock.calls[0]?.[0]).not.toHaveProperty('answers');
     });
 
-    it('asks nothing on an edit, because the API refuses to change answers', () => {
-      render(<InstituteForm categories={CATEGORIES} {...defaultProps} mode="edit" />);
-      choose(/Category/i, 'School');
+    /**
+     * The category stays locked on an edit and the answers do not — what an institute *is* does
+     * not change, what it declared about itself does. A stated board affiliation goes stale like
+     * any other fact on the record.
+     */
+    it('seeds the declared answers on an edit and lets them be changed', async () => {
+      const handleSubmit = vi.fn();
+      render(
+        <InstituteForm
+          categories={CATEGORIES}
+          {...defaultProps}
+          mode="edit"
+          onSubmit={handleSubmit}
+          initialValues={{
+            ...EDIT_VALUES,
+            answers: [{ questionId: 'q_board', values: ['Punjab'] }],
+          }}
+        />,
+      );
 
-      expect(screen.queryByText(/Which board are you affiliated with/i)).not.toBeInTheDocument();
+      expect(screen.getByRole('radio', { name: 'Punjab' })).toBeChecked();
+      expect(screen.getByRole('radio', { name: 'Federal' })).toBeEnabled();
+
+      fireEvent.click(screen.getByRole('radio', { name: 'Federal' }));
+      fireEvent.click(screen.getByText('Save Changes'));
+
+      await waitFor(() => expect(handleSubmit).toHaveBeenCalled());
+      expect(handleSubmit.mock.calls[0]?.[0]).toMatchObject({
+        answers: [{ questionId: 'q_board', values: ['Federal'] }],
+      });
+    });
+
+    /**
+     * `undefined` and `[]` are different requests to the API — omitted means "leave them alone",
+     * empty means "clear them". An edit that cleared every optional answer has to send the empty
+     * set, or the clearing silently does not happen.
+     */
+    it('sends an empty set when an edit clears the answers', async () => {
+      const handleSubmit = vi.fn();
+      render(
+        <InstituteForm
+          categories={CATEGORIES}
+          {...defaultProps}
+          mode="edit"
+          onSubmit={handleSubmit}
+          initialValues={EDIT_VALUES}
+        />,
+      );
+
+      fireEvent.click(screen.getByText('Save Changes'));
+
+      await waitFor(() => expect(handleSubmit).toHaveBeenCalled());
+      expect(handleSubmit.mock.calls[0]?.[0]).toMatchObject({ answers: [] });
     });
   });
 

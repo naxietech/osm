@@ -73,7 +73,8 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
     module: 'institutes',
     children: [
       { label: 'View', to: ROUTES.admin.institutesView },
-      { label: 'Add', to: ROUTES.admin.institutesAdd },
+      // Admin holds `institutes.view` only — they look one up, they do not register one.
+      { label: 'Add', to: ROUTES.admin.institutesAdd, requires: 'institutes.manage' },
       { label: 'Approvals', to: ROUTES.admin.instituteApprovals },
     ],
   },

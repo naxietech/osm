@@ -6,13 +6,13 @@
  * shape the users directory uses.
  */
 import React, { useEffect, useState } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { INSTITUTE_STATUSES, type Institute, type InstituteStatus } from '@oses/types';
 
 import { PageHeader } from '@/components/widgets';
 import { Button } from '@/design-system/atoms/button';
-import { Eye, Pencil } from '@/design-system/atoms/icon';
+import { Ban, Eye, Pencil, Undo2 } from '@/design-system/atoms/icon';
 import { IconButton } from '@/design-system/atoms/icon-button';
 import { Spinner } from '@/design-system/atoms/spinner';
 import { Alert } from '@/design-system/molecules/alert';
@@ -40,7 +40,6 @@ function readStatus(raw: string | null): InstituteStatus | undefined {
 
 export function InstitutesListPage(): React.ReactElement {
   const navigate = useNavigate();
-  const location = useLocation();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const q = searchParams.get('q') ?? '';
@@ -51,15 +50,9 @@ export function InstitutesListPage(): React.ReactElement {
   const [searchInput, setSearchInput] = useState(q);
   const debouncedSearch = useDebouncedValue(searchInput);
 
-  /** A confirmation handed over by the detail screen, which unmounts before it could show one. */
-  const [notice, setNotice] = useState<string | null>(
-    (location.state as { notice?: string } | null)?.notice ?? null,
-  );
-
-  useEffect(() => {
-    // Consume it, so a refresh or a Back does not replay a message about something already done.
-    if (location.state) window.history.replaceState({}, '');
-  }, [location.state]);
+  // Confirmations used to be handed over in `location.state` and replayed here, which needed
+  // clearing so a refresh did not repeat "Institute deleted." about something long done. Toasts
+  // are raised where the work happens and outlive the navigation, so none of that is needed.
 
   const applyParams = (changes: Record<string, string>, replace = false): void =>
     setSearchParams(
@@ -145,30 +138,53 @@ export function InstitutesListPage(): React.ReactElement {
        * from a list of forty rows is how the wrong institute gets switched off.
        */
       render: (row) => {
-        const open = (e: React.MouseEvent): void => {
+        const go = (path: string) => (e: React.MouseEvent) => {
           e.stopPropagation();
-          void navigate(`${ROUTES.admin.institutes}/${row.id}`);
+          void navigate(path);
         };
+        const detail = `${ROUTES.admin.institutes}/${row.id}`;
+        // Edit and deactivate only apply once the institute exists as one. A pending application
+        // has nothing to edit and nothing to switch off; a rejected one is a closed record.
+        const isLive = row.status === 'approved' || row.status === 'deactivated';
+
         return (
           <div className="flex justify-end gap-2">
             <IconButton
               size="sm"
               label={`View ${row.instituteName}`}
               icon={<Eye className="h-4 w-4" aria-hidden />}
-              onClick={open}
+              onClick={go(detail)}
             />
-            {canManage && (
-              <IconButton
-                size="sm"
-                label={`Edit ${row.instituteName}`}
-                icon={<Pencil className="h-4 w-4" aria-hidden />}
-                onClick={open}
-              />
+            {canManage && isLive && (
+              <>
+                <IconButton
+                  size="sm"
+                  label={`Edit ${row.instituteName}`}
+                  icon={<Pencil className="h-4 w-4" aria-hidden />}
+                  onClick={go(`${detail}/edit`)}
+                />
+                <IconButton
+                  size="sm"
+                  tone={row.status === 'approved' ? 'danger' : 'default'}
+                  label={`${row.status === 'approved' ? 'Deactivate' : 'Reactivate'} ${row.instituteName}`}
+                  icon={
+                    row.status === 'approved' ? (
+                      <Ban className="h-4 w-4" aria-hidden />
+                    ) : (
+                      <Undo2 className="h-4 w-4" aria-hidden />
+                    )
+                  }
+                  // Straight to the confirmation on the detail screen rather than a dialog here:
+                  // switching an institute off signs out every one of its accounts, and the
+                  // record you are doing it to should be on screen when you confirm.
+                  onClick={go(detail)}
+                />
+              </>
             )}
           </div>
         );
       },
-      width: '120px',
+      width: '150px',
     },
   ];
 
@@ -178,17 +194,13 @@ export function InstitutesListPage(): React.ReactElement {
         title="Institutes"
         subtitle="Registrations, approvals and the institute directory"
         actions={
-          <Button variant="primary" onClick={() => void navigate(ROUTES.admin.institutesAdd)}>
-            Add Institute
-          </Button>
+          canManage && (
+            <Button variant="primary" onClick={() => void navigate(ROUTES.admin.institutesAdd)}>
+              Add Institute
+            </Button>
+          )
         }
       />
-
-      {notice && (
-        <Alert tone="success" className="mb-4" onDismiss={() => setNotice(null)}>
-          {notice}
-        </Alert>
-      )}
 
       {listError && (
         <Alert tone="danger" className="mb-4">

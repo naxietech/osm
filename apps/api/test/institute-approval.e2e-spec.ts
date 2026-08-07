@@ -11,6 +11,7 @@ import {
   SessionEntity,
   UserEntity,
 } from '../src/persistence/typeorm/entities';
+import { TypeOrmUserRepository } from '../src/persistence/typeorm/repositories/auth.repositories';
 import { TypeOrmInstituteApprovalRepository } from '../src/persistence/typeorm/repositories/institute-approval.repository';
 import { TypeOrmInstituteRepository } from '../src/persistence/typeorm/repositories/institute.repository';
 import { seedDatabase } from '../src/persistence/typeorm/seed/seed';
@@ -140,6 +141,28 @@ describe('Institute approval (integration)', () => {
       expect(user.roleId).toBe(SYSTEM_ROLE_IDS.institute);
       expect(user.instituteId).toBe(institute.id);
       expect(user.status).toBe('active');
+    });
+
+    /**
+     * The user directory shows which institute an account belongs to, and it must come from the
+     * API. The web app used to resolve the id against its own institute mock, which held none of
+     * these ids, so the column was blank for every institute account ever created.
+     *
+     * Asserted through the repository the directory actually uses, because the join is the part
+     * that can break — and did: with a join present, TypeORM's `take`/`skip` needs entity
+     * metadata for the joined alias and throws on a bare table name.
+     */
+    it('carries the institute name on the user directory listing', async () => {
+      const institute = await repo.create(pending());
+      await approvals.approve({ instituteId: institute.id, approvedBy: adminId, login: login() });
+
+      const users = new TypeOrmUserRepository(dataSource.getRepository(UserEntity));
+      const page = await users.list({ limit: 25, offset: 0 });
+
+      const account = page.find((u) => u.email === APPLICANT_EMAIL);
+      expect(account?.instituteName).toBe(institute.instituteName);
+      // A global account has no institute, and must read as null rather than as a stray name.
+      expect(page.find((u) => u.instituteId === null)?.instituteName ?? null).toBeNull();
     });
 
     it('approves without a login when none is asked for, and still destroys the credential', async () => {

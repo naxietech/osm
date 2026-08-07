@@ -157,7 +157,7 @@ export type CreateInstituteDto = InstituteDetailsDto & {
 /**
  * `PATCH /institutes/:id`.
  *
- * The locked fields — `instituteCode`, `categoryId`, `answers`, `numericCode`, `status` — are
+ * The locked fields — `instituteCode`, `categoryId`, `numericCode`, `status` — are
  * absent by design. The API rejects them by name rather than accepting the request and ignoring
  * them, because a caller who cannot tell "ignored" from "saved" will believe the change applied.
  *
@@ -177,6 +177,14 @@ export interface UpdateInstituteDto {
   contactPersonDesignation?: string;
   contactEmail?: string;
   contactPhone?: string;
+  /**
+   * Replaces the institute's answers wholesale — send the complete set, not a delta. An omitted
+   * question is an unanswered question, which is how an optional answer is cleared.
+   *
+   * Validated against the institute's **stored** category, never one named in the request: the
+   * category is locked after registration, so the questions being answered cannot change.
+   */
+  answers?: InstituteQuestionAnswer[];
 }
 
 /**

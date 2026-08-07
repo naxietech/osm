@@ -56,13 +56,31 @@ export function RoleLayout(): ReactElement {
     [ROUTES.admin.checkerApprovals]: countPendingCheckers(),
   };
 
-  // Gate the role's nav by the active client's enabled modules (untagged items always show).
+  /**
+   * Gate the nav by the active client's enabled modules and by the signed-in user's grants
+   * (untagged items always show). Children are filtered too, and a group left with no children
+   * and no route of its own is dropped — an empty submenu is worse than a missing one.
+   *
+   * Hiding a link is presentation, never the control: the route guards and the API's 403 are.
+   */
+  const allowed = (item: NavItem): boolean =>
+    isModuleEnabled(item.module) && (item.requires === undefined || can(item.requires));
+
+  const prune = (item: NavItem): NavItem | null => {
+    if (!allowed(item)) return null;
+    if (!item.children) return item;
+    const children = item.children.map(prune).filter((c): c is NavItem => c !== null);
+    if (children.length === 0 && item.to === undefined) return null;
+    return { ...item, children };
+  };
+
   const rawNav = (user && ROLE_CONFIG[user.role]?.nav) || [];
   const navSections = rawNav
     .map((section) => ({
       ...section,
       items: section.items
-        .filter((item) => isModuleEnabled(item.module))
+        .map(prune)
+        .filter((item): item is NavItem => item !== null)
         .map((item) => withApprovalsBadges(item, approvalCounts)),
     }))
     .filter((section) => section.items.length > 0);

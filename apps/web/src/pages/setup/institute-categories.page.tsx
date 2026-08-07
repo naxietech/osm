@@ -31,6 +31,7 @@ import { Spinner } from '@/design-system/atoms/spinner';
 import { Alert } from '@/design-system/molecules/alert';
 import { ConfirmDialog } from '@/design-system/molecules/modal';
 import { ActiveBadge } from '@/design-system/molecules/status-badge';
+import { useToast } from '@/design-system/molecules/toast';
 import { type ColumnDef, DataTable } from '@/design-system/organisms/data-table';
 import {
   InstituteCategoryForm,
@@ -73,9 +74,8 @@ interface CategoryRow {
 export function InstituteCategoriesPage(): React.ReactElement {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [banner, setBanner] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState<string | null>(null);
+  const toast = useToast();
   const [deleting, setDeleting] = useState<CategoryRow | null>(null);
   const [toggling, setToggling] = useState<CategoryRow | null>(null);
 
@@ -124,11 +124,10 @@ export function InstituteCategoriesPage(): React.ReactElement {
   };
 
   const handleSave = (value: InstituteCategoryFormValue): void => {
-    setError(null);
     setConflict(null);
 
     const done = (message: string) => (): void => {
-      setBanner(message);
+      toast.success(message);
       close();
     };
 
@@ -144,7 +143,7 @@ export function InstituteCategoriesPage(): React.ReactElement {
         void queryClient.invalidateQueries({ queryKey: INSTITUTE_CATEGORIES_KEY });
         return;
       }
-      setError(apiErrorMessage(err));
+      toast.error(apiErrorMessage(err));
     };
 
     if (editingId && editing) {
@@ -179,27 +178,25 @@ export function InstituteCategoriesPage(): React.ReactElement {
   const handleToggle = (): void => {
     if (!toggling) return;
     const { id, name, isActive } = toggling;
-    setError(null);
     void setActive
       .mutateAsync({ id, isActive: !isActive })
-      .then(() => setBanner(`${name} ${isActive ? 'deactivated' : 'activated'}.`))
-      .catch((err: unknown) => setError(apiErrorMessage(err)))
+      .then(() => toast.success(`${name} ${isActive ? 'deactivated' : 'activated'}.`))
+      .catch((err: unknown) => toast.error(apiErrorMessage(err)))
       .finally(() => setToggling(null));
   };
 
   const handleDelete = (): void => {
     if (!deleting) return;
     const name = deleting.name;
-    setError(null);
     void remove
       .mutateAsync(deleting.id)
       .then(() => {
-        setBanner(`${name} deleted.`);
+        toast.success(`${name} deleted.`);
         close();
       })
       // The API refuses while any institute is filed under it, and says so — including
       // soft-deleted institutes, whose rows still point here.
-      .catch((err: unknown) => setError(apiErrorMessage(err)))
+      .catch((err: unknown) => toast.error(apiErrorMessage(err)))
       .finally(() => setDeleting(null));
   };
 
@@ -292,29 +289,14 @@ export function InstituteCategoriesPage(): React.ReactElement {
         }
       />
 
-      {banner && (
-        <Alert tone="success" className="mb-4" onDismiss={() => setBanner(null)}>
-          {banner}
-        </Alert>
-      )}
-
+      {/* Stays an Alert, not a toast: it tells the editor what to do next, and they need it
+          still on screen while they do it. */}
       {conflict && (
         <Alert tone="warning" className="mb-4" onDismiss={() => setConflict(null)}>
           <span className="font-medium">Someone else saved first.</span> {conflict} Your changes
           have not been applied. Close the form and open it again to start from their version —
           reloading is the only safe move, because saving over them is exactly what this check
           exists to prevent.
-        </Alert>
-      )}
-
-      {error && (
-        <Alert
-          tone="danger"
-          className="mb-4"
-          onDismiss={() => setError(null)}
-          dismissLabel="Dismiss error"
-        >
-          {error}
         </Alert>
       )}
 

@@ -141,10 +141,14 @@ export const CreateInstituteSchema = z
 export type CreateInstituteRequestDto = z.infer<typeof CreateInstituteSchema>;
 
 /**
- * Editing an approved institute. The locked fields — `instituteCode`, `categoryId`, `answers`,
+ * Editing an approved institute. The locked fields — `instituteCode`, `categoryId`,
  * `numericCode` — are **absent from this schema**, so `.strict()` answers 400 naming the field
  * rather than accepting the request and silently ignoring it. A caller that cannot tell those
  * apart will believe the change saved.
+ *
+ * `answers` is editable, and is a **replacement**: the set sent becomes the set stored. It is
+ * still checked against the institute's stored category, so the questions cannot change even
+ * though the answers can — a category is what an institute *is*, an answer is what it said.
  */
 export const UpdateInstituteSchema = z
   .object({
@@ -159,6 +163,7 @@ export const UpdateInstituteSchema = z
     contactPersonDesignation: text(120, 'Designation').optional(),
     contactEmail: emailField.optional(),
     contactPhone: phoneField.optional(),
+    answers: z.array(answerSchema).max(MAX_ANSWERS, `At most ${MAX_ANSWERS} answers`).optional(),
   })
   .strict()
   .refine(

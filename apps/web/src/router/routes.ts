@@ -26,6 +26,7 @@ export const ROUTES = {
     institutesAdd: '/admin/institutes/add',
     instituteApprovals: '/admin/institutes/approvals',
     instituteDetail: '/admin/institutes/:id',
+    instituteEdit: '/admin/institutes/:id/edit',
     roles: '/admin/roles',
     roleDetail: '/admin/roles/:id',
     users: '/admin/users',

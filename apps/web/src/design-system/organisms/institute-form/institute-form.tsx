@@ -219,7 +219,9 @@ export function InstituteForm({
       contactPhone: initialValues?.contactPhone ?? '',
       password: '',
       confirmPassword: '',
-      answers: {},
+      answers: Object.fromEntries(
+        (initialValues?.answers ?? []).map((a) => [a.questionId, a.values]),
+      ),
     },
     validationSchema: mode === 'create' ? createValidationSchema : validationSchema,
     onSubmit: (values) => {
@@ -239,16 +241,21 @@ export function InstituteForm({
       };
       if (values.postalCode) dto.postalCode = values.postalCode;
 
-      if (mode === 'create') {
-        dto.password = values.password;
-        // Only the selected category's questions travel. Answers left over from a category the
-        // admin picked and then changed their mind about would be refused by the API as
-        // questions that do not belong — and rightly so.
-        const answers: InstituteQuestionAnswer[] = questions
-          .map((q) => ({ questionId: q.id, values: values.answers[q.id] ?? [] }))
-          .filter((a) => a.values.length > 0 && a.values.some((v) => v.trim() !== ''));
-        if (answers.length > 0) dto.answers = answers;
-      }
+      if (mode === 'create') dto.password = values.password;
+
+      // Only the selected category's questions travel. Answers left over from a category the
+      // admin picked and then changed their mind about would be refused by the API as questions
+      // that do not belong — and rightly so.
+      const answers: InstituteQuestionAnswer[] = questions
+        .map((q) => ({ questionId: q.id, values: values.answers[q.id] ?? [] }))
+        .filter((a) => a.values.length > 0 && a.values.some((v) => v.trim() !== ''));
+
+      // On an edit the set is sent even when empty, because the API reads an omitted `answers`
+      // as "leave them alone" and an empty one as "clear them" — and the editor may have done
+      // exactly that. On a create there is nothing to clear, so an empty set is simply left out.
+      if (answers.length > 0) dto.answers = answers;
+      else if (mode === 'edit' && questions.length > 0) dto.answers = [];
+
       onSubmit(dto);
     },
   });
@@ -259,14 +266,15 @@ export function InstituteForm({
   }));
 
   /**
-   * The questions to ask, driven by the category currently selected.
+   * The questions, driven by the category currently selected — asked and answerable in both
+   * modes.
    *
-   * Create mode only. On an edit the category is locked and the API refuses `answers` outright,
-   * so an editable question block would be a control that cannot do anything — worse than its
-   * absence, because it looks like it saved.
+   * The *category* stays locked on an edit and the answers do not, which is the distinction that
+   * matters: what an institute is does not change, what it declared about itself does. A board
+   * affiliation or a stated enrolment is exactly the sort of thing that goes stale.
    */
   const selectedCategory = categories.find((c) => c.id === formik.values.categoryId);
-  const questions = mode === 'create' ? (selectedCategory?.questions ?? []) : [];
+  const questions = selectedCategory?.questions ?? [];
 
   const setSingle = (questionId: string, value: string): void => {
     void formik.setFieldValue('answers', {
@@ -377,6 +385,12 @@ export function InstituteForm({
       {questions.length > 0 && (
         <section>
           <SectionHeading icon={ClipboardList}>{selectedCategory?.name} questions</SectionHeading>
+          {mode === 'edit' && (
+            <p className="-mt-2 mb-5 text-sm text-muted-foreground">
+              Answered at registration. Saving replaces the whole set, so leave the ones that are
+              still right exactly as they are.
+            </p>
+          )}
           <div className="space-y-5">
             {questions.map((q) => (
               <CategoryQuestionField
@@ -389,6 +403,7 @@ export function InstituteForm({
                 values={formik.values.answers[q.id] ?? []}
                 onSingle={(v) => setSingle(q.id, v)}
                 onToggle={(opt, checked) => toggleMulti(q.id, opt, checked)}
+                disabled={readOnly}
               />
             ))}
           </div>
