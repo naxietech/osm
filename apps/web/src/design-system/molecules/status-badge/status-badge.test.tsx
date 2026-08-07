@@ -1,8 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { OnboardingStatus } from '@oses/types';
-
 import {
   MarkingBandBadge,
   MarkingBatchStatusBadge,
@@ -11,39 +9,41 @@ import {
 } from './status-badge';
 
 describe('StatusBadge', () => {
-  it('shows "Pending" for PENDING status', () => {
-    render(<StatusBadge status={OnboardingStatus.PENDING} />);
+  it('shows "Pending" for a pending application', () => {
+    render(<StatusBadge status="pending" />);
     expect(screen.getByText('Pending')).toBeInTheDocument();
   });
 
-  it('shows "Complete" for COMPLETE status', () => {
-    render(<StatusBadge status={OnboardingStatus.COMPLETE} />);
-    expect(screen.getByText('Complete')).toBeInTheDocument();
+  it('shows "Approved" for an approved institute', () => {
+    render(<StatusBadge status="approved" />);
+    expect(screen.getByText('Approved')).toBeInTheDocument();
   });
 
-  it('shows "Suspended" for SUSPENDED status', () => {
-    render(<StatusBadge status={OnboardingStatus.SUSPENDED} />);
-    expect(screen.getByText('Suspended')).toBeInTheDocument();
+  it('shows "Deactivated" for a deactivated institute', () => {
+    render(<StatusBadge status="deactivated" />);
+    expect(screen.getByText('Deactivated')).toBeInTheDocument();
   });
 
-  it('applies warning badge variant for PENDING', () => {
-    render(<StatusBadge status={OnboardingStatus.PENDING} />);
+  it('applies warning badge variant for pending', () => {
+    render(<StatusBadge status="pending" />);
     expect(screen.getByText('Pending')).toHaveClass('bg-warning-subtle');
   });
 
-  it('applies success badge variant for COMPLETE', () => {
-    render(<StatusBadge status={OnboardingStatus.COMPLETE} />);
-    expect(screen.getByText('Complete')).toHaveClass('bg-success-subtle');
+  it('applies success badge variant for approved', () => {
+    render(<StatusBadge status="approved" />);
+    expect(screen.getByText('Approved')).toHaveClass('bg-success-subtle');
   });
 
-  it('applies error badge variant for SUSPENDED', () => {
-    render(<StatusBadge status={OnboardingStatus.SUSPENDED} />);
-    expect(screen.getByText('Suspended')).toHaveClass('bg-danger-subtle');
+  it('applies error badge variant for deactivated', () => {
+    render(<StatusBadge status="deactivated" />);
+    expect(screen.getByText('Deactivated')).toHaveClass('bg-danger-subtle');
   });
 
-  it('applies info badge variant for IN_PROGRESS', () => {
-    render(<StatusBadge status={OnboardingStatus.IN_PROGRESS} />);
-    expect(screen.getByText('In Progress')).toHaveClass('bg-info-subtle');
+  it('shows a rejected application as distinct from a deactivated institute', () => {
+    // Both are red, because neither is usable — but one never became an institute at all, so
+    // the labels must not be interchangeable.
+    render(<StatusBadge status="rejected" />);
+    expect(screen.getByText('Rejected')).toBeInTheDocument();
   });
 });
 

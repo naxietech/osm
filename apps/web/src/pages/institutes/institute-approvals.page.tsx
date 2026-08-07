@@ -1,213 +1,241 @@
 /**
- * Institute Approvals (super admin) — the queue of public self-registrations awaiting
- * review. Each card shows the submitted details + category question answers. Approve
- * and Reject both go through an inline confirm step (Reject captures a reason), and the
- * result is announced in a success banner. Gated by `institutes.manage`.
+ * Pending Institutes (super admin) — the queue of registrations awaiting review.
+ *
+ * **No decision is taken here.** The only action is View, which opens the detail screen where
+ * Approve & Register and Reject live behind confirmations. Approving creates a login and draws a
+ * permanent institute number that is never reissued; that is not an action to leave one careless
+ * click away in a list, and the detail screen is where the government code, the contact number
+ * and the duplicate warning are all in front of you to check first.
+ *
+ * A table rather than cards, matching every other list in the app — and search, a category
+ * filter and pagination for the same reason the directory has them. Pagination is not really
+ * about volume: this screen previously asked for `limit: 100` and rendered whatever came back,
+ * so a registration drive that pushed the queue past a hundred would have silently hidden the
+ * rest with nothing on screen to say so.
+ *
+ * Gated by `institutes.view`; the View action needs nothing more, since the detail screen gates
+ * the decisions themselves.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+
+import type { Institute } from '@oses/types';
 
 import { PageHeader } from '@/components/widgets';
 import { Button } from '@/design-system/atoms/button';
+import { Eye } from '@/design-system/atoms/icon';
+import { IconButton } from '@/design-system/atoms/icon-button';
+import { Spinner } from '@/design-system/atoms/spinner';
 import { Alert } from '@/design-system/molecules/alert';
-import { getInstituteCategory } from '@/services/institute-category.service';
-import {
-  approveInstitute,
-  listPendingInstitutes,
-  rejectInstitute,
-} from '@/services/institute.service';
+import { FilterBar } from '@/design-system/molecules/filter-bar';
+import { type ColumnDef, DataTable } from '@/design-system/organisms/data-table';
+import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import { useInstituteCategories } from '@/hooks/use-institute-categories';
+import { useInstitutes } from '@/hooks/use-institutes';
+import { ROUTES } from '@/router/routes';
+import { apiErrorMessage } from '@/services/api-client';
+import { INSTITUTES_PAGE_SIZE } from '@/services/institutes.service';
 
-type CardAction = 'approve' | 'reject';
-
-function questionLabel(categoryId: string, questionId: string): string {
-  return (
-    getInstituteCategory(categoryId)?.questions.find((q) => q.id === questionId)?.text ?? questionId
-  );
+/** How long an application has been waiting, in the roughest useful unit. */
+function waitingFor(createdAt: string): string {
+  const days = Math.floor((Date.now() - new Date(createdAt).getTime()) / 86_400_000);
+  if (days < 1) return 'today';
+  if (days === 1) return 'yesterday';
+  return `${days} days ago`;
 }
 
 export function InstituteApprovalsPage(): React.ReactElement {
-  const [, setTick] = useState(0);
-  const refresh = (): void => setTick((t) => t + 1);
-  const pending = listPendingInstitutes();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  // Which card is mid-action, and the reject reason being typed.
-  const [action, setAction] = useState<{ id: string; kind: CardAction } | null>(null);
-  const [reason, setReason] = useState('');
-  const [banner, setBanner] = useState<string | null>(null);
+  const q = searchParams.get('q') ?? '';
+  const categoryId = searchParams.get('category') ?? '';
+  const page = Math.max(0, Number(searchParams.get('page') ?? '1') - 1);
 
-  const startAction = (id: string, kind: CardAction): void => {
-    setAction({ id, kind });
-    setReason('');
-  };
-  const cancelAction = (): void => {
-    setAction(null);
-    setReason('');
+  const [searchInput, setSearchInput] = useState(q);
+  const debouncedSearch = useDebouncedValue(searchInput);
+
+  const categoriesQuery = useInstituteCategories();
+  const categories = categoriesQuery.data ?? [];
+
+  /** Writes the params, always resetting to page one — narrowing a list invalidates its offset. */
+  const narrow = (next: Record<string, string>): void => {
+    const params = new URLSearchParams(searchParams);
+    for (const [key, value] of Object.entries(next)) {
+      if (value === '') params.delete(key);
+      else params.set(key, value);
+    }
+    params.delete('page');
+    setSearchParams(params, { replace: true });
   };
 
-  const confirmApprove = (id: string, name: string): void => {
-    approveInstitute(id);
-    setBanner(`${name} approved — the institute is now active.`);
-    cancelAction();
-    refresh();
+  useEffect(() => {
+    if (debouncedSearch !== q) narrow({ q: debouncedSearch });
+    // Only the debounced value drives this; including `narrow`/`q` would re-run it on every
+    // render and fight the user's typing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
+
+  const pendingQuery = useInstitutes({
+    status: 'pending',
+    limit: INSTITUTES_PAGE_SIZE,
+    offset: page * INSTITUTES_PAGE_SIZE,
+    ...(q ? { q } : {}),
+    ...(categoryId ? { categoryId } : {}),
+  });
+
+  const pending = pendingQuery.data?.items ?? [];
+  const total = pendingQuery.data?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / INSTITUTES_PAGE_SIZE));
+  const firstShown = total === 0 ? 0 : page * INSTITUTES_PAGE_SIZE + 1;
+  const lastShown = Math.min(total, (page + 1) * INSTITUTES_PAGE_SIZE);
+  const isNarrowed = q.trim().length > 0 || categoryId !== '';
+
+  const goToPage = (oneBased: number): void => {
+    const params = new URLSearchParams(searchParams);
+    params.set('page', String(oneBased));
+    setSearchParams(params, { replace: true });
   };
-  const confirmReject = (id: string, name: string): void => {
-    rejectInstitute(id, reason);
-    setBanner(
-      reason.trim().length > 0 ? `${name} rejected — reason recorded.` : `${name} rejected.`,
-    );
-    cancelAction();
-    refresh();
-  };
+
+  const categoryName = (id: string): string =>
+    categories.find((c) => c.id === id)?.name ?? 'Unknown category';
+
+  const columns: ColumnDef<Institute>[] = [
+    {
+      key: 'instituteName',
+      header: 'Institute',
+      render: (row) => (
+        <div>
+          <span className="font-medium text-foreground">{row.instituteName}</span>
+          {row.branch && <span className="text-muted-foreground"> · {row.branch}</span>}
+          <p className="text-xs text-muted-foreground">
+            {row.contactPersonName} ({row.contactPersonDesignation}) · {row.contactPhone}
+          </p>
+        </div>
+      ),
+    },
+    {
+      key: 'instituteCode',
+      header: 'Code',
+      render: (row) => (
+        <span className="font-mono text-sm text-muted-foreground">{row.instituteCode}</span>
+      ),
+      width: '130px',
+    },
+    {
+      key: 'category',
+      header: 'Category',
+      render: (row) => <span className="text-sm">{categoryName(row.categoryId)}</span>,
+      width: '150px',
+    },
+    { key: 'city', header: 'City', render: (row) => row.city, width: '130px' },
+    {
+      key: 'applied',
+      header: 'Applied',
+      render: (row) => (
+        <span className="text-sm text-muted-foreground">{waitingFor(row.createdAt)}</span>
+      ),
+      width: '120px',
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      // View only. Approve and Reject are on the detail screen on purpose — see the file header.
+      render: (row) => (
+        <div className="flex justify-end">
+          <IconButton
+            size="sm"
+            label={`View ${row.instituteName}`}
+            icon={<Eye className="h-4 w-4" aria-hidden />}
+            onClick={(e) => {
+              e.stopPropagation();
+              void navigate(`${ROUTES.admin.institutes}/${row.id}`);
+            }}
+          />
+        </div>
+      ),
+      width: '100px',
+    },
+  ];
 
   return (
     <>
       <PageHeader
-        title="Institute Approvals"
-        subtitle="Review and approve institutes that registered via the public link"
+        title="Pending Institutes"
+        subtitle="Registrations waiting to be checked and approved"
       />
 
-      {banner && <Alert className="mb-6">{banner}</Alert>}
+      {pendingQuery.isError && (
+        <Alert tone="danger" className="mb-4">
+          {apiErrorMessage(pendingQuery.error)}
+        </Alert>
+      )}
 
-      {pending.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border bg-card p-10 text-center text-sm text-muted-foreground shadow-sm">
-          No pending registrations.
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {pending.map((inst) => {
-            const isActing = action?.id === inst.id;
-            const displayName = `${inst.instituteName}${inst.branch ? `, ${inst.branch}` : ''}`;
-            return (
-              <div key={inst.id} className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h2 className="text-base font-semibold text-foreground">{displayName}</h2>
-                    <p className="text-xs text-muted-foreground">
-                      Code {inst.instituteCode} ·{' '}
-                      {getInstituteCategory(inst.categoryId)?.name ?? '—'}
-                    </p>
-                  </div>
-                  {!isActing && (
-                    <div className="flex gap-2">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => startAction(inst.id, 'reject')}
-                      >
-                        Reject
-                      </Button>
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        onClick={() => startAction(inst.id, 'approve')}
-                      >
-                        Approve
-                      </Button>
-                    </div>
-                  )}
-                </div>
+      <FilterBar
+        className="mb-4"
+        searchValue={searchInput}
+        onSearchChange={setSearchInput}
+        searchLabel="Search pending institutes"
+        searchPlaceholder="Search by name, code or city"
+        filters={[
+          {
+            id: 'category',
+            label: 'Category',
+            value: categoryId,
+            onChange: (value) => narrow({ category: value }),
+            options: categories.map((c) => ({ value: c.id, label: c.name })),
+            allLabel: 'All categories',
+          },
+        ]}
+        onClear={() => {
+          setSearchInput('');
+          narrow({ q: '', category: '' });
+        }}
+      />
 
-                <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-                  <Detail label="Type" value={inst.institutionType.replace(/_/g, ' ')} />
-                  <Detail label="Level" value={inst.instituteLevel.replace(/_/g, ' ')} />
-                  <Detail label="Gender" value={inst.category.replace(/_/g, ' ')} />
-                  <Detail
-                    label="City / Province"
-                    value={`${inst.city} · ${inst.province.toUpperCase()}`}
-                  />
-                  <Detail label="Address" value={inst.address} />
-                  <Detail
-                    label="Contact"
-                    value={`${inst.contactPersonName} (${inst.contactPersonDesignation})`}
-                  />
-                  <Detail label="Email" value={inst.contactEmail} />
-                  <Detail label="Phone" value={inst.contactPhone} />
-                </dl>
+      <div className="rounded-lg border border-border bg-card shadow-sm">
+        {pendingQuery.isLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <Spinner size="lg" />
+          </div>
+        ) : (
+          <DataTable<Institute>
+            data={pending}
+            columns={columns}
+            onRowClick={(row) => void navigate(`${ROUTES.admin.institutes}/${row.id}`)}
+            emptyMessage={
+              isNarrowed
+                ? 'No pending registrations match those filters'
+                : 'Nothing waiting. New registrations from the public link appear here.'
+            }
+          />
+        )}
+      </div>
 
-                {inst.questionAnswers.length > 0 && (
-                  <div className="mt-4 border-t border-border pt-4">
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Category questions
-                    </p>
-                    <ul className="space-y-1 text-sm">
-                      {inst.questionAnswers.map((a) => (
-                        <li key={a.questionId}>
-                          <span className="text-muted-foreground">
-                            {questionLabel(inst.categoryId, a.questionId)}:
-                          </span>{' '}
-                          <span className="font-medium text-foreground">{a.values.join(', ')}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Inline confirm strip */}
-                {isActing && action?.kind === 'approve' && (
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3">
-                    <p className="text-sm text-foreground">
-                      Approve <span className="font-medium">{displayName}</span>? It becomes active
-                      immediately.
-                    </p>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={cancelAction}>
-                        Cancel
-                      </Button>
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        onClick={() => confirmApprove(inst.id, displayName)}
-                      >
-                        Confirm approve
-                      </Button>
-                    </div>
-                  </div>
-                )}
-                {isActing && action?.kind === 'reject' && (
-                  <div className="mt-4 rounded-lg border border-border bg-muted/40 px-4 py-3">
-                    <label
-                      htmlFor={`reject-reason-${inst.id}`}
-                      className="mb-1.5 block text-sm font-medium text-foreground"
-                    >
-                      Reason for rejecting <span className="font-semibold">{displayName}</span>
-                      <span className="ml-1 font-normal text-muted-foreground">(optional)</span>
-                    </label>
-                    <textarea
-                      id={`reject-reason-${inst.id}`}
-                      value={reason}
-                      onChange={(e) => setReason(e.target.value)}
-                      rows={2}
-                      placeholder="e.g. Institute code does not match board records"
-                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    />
-                    <div className="mt-3 flex justify-end gap-2">
-                      <Button variant="ghost" size="sm" onClick={cancelAction}>
-                        Cancel
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => confirmReject(inst.id, displayName)}
-                      >
-                        Confirm reject
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+      {total > INSTITUTES_PAGE_SIZE && (
+        <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+          <span>
+            Showing {firstShown}–{lastShown} of {total}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" disabled={page === 0} onClick={() => goToPage(page)}>
+              Previous
+            </Button>
+            <span>
+              Page {page + 1} of {pageCount}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={page + 1 >= pageCount}
+              onClick={() => goToPage(page + 2)}
+            >
+              Next
+            </Button>
+          </div>
         </div>
       )}
     </>
-  );
-}
-
-function Detail({ label, value }: { label: string; value: string }): React.ReactElement {
-  return (
-    <div>
-      <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 text-foreground">{value}</dd>
-    </div>
   );
 }
 

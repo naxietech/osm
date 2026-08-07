@@ -63,7 +63,31 @@ describe('SYSTEM_ROLES seed', () => {
     expect(actions).not.toContain('roles.manage');
     expect(actions).not.toContain('clients.manage');
     expect(actions).not.toContain('subjects.manage');
-    expect(actions).toContain('institutes.manage');
+  });
+
+  /**
+   * Admin can look an institute up while working on students, exams and registrations, but
+   * approving, deactivating or deleting one is a Super Admin decision. The two grants exist so
+   * that distinction is a capability rather than a role check in a controller.
+   */
+  it('Admin can view institutes and categories but not manage them', () => {
+    const actions = actionsOf(SYSTEM_ROLE_IDS.admin);
+    expect(actions).toContain('institutes.view');
+    expect(actions).toContain('institute-categories.view');
+    expect(actions).not.toContain('institutes.manage');
+    expect(actions).not.toContain('institute-categories.manage');
+  });
+
+  it('Super Admin holds both the view and the manage grants', () => {
+    const actions = actionsOf(SYSTEM_ROLE_IDS.superAdmin);
+    for (const action of [
+      'institutes.view',
+      'institutes.manage',
+      'institute-categories.view',
+      'institute-categories.manage',
+    ]) {
+      expect(actions).toContain(action);
+    }
   });
 
   // The web e-sheet template screens gate on templates.manage. Once grants come from

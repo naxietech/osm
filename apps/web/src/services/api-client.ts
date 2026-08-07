@@ -25,6 +25,15 @@ export class ApiError extends Error {
   readonly status: number;
 
   /**
+   * The API's `error` field — usually the exception class name, but a route may send its own
+   * code when one status covers two different failures. The categories screen uses it to tell
+   * an optimistic-lock 409 (reload and try again) from a 409 refusing the submission itself
+   * (reloading changes nothing). Matching on the message text instead would break the moment
+   * the API rephrased it, which is exactly the coupling `apiErrorMessage` exists to avoid.
+   */
+  readonly code: string | undefined;
+
+  /**
    * True when `message` is the API's own wording and fit to show a user; false when we
    * had to invent it because the response carried nothing readable. Without this flag the
    * two are indistinguishable, and a synthesised `Request failed (404)` reaches the screen
@@ -32,11 +41,12 @@ export class ApiError extends Error {
    */
   readonly fromServer: boolean;
 
-  constructor(status: number, message: string, fromServer = false) {
+  constructor(status: number, message: string, fromServer = false, code?: string) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.fromServer = fromServer;
+    this.code = code;
   }
 }
 
@@ -101,8 +111,17 @@ function notifySessionExpired(): void {
  * Paths that must never trigger a renewal. A 401 from login means "wrong password",
  * and a 401 from refresh means the session is genuinely dead — retrying either would
  * be pointless, and retrying refresh would recurse.
+ *
+ * The `/public/*` routes are here for a different reason: they take no credentials at all, so
+ * a 401 from one is a bug in the request rather than an expired session. Trying to renew would
+ * fire a pointless refresh for a visitor who has never signed in — on the registration link,
+ * which is the one page most of its callers will ever see.
  */
-const NO_RENEWAL_PATHS: string[] = [API_ENDPOINTS.auth.login, API_ENDPOINTS.auth.refresh];
+const NO_RENEWAL_PATHS: string[] = [
+  API_ENDPOINTS.auth.login,
+  API_ENDPOINTS.auth.refresh,
+  '/public/',
+];
 
 /**
  * The renewal currently in the air, or null. Requests tend to fail in bursts — a
@@ -178,9 +197,12 @@ export async function apiRequest<T>(path: string, options: RequestOptions<T> = {
 async function unwrap<T>(res: Response, schema?: z.ZodType<T>): Promise<T> {
   if (res.status === 204) return undefined as T;
 
-  let envelope: ApiResponse<unknown>;
+  // `error` is on the failure envelope (`ApiError` in @oses/types), not the success one — this
+  // path exists precisely for a body that claims success:false, so read it here rather than
+  // widening the shared success type with a field it never carries.
+  let envelope: ApiResponse<unknown> & { error?: string };
   try {
-    envelope = (await res.json()) as ApiResponse<unknown>;
+    envelope = (await res.json()) as ApiResponse<unknown> & { error?: string };
   } catch (error) {
     // Keep the parse failure discoverable: if the envelope shape ever drifts, the user's
     // message alone gives nobody a way to find out why.
@@ -198,6 +220,7 @@ async function unwrap<T>(res: Response, schema?: z.ZodType<T>): Promise<T> {
       res.status,
       envelope.message ?? 'The server rejected the request.',
       envelope.message !== undefined,
+      envelope.error,
     );
   }
 
@@ -206,8 +229,8 @@ async function unwrap<T>(res: Response, schema?: z.ZodType<T>): Promise<T> {
 
 async function toApiError(res: Response): Promise<ApiError> {
   try {
-    const body = (await res.json()) as { message?: string };
-    if (body.message) return new ApiError(res.status, body.message, true);
+    const body = (await res.json()) as { message?: string; error?: string };
+    if (body.message) return new ApiError(res.status, body.message, true, body.error);
   } catch {
     /* no JSON body — fall through to the synthesised message */
   }

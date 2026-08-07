@@ -6,20 +6,21 @@ import {
   InstituteCategoryQuestionEntity,
 } from '../src/persistence/typeorm/entities';
 import { seedInstituteCategories } from '../src/persistence/typeorm/seed/institute-categories.seed';
+import { resetInstituteData } from './reset-db';
+import { requireTestDatabaseUrl } from './test-database';
 
-const TEST_URL = process.env['DATABASE_URL_TEST'] ?? process.env['DATABASE_URL'];
-const describeDb = TEST_URL ? describe : describe.skip;
+const TEST_URL = requireTestDatabaseUrl();
 
 const STANDARD_CODES = ['ACD', 'BRD', 'COL', 'PECTA', 'SCH', 'UNI'];
 
-describeDb('Institute category seed (integration)', () => {
+describe('Institute category seed (integration)', () => {
   let dataSource: DataSource;
 
   const categories = () => dataSource.getRepository(InstituteCategoryEntity);
   const questions = () => dataSource.getRepository(InstituteCategoryQuestionEntity);
 
   beforeAll(async () => {
-    dataSource = createDataSource(TEST_URL as string);
+    dataSource = createDataSource(TEST_URL);
     await dataSource.initialize();
     await dataSource.runMigrations();
   });
@@ -29,9 +30,7 @@ describeDb('Institute category seed (integration)', () => {
   });
 
   beforeEach(async () => {
-    await dataSource.query(
-      'truncate table institute_category_questions, institute_categories restart identity cascade',
-    );
+    await resetInstituteData(dataSource);
   });
 
   it('plants the six standard categories on an empty database', async () => {

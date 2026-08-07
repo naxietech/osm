@@ -1,4 +1,5 @@
 export {
+  type InstituteRegistrationDraft,
   InstituteRegistrationForm,
   type InstituteRegistrationFormProps,
 } from './institute-registration-form';

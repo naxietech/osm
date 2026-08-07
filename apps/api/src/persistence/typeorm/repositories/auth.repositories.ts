@@ -73,13 +73,36 @@ export class TypeOrmUserRepository implements UserRepository {
     return row ? toAuthUser(row) : null;
   }
 
+  /**
+   * A page of users, each carrying its institute's name.
+   *
+   * The join is why: `users.institute_id` is a real foreign key, so one left join costs nothing
+   * and answers for the whole page. The alternative — the browser fetching every institute to
+   * label twenty-five rows — is a second request that works until there are more institutes than
+   * whatever limit it asked for, and then silently blanks the column again.
+   *
+   * `getRawAndEntities` rather than `getMany`: the name is not a column of `UserEntity` and
+   * there is no relation mapped for it, so it arrives on the raw row alongside the hydrated one.
+   *
+   * `limit`/`offset` rather than `take`/`skip`. With a join present, `take`/`skip` switches
+   * TypeORM to a two-query "select the ids, then select the rows" plan that needs entity metadata
+   * for every joined alias — and this alias is a bare table name, so it has none and the query
+   * throws. Paging in SQL directly is safe here because the join is many-to-one: a user has at
+   * most one institute, so no row can be multiplied and no page can come back short.
+   */
   async list(opts: ListUsersOptions): Promise<AuthUserRecord[]> {
-    const rows = await this.filteredQuery(opts)
+    const { entities, raw } = await this.filteredQuery(opts)
+      .leftJoin('institutes', 'institute', 'institute.id = user.institute_id')
+      .addSelect('institute.institute_name', 'institute_name')
       .orderBy('user.created_at', 'DESC')
-      .take(opts.limit)
-      .skip(opts.offset)
-      .getMany();
-    return rows.map(toAuthUser);
+      .limit(opts.limit)
+      .offset(opts.offset)
+      .getRawAndEntities();
+
+    return entities.map((entity, index) => ({
+      ...toAuthUser(entity),
+      instituteName: (raw[index] as { institute_name?: string | null })?.institute_name ?? null,
+    }));
   }
 
   count(opts: UserFilters = {}): Promise<number> {

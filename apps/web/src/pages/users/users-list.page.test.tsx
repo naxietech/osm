@@ -31,7 +31,11 @@ const ACTIVE_USER = {
   email: 'ayesha@oses.pk',
   role: UserRole.INSTITUTE,
   roleId: 'role_institute',
-  instituteId: 'sch_001',
+  instituteId: '019fd921-3c8f-7a6e-b3b1-8f882ccaa3d8',
+  // Sent by the API alongside the id. The fixture used to carry only a mock institute id, and
+  // the page resolved it against the frontend's institute mock — so this assertion passed while
+  // the column was blank for every real institute account, whose ids no mock has ever held.
+  instituteName: 'Government High School Gulberg',
   fullName: 'Ayesha Khan',
   createdAt: '2026-01-01T00:00:00.000Z',
   status: 'active' as const,

@@ -1,10 +1,10 @@
 /**
- * Mock institute-category service (frontend only) — super-admin-managed taxonomy for
- * classifying institutes (School, College, Board, University, Academy, PECTA). Each
- * category can carry dynamic yes/no questions that institutes answer at registration.
- * Mutable seed so the management screen can add/edit rows.
+ * SUPERSEDED — the institute-category module is live. Use `institute-categories.service.ts`
+ * (through `hooks/use-institute-categories`) for anything that reads or writes a category.
  *
- * TODO: replace with a real instituteCategoriesApi.
+ * This mock is kept only because `services/index.ts` re-exports it and modules that have not
+ * been built yet may still read its seed array. Nothing here reaches the database, so a value
+ * it returns is not what an admin sees on the live Categories screen.
  */
 import {
   type CategoryQuestionInput,
@@ -39,6 +39,7 @@ export const instituteCategories: InstituteCategory[] = [
     code: 'SCH',
     name: 'School',
     isActive: true,
+    version: 1,
     questions: [
       {
         id: 'cat_school_q1',
@@ -56,11 +57,18 @@ export const instituteCategories: InstituteCategory[] = [
       },
     ],
   },
-  { id: 'cat_college', code: 'COL', name: 'College', isActive: true, questions: [] },
-  { id: 'cat_board', code: 'BRD', name: 'Board', isActive: true, questions: [] },
-  { id: 'cat_university', code: 'UNI', name: 'University', isActive: true, questions: [] },
-  { id: 'cat_academy', code: 'ACD', name: 'Academy', isActive: true, questions: [] },
-  { id: 'cat_pecta', code: 'PECTA', name: 'PECTA', isActive: true, questions: [] },
+  { id: 'cat_college', code: 'COL', name: 'College', isActive: true, version: 1, questions: [] },
+  { id: 'cat_board', code: 'BRD', name: 'Board', isActive: true, version: 1, questions: [] },
+  {
+    id: 'cat_university',
+    code: 'UNI',
+    name: 'University',
+    isActive: true,
+    version: 1,
+    questions: [],
+  },
+  { id: 'cat_academy', code: 'ACD', name: 'Academy', isActive: true, version: 1, questions: [] },
+  { id: 'cat_pecta', code: 'PECTA', name: 'PECTA', isActive: true, version: 1, questions: [] },
 ];
 
 export function listInstituteCategories(): InstituteCategory[] {
@@ -81,6 +89,7 @@ export function createInstituteCategory(dto: CreateInstituteCategoryDto): Instit
     code: dto.code,
     name: dto.name,
     isActive: true,
+    version: 1,
     questions: toQuestions(id, dto.questions),
     ...(dto.description ? { description: dto.description } : {}),
   };
@@ -88,6 +97,17 @@ export function createInstituteCategory(dto: CreateInstituteCategoryDto): Instit
   return category;
 }
 
+/**
+ * Two differences from the old mock, both forced by the live contract:
+ *
+ * - **`isActive` is not here.** Switching a category on or off is its own route, so it cannot
+ *   ride along with an edit. Use {@link toggleInstituteCategoryActive}.
+ * - **`description: null` clears it**, where `undefined` leaves it alone. Three states, not two.
+ *
+ * The `version` the DTO now carries is ignored by this mock — there is nothing to race against
+ * in a single browser tab. The real API rejects a stale one with a 409, which is the behaviour
+ * the screen has to learn to handle when it is wired up.
+ */
 export function updateInstituteCategory(
   id: string,
   dto: UpdateInstituteCategoryDto,
@@ -96,9 +116,12 @@ export function updateInstituteCategory(
   if (!category) return undefined;
   if (dto.code !== undefined) category.code = dto.code;
   if (dto.name !== undefined) category.name = dto.name;
-  if (dto.description !== undefined) category.description = dto.description;
+  if (dto.description !== undefined) {
+    if (dto.description === null) delete category.description;
+    else category.description = dto.description;
+  }
   if (dto.questions !== undefined) category.questions = toQuestions(id, dto.questions);
-  if (dto.isActive !== undefined) category.isActive = dto.isActive;
+  category.version += 1;
   return category;
 }
 
@@ -109,7 +132,7 @@ export function toggleInstituteCategoryActive(id: string): void {
 
 /**
  * Remove a category outright. Only safe when no institute references it — callers must
- * check {@link countInstitutesInCategory} first. Returns whether a row was removed.
+ * count the institutes filed under it first. Returns whether a row was removed.
  */
 export function deleteInstituteCategory(id: string): boolean {
   const index = instituteCategories.findIndex((c) => c.id === id);

@@ -1,17 +1,16 @@
-import type { InstituteCategory, InstituteCategoryQuestion } from '@oses/types';
+import type {
+  InstituteCategory,
+  InstituteCategoryQuestion,
+  PublicInstituteCategory,
+} from '@oses/types';
 
 import type { CategoryQuestionRecord, InstituteCategoryRecord } from './ports';
 
-/** The admin view: the shared shape plus the `version` a caller must send back to update. */
-export interface AdminInstituteCategory extends InstituteCategory {
-  version: number;
-}
+/** The admin view — the shared shape exactly, `version` included. */
+export type AdminInstituteCategory = InstituteCategory;
 
-/**
- * The public view. `isActive` and `version` are absent by construction — this is served to
- * anonymous callers, so it carries only what the registration form needs to draw itself.
- */
-export type PublicInstituteCategory = Omit<InstituteCategory, 'isActive'>;
+/** Re-exported so this module's callers keep one import for both views. */
+export type { PublicInstituteCategory };
 
 function toQuestion(question: CategoryQuestionRecord): InstituteCategoryQuestion {
   return {

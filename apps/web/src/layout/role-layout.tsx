@@ -10,10 +10,10 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { ROLE_CONFIG } from '@/config/roles.config';
 import { type NavItem } from '@/design-system/organisms/sidebar';
 import { DashboardLayout } from '@/design-system/templates/dashboard-layout';
-import { useAuth, useClient } from '@/hooks';
+import { useAuth, useClient, usePermissions } from '@/hooks';
+import { useInstitutes } from '@/hooks/use-institutes';
 import { ROUTES } from '@/router/routes';
 import { countPendingCheckers } from '@/services/checker.service';
-import { countPendingInstitutes } from '@/services/institute.service';
 
 import { ClientSwitcher } from './client-switcher';
 
@@ -37,19 +37,50 @@ export function RoleLayout(): ReactElement {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { isModuleEnabled } = useClient();
+  const { can } = usePermissions();
+
+  /**
+   * The institute count comes from the API, not the mock — the queue it sits beside is live, and
+   * a fabricated number next to a real list is worse than no number at all. `limit: 1` because
+   * only `total` is wanted; the rows are never rendered here.
+   *
+   * Gated on the grant, not on the presence of a nav item: this layout renders for every role,
+   * so an Evaluator would otherwise fire a 403 on every page load for a badge they never see.
+   *
+   * Checkers are still mocked, and stay that way until that module is wired up.
+   */
+  const pendingInstitutes = useInstitutes({ status: 'pending', limit: 1 }, can('institutes.view'));
 
   const approvalCounts: Record<string, number> = {
-    [ROUTES.admin.instituteApprovals]: countPendingInstitutes(),
+    [ROUTES.admin.instituteApprovals]: pendingInstitutes.data?.total ?? 0,
     [ROUTES.admin.checkerApprovals]: countPendingCheckers(),
   };
 
-  // Gate the role's nav by the active client's enabled modules (untagged items always show).
+  /**
+   * Gate the nav by the active client's enabled modules and by the signed-in user's grants
+   * (untagged items always show). Children are filtered too, and a group left with no children
+   * and no route of its own is dropped — an empty submenu is worse than a missing one.
+   *
+   * Hiding a link is presentation, never the control: the route guards and the API's 403 are.
+   */
+  const allowed = (item: NavItem): boolean =>
+    isModuleEnabled(item.module) && (item.requires === undefined || can(item.requires));
+
+  const prune = (item: NavItem): NavItem | null => {
+    if (!allowed(item)) return null;
+    if (!item.children) return item;
+    const children = item.children.map(prune).filter((c): c is NavItem => c !== null);
+    if (children.length === 0 && item.to === undefined) return null;
+    return { ...item, children };
+  };
+
   const rawNav = (user && ROLE_CONFIG[user.role]?.nav) || [];
   const navSections = rawNav
     .map((section) => ({
       ...section,
       items: section.items
-        .filter((item) => isModuleEnabled(item.module))
+        .map(prune)
+        .filter((item): item is NavItem => item !== null)
         .map((item) => withApprovalsBadges(item, approvalCounts)),
     }))
     .filter((section) => section.items.length > 0);

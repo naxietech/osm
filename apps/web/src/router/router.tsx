@@ -25,6 +25,7 @@ import { checkerApprovalRoutes, checkerRoutes } from './modules/checkers.routes'
 import { eSheetRoutes } from './modules/e-sheet.routes';
 import { evaluatorRoutes } from './modules/evaluator.routes';
 import { examRoutes } from './modules/exams.routes';
+import { instituteCategoryRoutes } from './modules/institute-categories.routes';
 import { instituteExamRoutes } from './modules/institute-exams.routes';
 import { instituteRoutes } from './modules/institutes.routes';
 import { platformRoutes } from './modules/platform.routes';
@@ -107,6 +108,7 @@ export function RouterConfig(): React.ReactElement {
             {eSheetRoutes(admin.home, admin)}
             {examRoutes(admin.home, admin)}
             {instituteRoutes(admin.home, admin)}
+            {instituteCategoryRoutes(admin.home, admin.instituteCategories)}
             {studentRoutes(admin.home, admin)}
             <Route element={<RoleRoute allowedRoles={[UserRole.SUPER_ADMIN]} />}>
               {platformRoutes(admin.home, admin)}

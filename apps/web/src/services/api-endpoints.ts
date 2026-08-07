@@ -7,8 +7,8 @@
  * change here, and `api-client` matches on these same constants to decide which requests
  * may trigger a session renewal.
  *
- * Auth, users and roles are the only modules the API serves today. Every other module is
- * still a mock service, so nothing else belongs here yet.
+ * Auth, users, roles, institutes and institute categories are the modules the API serves
+ * today. Every other module is still a mock service, so nothing else belongs here yet.
  */
 export const API_ENDPOINTS = {
   auth: {
@@ -30,5 +30,33 @@ export const API_ENDPOINTS = {
   },
   roles: {
     list: '/roles',
+  },
+  institutes: {
+    list: '/institutes',
+    create: '/institutes',
+    get: (id: string) => `/institutes/${id}`,
+    update: (id: string) => `/institutes/${id}`,
+    remove: (id: string) => `/institutes/${id}`,
+    approve: (id: string) => `/institutes/${id}/approve`,
+    reject: (id: string) => `/institutes/${id}/reject`,
+    status: (id: string) => `/institutes/${id}/status`,
+  },
+  instituteCategories: {
+    list: '/institute-categories',
+    create: '/institute-categories',
+    get: (id: string) => `/institute-categories/${id}`,
+    update: (id: string) => `/institute-categories/${id}`,
+    remove: (id: string) => `/institute-categories/${id}`,
+    status: (id: string) => `/institute-categories/${id}/status`,
+  },
+  /**
+   * No credentials, and none should ever be sent. These back the open registration link, so a
+   * 401 from any of them is a bug in the request, not an expired session — `api-client` must
+   * not try to renew on their behalf.
+   */
+  public: {
+    instituteCategories: '/public/institute-categories',
+    registerInstitute: '/public/institutes',
+    checkAvailability: '/public/institutes/check-availability',
   },
 } as const;

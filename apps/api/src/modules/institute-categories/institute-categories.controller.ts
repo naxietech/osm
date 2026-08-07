@@ -47,16 +47,16 @@ export class InstituteCategoriesController {
   constructor(private readonly categories: InstituteCategoriesService) {}
 
   @Get()
-  @RequirePermissions('institute-categories.manage')
+  @RequirePermissions('institute-categories.view')
   @ApiOperation({ summary: 'List every institute category, including deactivated ones' })
   @ApiResponse({ status: 200, description: 'AdminInstituteCategory[]' })
-  @ApiResponse({ status: 403, description: 'Missing institute-categories.manage grant' })
+  @ApiResponse({ status: 403, description: 'Missing institute-categories.view grant' })
   list(): Promise<AdminInstituteCategory[]> {
     return this.categories.listForAdmin();
   }
 
   @Get(':id')
-  @RequirePermissions('institute-categories.manage')
+  @RequirePermissions('institute-categories.view')
   @ApiOperation({ summary: 'Get one institute category with its questions' })
   @ApiResponse({ status: 200, description: 'AdminInstituteCategory' })
   @ApiResponse({ status: 404, description: 'Category not found' })

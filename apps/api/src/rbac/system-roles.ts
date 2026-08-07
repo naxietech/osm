@@ -52,7 +52,10 @@ const ALL_ADMIN_ACTIONS: PermissionAction[] = ALL_PERMISSION_ACTIONS.filter(
 
 /** Admin (limited back-office): operational data only — no roles/clients/reference data. */
 const ADMIN_ACTIONS: PermissionAction[] = [
-  'institutes.manage',
+  // View, not manage: approving or deactivating an institute is a Super Admin decision, but an
+  // Admin still needs to look one up while working on students, exams and registrations.
+  'institutes.view',
+  'institute-categories.view',
   'students.manage',
   'students.viewPII',
   'checkers.manage',

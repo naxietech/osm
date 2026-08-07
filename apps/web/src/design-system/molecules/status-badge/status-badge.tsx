@@ -1,24 +1,29 @@
 import React from 'react';
 
 import {
+  type InstituteStatus,
   type MarkingBand,
   type MarkingBatchStatus,
   type MarkingScriptStatus,
-  OnboardingStatus,
   type UserStatus,
 } from '@oses/types';
 
 import { Badge, type BadgeProps } from '@/design-system/atoms/badge';
 
 export interface StatusBadgeProps {
-  status: OnboardingStatus;
+  status: InstituteStatus;
 }
 
-const statusConfig: Record<OnboardingStatus, { label: string; variant: BadgeProps['variant'] }> = {
-  [OnboardingStatus.PENDING]: { label: 'Pending', variant: 'warning' },
-  [OnboardingStatus.IN_PROGRESS]: { label: 'In Progress', variant: 'info' },
-  [OnboardingStatus.COMPLETE]: { label: 'Complete', variant: 'success' },
-  [OnboardingStatus.SUSPENDED]: { label: 'Suspended', variant: 'error' },
+/**
+ * Where an institute stands. `rejected` and `deactivated` are both red but are not the same
+ * thing: rejected never became an institute at all, while deactivated was one and was switched
+ * off. The labels carry that difference; the colour only says "not currently usable".
+ */
+const statusConfig: Record<InstituteStatus, { label: string; variant: BadgeProps['variant'] }> = {
+  pending: { label: 'Pending', variant: 'warning' },
+  approved: { label: 'Approved', variant: 'success' },
+  rejected: { label: 'Rejected', variant: 'error' },
+  deactivated: { label: 'Deactivated', variant: 'error' },
 };
 
 export function StatusBadge({ status }: StatusBadgeProps): React.ReactElement {
@@ -65,9 +70,13 @@ export interface ActiveBadgeProps {
  * Active / Inactive pill for the reference-data tables (subjects, classes, SLOs,
  * categories). Extracted after the identical component was found copy-pasted into four
  * setup pages, each re-writing the classes the Badge atom already provides.
+ *
+ * Inactive is red rather than grey. Grey reads as "nothing to see here", but a deactivated
+ * category is a live decision with consequences — it is withheld from the public registration
+ * form, so an institute cannot pick it. Red is what makes that scannable in a long list.
  */
 export function ActiveBadge({ active }: ActiveBadgeProps): React.ReactElement {
-  return <Badge variant={active ? 'success' : 'default'}>{active ? 'Active' : 'Inactive'}</Badge>;
+  return <Badge variant={active ? 'success' : 'error'}>{active ? 'Active' : 'Inactive'}</Badge>;
 }
 
 // ---- marking -------------------------------------------------------------------

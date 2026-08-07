@@ -1,11 +1,27 @@
-export enum OnboardingStatus {
-  PENDING = 'pending',
-  IN_PROGRESS = 'in_progress',
-  COMPLETE = 'complete',
-  SUSPENDED = 'suspended',
-}
+/**
+ * The lifecycle an institute moves through.
+ *
+ * `rejected` is a dead end off `pending` — the application was never accepted, so nothing hangs
+ * off it and its institute code is freed for a fresh attempt. `deactivated` is the opposite end:
+ * the institute worked, has students and results behind it, and has been switched off reversibly.
+ *
+ * A runtime array rather than an enum so the API's Zod schema and the web's badges are built from
+ * the same values — two independent declarations of one vocabulary drift, and did.
+ */
+export const INSTITUTE_STATUSES = ['pending', 'approved', 'rejected', 'deactivated'] as const;
+export type InstituteStatus = (typeof INSTITUTE_STATUSES)[number];
 
-/** Education level the institute offers, mapped to Pakistani board stages. */
+/** How the record arrived: the open registration link, or entered by staff. */
+export const REGISTRATION_SOURCES = ['public', 'admin'] as const;
+export type RegistrationSource = (typeof REGISTRATION_SOURCES)[number];
+
+/**
+ * Education level, mapped to Pakistani board stages.
+ *
+ * No longer a field on `Institute` — the TRD's Module 2 field list does not ask for it. The enum
+ * stays because `exam.types.ts` uses it, so removing it would break the exam model for a change
+ * that was only ever about institutes.
+ */
 export enum InstituteLevel {
   SECONDARY = 'secondary', // SSC / Matric (Classes 9–10)
   HIGHER_SECONDARY = 'higher_secondary', // HSSC / Intermediate (Classes 11–12)
@@ -20,13 +36,6 @@ export enum InstitutionType {
   OTHER = 'other',
 }
 
-/** Gender composition of the institute (boys / girls / co-education). */
-export enum GenderCategory {
-  BOYS = 'boys',
-  GIRLS = 'girls',
-  CO_EDUCATION = 'co_education',
-}
-
 /** Pakistani provinces and administrative regions. */
 export enum Province {
   PUNJAB = 'punjab',
@@ -38,106 +47,182 @@ export enum Province {
   GB = 'gb', // Gilgit-Baltistan
 }
 
-/** An institute's answer to one of its category's questions. */
+/**
+ * An institute's answer to one of its category's questions.
+ *
+ * `values` is an array because the question type decides the shape: `text` stores one element,
+ * `radio` and `select` the single option chosen, `checkbox` several. One column means a reader
+ * never has to know which type it is asking about.
+ */
 export interface InstituteQuestionAnswer {
   questionId: string;
-  values: string[]; // chosen option(s) or the free-text answer as a single-element array
-}
-
-export interface Institute {
-  id: string;
-  instituteCode: string; // govt-provided code, e.g. "S01"
-  instituteName: string;
-  branch?: string; // campus / branch, e.g. "Shakargarh Campus"
-  registrationNo: string;
-  categoryId: string; // InstituteCategory link (School / College / Academy / …)
-  questionAnswers: InstituteQuestionAnswer[]; // answers to the category's questions
-  institutionType: InstitutionType;
-  instituteLevel: InstituteLevel;
-  category: GenderCategory;
-  address: string;
-  city: string;
-  province: Province;
-  postalCode?: string;
-  contactPersonName: string;
-  contactPersonDesignation: string;
-  contactEmail: string;
-  contactPhone: string;
-  onboardingStatus: OnboardingStatus;
-  isActive: boolean;
-  /** Reason captured by the super admin when a registration is rejected. */
-  rejectionReason?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// Used in list views — omits heavy/unused fields
-export interface InstituteListItem {
-  id: string;
-  instituteCode: string;
-  instituteName: string;
-  city: string;
-  onboardingStatus: OnboardingStatus;
-  isActive: boolean;
-}
-
-export interface CreateInstituteDto {
-  instituteCode: string;
-  instituteName: string;
-  registrationNo: string;
-  institutionType: InstitutionType;
-  instituteLevel: InstituteLevel;
-  category: GenderCategory;
-  address: string;
-  city: string;
-  province: Province;
-  postalCode?: string;
-  contactPersonName: string;
-  contactPersonDesignation: string;
-  contactEmail: string;
-  contactPhone: string;
+  values: string[];
 }
 
 /**
- * Public self-registration payload (open link). Creates a PENDING institute the super
- * admin then approves. Carries the branch, govt code, chosen category + its question
- * answers, ownership type, address block and contact details.
+ * An institute, as the API returns it.
+ *
+ * Two codes, doing different jobs. `instituteCode` is the government's own (`S01`) — theirs, not
+ * ours, and the thing a human recognises. `numericCode` is assigned by OSES at approval and is
+ * what student registration numbers and roll-number blocks are built from; it is null until then.
  */
-export interface RegisterInstituteDto {
+export interface Institute {
+  id: string;
+  instituteCode: string;
+  numericCode: number | null;
+  instituteName: string;
+  branch: string | null; // campus, e.g. "Shakargarh Campus"
+  categoryId: string;
+  institutionType: InstitutionType;
+  address: string;
+  city: string;
+  province: Province;
+  postalCode: string | null;
+  contactPersonName: string;
+  contactPersonDesignation: string;
+  contactEmail: string;
+  contactPhone: string;
+  status: InstituteStatus;
+  /** Captured when an application is turned away, so the institute can be told what to fix. */
+  rejectionReason: string | null;
+  registrationSource: RegistrationSource;
+  approvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  answers: InstituteQuestionAnswer[];
+}
+
+/** A live institute sharing this one's name and city — a prompt to look twice, never a block. */
+export interface DuplicateWarning {
+  id: string;
+  instituteName: string;
+  branch: string | null;
+  city: string;
+  status: InstituteStatus;
+}
+
+/** `GET /institutes/:id` — the record plus the warning the approval screen needs. */
+export interface InstituteDetail extends Institute {
+  possibleDuplicates: DuplicateWarning[];
+}
+
+/** `GET /institutes` */
+export interface PaginatedInstitutes {
+  items: Institute[];
+  total: number;
+}
+
+/** The fields both entry paths supply. What differs between them is status, not shape. */
+export interface InstituteDetailsDto {
+  instituteCode: string;
   instituteName: string;
   branch?: string;
-  instituteCode: string;
   categoryId: string;
-  questionAnswers: InstituteQuestionAnswer[];
   institutionType: InstitutionType;
-  instituteLevel: InstituteLevel;
-  category: GenderCategory;
   address: string;
-  province: Province;
   city: string;
+  province: Province;
   postalCode?: string;
   contactPersonName: string;
   contactPersonDesignation: string;
   contactEmail: string;
   contactPhone: string;
+  answers?: InstituteQuestionAnswer[];
 }
 
+/**
+ * `POST /public/institutes` — the open link.
+ *
+ * The password is collected here because there is no email service to send a temporary one with.
+ * It is hashed on arrival and held apart from the institute record until approval turns it into
+ * a login.
+ */
+export interface RegisterInstituteDto extends InstituteDetailsDto {
+  password: string;
+}
+
+/** `POST /institutes` — a super admin entering one directly. It lands approved. */
+export type CreateInstituteDto = InstituteDetailsDto & {
+  /**
+   * Password for the institute's own login, created alongside the record.
+   *
+   * Optional, and the difference is visible in the response: with it the institute can sign in
+   * immediately; without it the row exists and nobody can get into it until an account is made
+   * by hand. Admin-entered institutes used to have no way to supply one at all, which is how
+   * they ended up approved with no login and nobody noticing.
+   */
+  password?: string;
+};
+
+/**
+ * `PATCH /institutes/:id`.
+ *
+ * The locked fields — `instituteCode`, `categoryId`, `numericCode`, `status` — are
+ * absent by design. The API rejects them by name rather than accepting the request and ignoring
+ * them, because a caller who cannot tell "ignored" from "saved" will believe the change applied.
+ *
+ * `contactEmail` stays editable: contact people change jobs, and freezing the address means
+ * nobody can reach the institute. Changing it does **not** change any login — that is a user
+ * record, managed on the Users screen.
+ */
 export interface UpdateInstituteDto {
   instituteName?: string;
-  registrationNo?: string;
+  branch?: string | null;
   institutionType?: InstitutionType;
-  instituteLevel?: InstituteLevel;
-  category?: GenderCategory;
   address?: string;
   city?: string;
   province?: Province;
-  postalCode?: string;
+  postalCode?: string | null;
   contactPersonName?: string;
   contactPersonDesignation?: string;
   contactEmail?: string;
   contactPhone?: string;
-  onboardingStatus?: OnboardingStatus;
-  isActive?: boolean;
+  /**
+   * Replaces the institute's answers wholesale — send the complete set, not a delta. An omitted
+   * question is an unanswered question, which is how an optional answer is cleared.
+   *
+   * Validated against the institute's **stored** category, never one named in the request: the
+   * category is locked after registration, so the questions being answered cannot change.
+   */
+  answers?: InstituteQuestionAnswer[];
+}
+
+/**
+ * `POST /institutes/:id/approve` — Approve & Register.
+ *
+ * `createLogin` is optional and defaults to **true** server-side: creating the login is the whole
+ * point of the single button, so omitting the field asks for the common case. Send `false` only
+ * for an institute whose accounts are managed separately.
+ */
+export interface ApproveInstituteDto {
+  createLogin?: boolean;
+  fullName?: string;
+  /** Only needed when no password is on file, i.e. an institute entered by an admin. */
+  password?: string;
+}
+
+/** `POST /institutes/:id/reject` */
+export interface RejectInstituteDto {
+  reason: string;
+}
+
+/** `PATCH /institutes/:id/status` — `rejected` is reachable only from `pending`, via its own route. */
+export interface UpdateInstituteStatusDto {
+  status: Extract<InstituteStatus, 'approved' | 'deactivated'>;
+}
+
+/** `POST /public/institutes/check-availability` — a field not asked about answers `null`. */
+export interface AvailabilityResult {
+  codeAvailable: boolean | null;
+  emailAvailable: boolean | null;
+}
+
+/** What the open registration link is told back. Four fields, and that is the whole contract. */
+export interface RegistrationReceipt {
+  id: string;
+  instituteCode: string;
+  instituteName: string;
+  status: 'pending';
 }
 
 /** How an institute answers a category question. */
@@ -146,7 +231,7 @@ export type CategoryQuestionType =
   | 'radio' // pick exactly one of `options`
   | 'checkbox' // pick any number of `options`
   | 'select' // dropdown — pick one of `options`
-  | 'file'; // upload a document (mock captures the file name only)
+  | 'file'; // upload a document
 
 /** Whether a question type carries a fixed list of answer options. */
 export function questionTypeHasOptions(type: CategoryQuestionType): boolean {
@@ -154,10 +239,10 @@ export function questionTypeHasOptions(type: CategoryQuestionType): boolean {
 }
 
 /**
- * A question attached to an institute category. When an institute registers under a
- * category, it answers this category's questions (e.g. "Are you ed-tech?"). Each question
- * has an answer `type`; choice types (radio/checkbox/select) carry their `options`. A
- * `required` question must be answered before the registration form can be submitted.
+ * A question attached to an institute category. When an institute registers under a category, it
+ * answers this category's questions (e.g. "Are you ed-tech?"). Each question has an answer
+ * `type`; choice types (radio/checkbox/select) carry their `options`. A `required` question must
+ * be answered before the registration form can be submitted.
  */
 export interface InstituteCategoryQuestion {
   id: string;
@@ -182,10 +267,9 @@ export interface CategoryQuestionInput {
 }
 
 /**
- * Super-admin-managed classification of institutes — e.g. School, College, Board,
- * University, Academy, PECTA. Each category can carry dynamic yes/no `questions` that
- * institutes registering under it must answer. Distinct from `institutionType`
- * (ownership: govt/private) and `InstitutionKind` (school/college/university).
+ * Super-admin-managed classification of institutes — e.g. School, College, Board, University,
+ * Academy, PECTA. Each category can carry dynamic questions that institutes registering under it
+ * must answer. Distinct from `institutionType` (ownership: govt/private).
  */
 export interface InstituteCategory {
   id: string;
@@ -194,7 +278,26 @@ export interface InstituteCategory {
   description?: string;
   questions: InstituteCategoryQuestion[];
   isActive: boolean;
+  /**
+   * Optimistic-lock counter. A writer submits the version it loaded, and the update applies only
+   * while it still matches — so a second concurrent save is rejected rather than silently
+   * overwriting the first.
+   */
+  version: number;
 }
+
+/**
+ * A category as an anonymous caller sees it, from `GET /public/institute-categories`.
+ *
+ * `isActive` and `version` are absent **by construction** — the public route returns only active
+ * categories, and an anonymous caller has nothing to do with an optimistic-lock counter.
+ *
+ * It lives here rather than beside the API's mapper because both apps depend on it, and the one
+ * time it did not, the web typed the response as a full {@link InstituteCategory} and filtered
+ * the list on `isActive` — a field that is never sent. Every category was dropped and the
+ * registration form offered an empty dropdown.
+ */
+export type PublicInstituteCategory = Omit<InstituteCategory, 'isActive' | 'version'>;
 
 export interface CreateInstituteCategoryDto {
   code: string;
@@ -204,16 +307,14 @@ export interface CreateInstituteCategoryDto {
 }
 
 /**
- * NOTE — this is the mock/pre-versioning shape, not the live API contract. The backend's update
- * endpoint additionally requires a `version` (optimistic lock), accepts `description: null` to
- * clear it, and moves `isActive` to its own `PATCH /institute-categories/:id/status` route.
- * Reconcile this type with that contract when the web app is wired to the real API.
+ * `version` is mandatory: it is the copy the caller loaded. Omitting `questions` leaves the
+ * stored list untouched — sending an empty array is what clears it. `isActive` is deliberately
+ * absent; switching a category on or off has its own route, so it cannot ride along with an edit.
  */
 export interface UpdateInstituteCategoryDto {
+  version: number;
   code?: string;
   name?: string;
-  description?: string;
-  /** Full replacement list of questions; the service re-assigns ids. */
+  description?: string | null;
   questions?: CategoryQuestionInput[];
-  isActive?: boolean;
 }

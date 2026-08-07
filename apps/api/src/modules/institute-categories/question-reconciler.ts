@@ -79,6 +79,7 @@ export function reconcileQuestions(
       if (current.type !== question.type) {
         throw new AnsweredQuestionChangeError(
           question.id,
+          current.text,
           `its type cannot change from "${current.type}" to "${question.type}"`,
         );
       }
@@ -88,6 +89,7 @@ export function reconcileQuestions(
       if (withdrawn.length > 0) {
         throw new AnsweredQuestionChangeError(
           question.id,
+          current.text,
           `these options cannot be removed: ${withdrawn.join(', ')}`,
         );
       }

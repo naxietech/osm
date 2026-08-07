@@ -21,7 +21,12 @@ export class UserEntity {
   @Column({ name: 'role_id', type: 'text' })
   roleId!: string;
 
-  @Column({ name: 'institute_id', type: 'text', nullable: true })
+  /**
+   * The institute this account belongs to, or null for a global role. A real `uuid` foreign key
+   * into `institutes` since the Institutes1758000000000 migration — before that it was untyped
+   * text holding frontend mock ids that referred to nothing.
+   */
+  @Column({ name: 'institute_id', type: 'uuid', nullable: true })
   instituteId!: string | null;
 
   @Column({ name: 'full_name', type: 'text' })

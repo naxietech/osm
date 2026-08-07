@@ -73,7 +73,8 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
     module: 'institutes',
     children: [
       { label: 'View', to: ROUTES.admin.institutesView },
-      { label: 'Add', to: ROUTES.admin.institutesAdd },
+      // Admin holds `institutes.view` only — they look one up, they do not register one.
+      { label: 'Add', to: ROUTES.admin.institutesAdd, requires: 'institutes.manage' },
       { label: 'Approvals', to: ROUTES.admin.instituteApprovals },
     ],
   },
@@ -89,9 +90,19 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
 ];
 
 /**
+ * The one setup screen an Admin may open. They hold `institute-categories.view` — a category is
+ * what an institute *is*, so working on institutes without it is not possible — but not
+ * `institute-categories.manage`, and the page withholds every editing control accordingly.
+ */
+const INSTITUTE_CATEGORIES_NAV_ITEM: NavItem = {
+  label: 'Institute Categories',
+  to: ROUTES.admin.instituteCategories,
+};
+
+/**
  * Platform administration — RBAC and the reference data every other module points at.
  * Super Admin only: the api withholds `roles.manage`, `users.manage`, `clients.manage`
- * and all reference-data grants from Admin, so showing these to an Admin would only
+ * and the remaining reference-data grants from Admin, so showing these to an Admin would only
  * produce 403s. The matching routes are gated to SUPER_ADMIN in the router as well —
  * hiding a nav item is not access control.
  */
@@ -103,13 +114,21 @@ const SUPER_ADMIN_NAV_ITEMS: NavItem[] = [
     icon: FileText,
     module: 'reference-data',
     children: [
-      { label: 'Institute Categories', to: ROUTES.admin.instituteCategories },
+      INSTITUTE_CATEGORIES_NAV_ITEM,
       { label: 'Subjects', to: ROUTES.admin.subjects },
       { label: 'SLOs', to: ROUTES.admin.slos },
       { label: 'Classes', to: ROUTES.admin.classes },
     ],
   },
 ];
+
+/** The Admin's Setup group — the same heading, holding only what they can actually open. */
+const ADMIN_SETUP_NAV_ITEM: NavItem = {
+  label: 'Setup',
+  icon: FileText,
+  module: 'reference-data',
+  children: [INSTITUTE_CATEGORIES_NAV_ITEM],
+};
 
 /**
  * Per-role nav + landing route (5 TRD roles). Super Admin has every module; Admin is
@@ -125,7 +144,7 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
   [UserRole.ADMIN]: {
     label: 'Admin',
     home: ROUTES.admin.home,
-    nav: [{ label: 'Menu', items: ADMIN_NAV_ITEMS }],
+    nav: [{ label: 'Menu', items: [...ADMIN_NAV_ITEMS, ADMIN_SETUP_NAV_ITEM] }],
   },
   [UserRole.CONTROLLER]: {
     label: 'Examiner',

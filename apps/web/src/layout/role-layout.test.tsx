@@ -68,7 +68,24 @@ describe('RoleLayout', () => {
     await renderShell();
     expect(screen.queryByText('Users')).not.toBeInTheDocument();
     expect(screen.queryByText('Roles & Permissions')).not.toBeInTheDocument();
-    expect(screen.queryByText('Setup')).not.toBeInTheDocument();
+  });
+
+  /**
+   * The Admin's Setup group exists but holds one entry. Categories are the exception among the
+   * reference data: an Admin holds `institute-categories.view` because a category is what an
+   * institute *is*, and holds no grant at all for subjects, SLOs or classes. Asserting the group
+   * is absent — which this used to — would now hide a regression rather than catch one.
+   */
+  it('gives an Admin a Setup group holding only Institute Categories', async () => {
+    seedAdmin();
+    await renderShell();
+
+    fireEvent.click(screen.getByText('Setup'));
+
+    expect(screen.getByText('Institute Categories')).toBeInTheDocument();
+    expect(screen.queryByText('Subjects')).not.toBeInTheDocument();
+    expect(screen.queryByText('SLOs')).not.toBeInTheDocument();
+    expect(screen.queryByText('Classes')).not.toBeInTheDocument();
   });
 
   it('shows the signed-in user', async () => {

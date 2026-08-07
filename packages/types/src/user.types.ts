@@ -65,6 +65,15 @@ export type UserStatus = (typeof USER_STATUSES)[number];
 export interface AdminUser extends SafeUser {
   status: UserStatus;
   lastLoginAt: string | null;
+  /**
+   * The institute this account belongs to, by name — `null` for a global role.
+   *
+   * Sent by the API rather than resolved in the browser. The directory used to look the id up in
+   * the frontend's institute mock, which of course held none of the real ids, so the column was
+   * blank for every institute account. Fetching the whole institute list to label a page of
+   * users would work today and quietly break past whatever limit it asked for.
+   */
+  instituteName: string | null;
 }
 
 /** One page of the admin user directory, newest first. */

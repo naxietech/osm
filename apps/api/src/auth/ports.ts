@@ -46,6 +46,11 @@ export interface AuthUserRecord {
   passwordHash: string | null;
   roleId: string;
   instituteId: string | null;
+  /**
+   * Populated by the directory query, which joins it; `null` everywhere else, including for a
+   * user with no institute. Callers that need it should say so — see `UserRepository.list`.
+   */
+  instituteName?: string | null;
   fullName: string;
   status: UserStatus;
   failedLoginCount: number;
