@@ -135,12 +135,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/users?limit=50&offset=0&q=&status=active&roleId={{roleCheckerId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "users"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["users"],
               "query": [
                 {
                   "key": "limit",

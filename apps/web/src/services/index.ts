@@ -19,4 +19,5 @@ export * from './marking.service';
 export * from './mock-store';
 export * from './roles.service';
 export * from './slo.service';
+export * from './subjects.service';
 export * from './users.service';

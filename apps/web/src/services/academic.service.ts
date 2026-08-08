@@ -139,6 +139,22 @@ export const groups: Group[] = [
 ];
 
 // ---- subjects ----
+/**
+ * MOCK ONLY — this is no longer the live subject list.
+ *
+ * `GET /subjects` is real, and `services/subjects.service.ts` + `hooks/use-subjects.ts` are
+ * what the Subjects management screen reads. This array is what seven screens that have no
+ * backend yet still read — the four checkers screens (`checkers-list`, `checker-detail`,
+ * `checker-approvals`, `checker-add`), `setup/slo`, `exams/exam-detail`, and
+ * `evaluator/evaluator-profile` — and it does **not** track the database: the moment an admin
+ * adds or renames a subject, the two diverge.
+ *
+ * Do not "sync" them by hand. Each of those screens should switch to `useSubjects()` when its
+ * own module is wired up, and this array should be deleted when the last one has.
+ *
+ * The ids here (`sub_phy`, …) are also not the database's uuids, so nothing may pass an id
+ * from this list to the subjects API.
+ */
 export const subjects: Subject[] = [
   { id: 'sub_eng', code: 'ENG', name: 'English', isActive: true },
   { id: 'sub_urd', code: 'URD', name: 'Urdu', isActive: true },
@@ -368,41 +384,10 @@ export const academicService = {
 };
 
 // ---- mutations (super-admin reference-data management) ----
-let subjectCounter = subjects.length;
+// Subjects have no mock mutators any more: they are written through `subjects.service.ts`
+// against the real API. Nothing may write to the `subjects` array above — see its comment.
 let levelCounter = levels.length;
 let groupCounter = groups.length;
-
-export function createSubject(input: {
-  code: string;
-  name: string;
-  creditHours?: number;
-}): Subject {
-  subjectCounter += 1;
-  const subject: Subject = {
-    id: `sub_new_${subjectCounter}`,
-    code: input.code,
-    name: input.name,
-    isActive: true,
-    ...(input.creditHours !== undefined ? { creditHours: input.creditHours } : {}),
-  };
-  subjects.push(subject);
-  return subject;
-}
-export function updateSubject(
-  id: string,
-  input: { code?: string; name?: string; creditHours?: number },
-): Subject | undefined {
-  const subject = subjects.find((s) => s.id === id);
-  if (!subject) return undefined;
-  if (input.code !== undefined) subject.code = input.code;
-  if (input.name !== undefined) subject.name = input.name;
-  if (input.creditHours !== undefined) subject.creditHours = input.creditHours;
-  return subject;
-}
-export function toggleSubjectActive(id: string): void {
-  const subject = subjects.find((s) => s.id === id);
-  if (subject) subject.isActive = !subject.isActive;
-}
 
 export function createLevel(input: {
   name: string;

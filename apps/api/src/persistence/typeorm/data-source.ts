@@ -3,6 +3,7 @@ import { DataSource, type DataSourceOptions } from 'typeorm';
 import { ALL_ENTITIES } from './entities';
 import { InitialAuthSchema1730000000000 } from './migrations/1730000000000-initial-auth-schema';
 import { InstituteCategories1754000000000 } from './migrations/1754000000000-institute-categories';
+import { Subjects1755000000000 } from './migrations/1755000000000-subjects';
 import { RbacUuidKeys1756000000000 } from './migrations/1756000000000-rbac-uuid-keys';
 import { RenameSuspendedToDeactivate1757000000000 } from './migrations/1757000000000-rename-suspended-to-deactivate';
 
@@ -20,6 +21,7 @@ export function buildDataSourceOptions(url: string): DataSourceOptions {
     migrations: [
       InitialAuthSchema1730000000000,
       InstituteCategories1754000000000,
+      Subjects1755000000000,
       RbacUuidKeys1756000000000,
       RenameSuspendedToDeactivate1757000000000,
     ],

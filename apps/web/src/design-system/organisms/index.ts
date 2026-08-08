@@ -16,5 +16,6 @@ export * from './sidebar';
 export * from './slo-form';
 export * from './student-form';
 export * from './student-profile';
+export * from './subject-form';
 export * from './topbar';
 export * from './user-form';
